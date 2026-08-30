@@ -90,6 +90,32 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
 
 
 @pytest.fixture
+def real_app():
+    """Every blueprint the app registers, wired the same way.
+
+    Off the same lists app.py registers, so a new blueprint cannot reach the app
+    while missing here. Built rather than imported from app.py, which parses
+    argv and opens the data directory at import.
+    """
+    # Imported here, not at module scope: the route tree costs ~1.1s to import
+    # and only these tests need it.
+    from flask_smorest import Api
+
+    from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
+
+    app = Flask(__name__)
+    app.config.update(
+        API_TITLE="PiKaraoke", API_VERSION="test", OPENAPI_VERSION="3.0.2", OPENAPI_URL_PREFIX="/"
+    )
+    api = Api(app)
+    for bp in API_BLUEPRINTS:
+        api.register_blueprint(bp)
+    for bp in INTERNAL_BLUEPRINTS:
+        app.register_blueprint(bp)
+    return app
+
+
+@pytest.fixture
 def client(app):
     """Test client for whichever `app` fixture the test module defines."""
     return app.test_client()

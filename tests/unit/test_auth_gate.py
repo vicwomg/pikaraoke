@@ -3,32 +3,9 @@
 import pytest
 from flask import Flask
 from flask_babel import Babel
-from flask_smorest import Api
 
 from pikaraoke.lib.auth import install_auth_gate, public
-from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
 from tests.conftest import StubAdminAuth
-
-
-@pytest.fixture
-def real_app():
-    """Every blueprint the app registers, wired the same way.
-
-    Off the same lists app.py registers, so a new blueprint cannot reach the app
-    while missing here. Built rather than imported from app.py, which parses
-    argv and opens the data directory at import.
-    """
-    app = Flask(__name__)
-    app.config.update(
-        API_TITLE="PiKaraoke", API_VERSION="test", OPENAPI_VERSION="3.0.2", OPENAPI_URL_PREFIX="/"
-    )
-    api = Api(app)
-    for bp in API_BLUEPRINTS:
-        api.register_blueprint(bp)
-    for bp in INTERNAL_BLUEPRINTS:
-        app.register_blueprint(bp)
-    return app
-
 
 # Every endpoint the room may reach. Opening a route to guests means editing
 # this list, which is a line in a diff someone has to agree with.

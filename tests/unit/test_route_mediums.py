@@ -8,37 +8,12 @@ keeps to it -- so these assert it both ways, off the running `url_map`.
 import inspect
 import re
 
-import pytest
-import werkzeug
-from flask import Flask
-from flask_smorest import Api
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
-
-from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
-
 # render_template_string is deliberately absent: the batch renamer builds a table
 # fragment with it and returns it inside a JSON field, which is still JSON.
 _ANSWERS_A_BROWSER = re.compile(r"\brender_template\(|\bredirect\(")
 # json.dumps is deliberately absent: queue/edit answers its own page's AJAX with
 # it, which is a browser talking to the page it came from, not a program.
 _ANSWERS_A_PROGRAM = re.compile(r"\bjsonify\(|\breturn \{")
-
-
-@pytest.fixture
-def real_app():
-    """Every blueprint the app registers, off the lists app.py registers."""
-    app = Flask(__name__)
-    app.config.update(
-        API_TITLE="PiKaraoke", API_VERSION="test", OPENAPI_VERSION="3.0.2", OPENAPI_URL_PREFIX="/"
-    )
-    api = Api(app)
-    for bp in API_BLUEPRINTS:
-        api.register_blueprint(bp)
-    for bp in INTERNAL_BLUEPRINTS:
-        app.register_blueprint(bp)
-    return app
 
 
 def _routes(app):
