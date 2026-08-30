@@ -518,7 +518,7 @@
 
   // Execute playback action and close modal
   window.executePlaybackAction = function(action) {
-      $.post(window.pikaraokeConfig.basePath + '/' + action);
+      $.post(window.pikaraokeConfig.basePath + '/api/' + action);
       window.closeNowPlayingOptions();
   };
 
