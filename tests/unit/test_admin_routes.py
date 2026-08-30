@@ -47,7 +47,7 @@ def client(app):
 
 
 def _login(client, password=PASSWORD):
-    return client.post("/auth", data={"admin_password": password, "next": "/info"})
+    return client.post("/auth", data={"admin_password": password})
 
 
 class TestAdminCookieAttributes:
