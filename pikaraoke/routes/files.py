@@ -13,6 +13,7 @@ from marshmallow import Schema, fields
 
 from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
 from pikaraoke.karaoke import SongInUseError
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
@@ -81,6 +82,7 @@ class EditFileForm(Schema):
 
 
 @files_bp.route("/browse", methods=["GET"])
+@public
 def browse():
     """Browse available songs page."""
     k = get_karaoke_instance()
@@ -213,9 +215,6 @@ def delete_file(query):
     k = get_karaoke_instance()
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
-    if not is_admin():
-        flash(_("You don't have permission to delete songs"), "is-danger")
-        return redirect(referrer)
     if k.is_song_in_use(song_path):
         flash(
             # MSG: Message shown after trying to delete a song that is queued or playing.
@@ -258,9 +257,6 @@ def edit_file(query):
     k = get_karaoke_instance()
     song_path = query["song"]
     referrer = query.get("referrer") or url_for("files.browse")
-    if not is_admin():
-        flash(_("You don't have permission to rename songs"), "is-danger")
-        return redirect(referrer)
     if k.playback_controller.now_playing_filename == song_path:
         # MSG: Message shown after trying to rename the song that is playing.
         flash(_("This song is playing. Rename it when it finishes."), "is-danger")
@@ -281,9 +277,6 @@ def rename_file(form):
     referrer = form.get("referrer") or url_for("files.browse")
     new_name = form["new_file_name"]
     old_name = form["old_file_name"]
-    if not is_admin():
-        flash(_("You don't have permission to rename songs"), "is-danger")
-        return redirect(referrer)
 
     if not new_name.strip():
         # MSG: Message shown after saving the rename page with an empty name.

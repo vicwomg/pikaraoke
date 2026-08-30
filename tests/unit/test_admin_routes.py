@@ -11,6 +11,7 @@ if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.lib.admin_auth import AdminAuth
+from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.admin import admin_bp
 
@@ -34,7 +35,9 @@ def app(auth):
     test_app.permanent_session_lifetime = datetime.timedelta(days=90)
     Babel(test_app)
     test_app.register_blueprint(admin_bp)
-    test_app.add_url_rule("/info", "info.info", lambda: "")
+    test_app.add_url_rule("/info", "info.info", public(lambda: ""))
+    test_app.add_url_rule("/", "home.home", public(lambda: ""))
+    install_auth_gate(test_app)
     return test_app
 
 
@@ -44,7 +47,7 @@ def client(app):
 
 
 def _login(client, password=PASSWORD):
-    return client.post("/auth", data={"admin_password": password, "next": "/info"})
+    return client.post("/auth", data={"admin_password": password})
 
 
 class TestAdminCookieAttributes:

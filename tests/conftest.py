@@ -8,6 +8,7 @@ import pytest
 from flask import Flask
 from flask_babel import Babel
 
+from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -33,13 +34,34 @@ _BASE_TEMPLATE_ENDPOINTS = [
 ]
 
 
-def make_route_app(blueprint, linked_endpoints):
+class StubAdminAuth:
+    """Just enough of AdminAuth for is_admin() to answer a fixed way.
+
+    No password set means everyone is an admin; a password set that no session
+    token matches means nobody is.
+    """
+
+    def __init__(self, admin: bool) -> None:
+        self._admin = admin
+
+    def is_password_set(self) -> bool:
+        return not self._admin
+
+    @property
+    def session_token(self) -> str:
+        return "not-the-session-cookie"
+
+
+def make_route_app(blueprint, linked_endpoints, admin: bool = True):
     """A Flask app with just enough wiring to render one blueprint's templates.
 
     `linked_endpoints` are the (rule, endpoint) pairs the templates url_for()
     but the blueprint under test does not itself define, so they need stubs.
+    `admin` decides what the authorization gate makes of the caller.
     """
     app = Flask(__name__, template_folder=str(PIKARAOKE_PACKAGE / "templates"))
+    app.secret_key = "test"
+    app.config["ADMIN_AUTH"] = StubAdminAuth(admin)
     Babel(app)
     app.register_blueprint(blueprint)
     endpoints = {endpoint: rule for rule, endpoint in _BASE_TEMPLATE_ENDPOINTS}
@@ -48,7 +70,7 @@ def make_route_app(blueprint, linked_endpoints):
         # The blueprint under test defines some of these for real; stubbing over
         # one would replace the view the test is exercising.
         if endpoint not in app.view_functions:
-            app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
+            app.add_url_rule(rule, endpoint, public(lambda: ""), methods=["GET"])
 
     @app.context_processor
     def inject_path_config():
@@ -56,13 +78,14 @@ def make_route_app(blueprint, linked_endpoints):
 
     # app.py binds these at import for the same reason: base.html calls them on
     # every render, so a page rendered without them fails on an undefined name.
-    # Off by default -- a test that wants the admin or KJ markup overrides them.
+    # The session pair is off unless a test overrides it.
     app.jinja_env.globals.update(
         url_escape=quote,
-        is_admin=lambda: False,
+        is_admin=lambda: admin,
         has_active_session=lambda: False,
         active_session_name=lambda: "",
     )
+    install_auth_gate(app)
     return app
 
 
