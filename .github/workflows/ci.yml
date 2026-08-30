@@ -49,9 +49,7 @@ jobs:
     - name: Docstring Coverage
       run: |
         mkdir -p docs/badges/ docstr
-        mv code_quality/.docstr.yaml . # --config option didn't work
-        docstr-coverage 2>&1 | tee docstr/docstring_coverage.txt
-        ls docs/badges
+        docstr-coverage --config code_quality/.docstr.yaml pikaraoke/ 2>&1 | tee docstr/docstring_coverage.txt
 
   commitlint:
     runs-on: ubuntu-latest

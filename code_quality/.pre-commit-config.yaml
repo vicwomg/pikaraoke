@@ -2,8 +2,8 @@
 # See https://pre-commit.com/hooks.html for more hooks
 
 
-# Exlude binary files and CHANGELOGS that are automanaged
-exclude: \.(deb|exe|bat)|^.*\/(CHANGELOG|bug_report|feature_request)\.md$|^\.claude\/agents\/
+# Exclude binary files and CHANGELOGs that are automanaged
+exclude: \.(deb|exe|bat)$|(^|/)(CHANGELOG|bug_report|feature_request)\.md$|^\.claude/agents/
 
 repos:
 
@@ -49,11 +49,14 @@ repos:
     name: Format Markdown Files
     additional_dependencies:
     - mdformat-black
-    args: [--number]
+    args: [--number, --end-of-line=keep]
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.5.0
   hooks:
+  - id: end-of-file-fixer
+    # Vendored assets and generated catalogs are not ours to reformat.
+    exclude: ^pikaraoke/static/|\.pot$
   - id: trailing-whitespace
     name: Trim Trailing Whitespace
     exclude: \.po$
