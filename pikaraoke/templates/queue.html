@@ -439,8 +439,8 @@
           method: 'POST',
           headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }).done(function(result) {
-          if (!result.success && result.error) {
-              console.error('Queue action failed:', result.error);
+          if (!result.success) {
+              console.error('Queue action failed:', action);
           }
           // Socket event will trigger queue refresh
       }).fail(function() {

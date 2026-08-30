@@ -49,10 +49,8 @@ class TestQueueReorderSocketUpdates:
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_reorder_updates_now_playing_socket(
         self,
-        mock_gettext,
         mock_broadcast,
         mock_get_instance,
         mock_is_admin,
@@ -70,10 +68,8 @@ class TestQueueReorderSocketUpdates:
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_queue_edit_top_updates_now_playing_socket(
         self,
-        mock_gettext,
         mock_broadcast,
         mock_get_instance,
         mock_is_admin,
@@ -91,10 +87,8 @@ class TestQueueReorderSocketUpdates:
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_queue_edit_bottom_updates_now_playing_socket(
         self,
-        mock_gettext,
         mock_broadcast,
         mock_get_instance,
         mock_is_admin,

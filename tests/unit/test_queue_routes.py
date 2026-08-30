@@ -181,10 +181,8 @@ class TestQueueEditSocketUpdates:
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_queue_edit_emits_events(
         self,
-        mock_gettext,
         mock_broadcast,
         mock_get_instance,
         mock_is_admin,
@@ -214,10 +212,8 @@ class TestQueueEditSocketUpdates:
     )
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_queue_edit_top_bottom_emits_events(
         self,
-        mock_gettext,
         mock_get_instance,
         mock_is_admin,
         client_with_session,

@@ -104,51 +104,24 @@ def queue_edit(query):
     """Edit queue items (admin only)."""
     k = get_karaoke_instance()
     action = query["action"]
-    success = False
-    message = ""
 
     if action == "clear":
         k.queue_manager.queue_clear()
-        # MSG: Message shown after clearing the queue
-        message = _("Cleared the queue!")
         broadcast_event("skip", "clear queue")
-        success = True
+        return jsonify({"success": True})
+
+    song = unquote(query.get("song", ""))
+    if action == "top":
+        success = k.queue_manager.move_to_top(song)
+    elif action == "bottom":
+        success = k.queue_manager.move_to_bottom(song)
     else:
-        song = unquote(query.get("song", ""))
-        song_title = k.song_manager.display_name_from_path(song)
-
-        # MSG labels for each action
-        success_labels = {
-            "top": _("Moved to top of queue"),
-            "bottom": _("Moved to bottom of queue"),
-            "up": _("Moved up in queue"),
-            "down": _("Moved down in queue"),
-            "delete": _("Deleted from queue"),
-        }
-        error_labels = {
-            "top": _("Error moving to top of queue"),
-            "bottom": _("Error moving to bottom of queue"),
-            "up": _("Error moving up in queue"),
-            "down": _("Error moving down in queue"),
-            "delete": _("Error deleting from queue"),
-        }
-
-        if action == "top":
-            success = k.queue_manager.move_to_top(song)
-        elif action == "bottom":
-            success = k.queue_manager.move_to_bottom(song)
-        else:
-            success = k.queue_manager.queue_edit(song, action)
-
-        if action in success_labels:
-            message = (
-                (success_labels[action] if success else error_labels[action]) + ": " + song_title
-            )
+        success = k.queue_manager.queue_edit(song, action)
 
     # Note: No need to manually emit events here - all QueueManager methods
     # (queue_clear, queue_edit, reorder) already emit queue_update and now_playing_update events
 
-    return jsonify({"success": success, "message": message})
+    return jsonify({"success": success})
 
 
 def _do_enqueue(song: str, user: str) -> str:
