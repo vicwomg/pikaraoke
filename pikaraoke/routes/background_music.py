@@ -8,6 +8,7 @@ import flask_babel
 from flask import jsonify, send_from_directory, url_for
 from flask_smorest import Blueprint
 
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance
 
 _ = flask_babel.gettext
@@ -38,6 +39,7 @@ def create_randomized_playlist(input_directory, base_url, max_songs=50):
 
 
 @background_music_bp.route("/bg_music/<file>", methods=["GET"])
+@public
 def bg_music(file):
     """Stream a background music file.
 
@@ -49,6 +51,7 @@ def bg_music(file):
 
 
 @background_music_bp.route("/bg_playlist", methods=["GET"])
+@public
 def bg_playlist():
     """Get a randomized background music playlist."""
     k = get_karaoke_instance()

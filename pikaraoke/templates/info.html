@@ -240,6 +240,9 @@
 		window.socket.emit("request_mic_settings");
 		{% endif %}
 
+		{# Everything below is host-only, and the elements it writes to only
+		   render for the host: a guest would collect two 403s and no page. #}
+		{% if admin %}
 		// Fetch system stats asynchronously
 			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
 				if (data.error) {
@@ -299,6 +302,7 @@
 				});
 				showNotification({{ _('Library sync complete') | tojson }}, "is-success");
 			});
+		{% endif %}
 		});
 	</script>
 {% endblock %}

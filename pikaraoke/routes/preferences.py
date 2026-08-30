@@ -1,15 +1,12 @@
 """User preferences management routes."""
 
-import flask_babel
 from flask import flash, jsonify, redirect, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.splash import _get_active_score_phrases
-
-_ = flask_babel.gettext
 
 _SCORE_PHRASE_KEYS = {"low_score_phrases", "mid_score_phrases", "high_score_phrases"}
 
@@ -28,33 +25,24 @@ class ChangePreferenceForm(Schema):
 def change_preferences(form):
     """Change a user preference setting."""
     k = get_karaoke_instance()
-    if is_admin():
-        preference = form["pref"]
-        val = form["val"]
-        success, message = k.preferences.set(preference, val)
-        if success:
-            broadcast_event("preferences_update", {"key": preference, "value": val})
-            if preference in _SCORE_PHRASE_KEYS:
-                broadcast_event("score_phrases_update", _get_active_score_phrases(k))
-        return jsonify([success, message])
-    else:
-        # MSG: Message shown after trying to change preferences without admin permissions.
-        flash(_("You don't have permission to change preferences"), "is-danger")
-    return redirect(url_for("info.info"))
+    preference = form["pref"]
+    val = form["val"]
+    success, message = k.preferences.set(preference, val)
+    if success:
+        broadcast_event("preferences_update", {"key": preference, "value": val})
+        if preference in _SCORE_PHRASE_KEYS:
+            broadcast_event("score_phrases_update", _get_active_score_phrases(k))
+    return jsonify([success, message])
 
 
 @preferences_bp.route("/clear_preferences", methods=["POST"])
 def clear_preferences():
     """Reset all preferences to defaults."""
     k = get_karaoke_instance()
-    if is_admin():
-        success, message = k.preferences.reset_all()
-        if success:
-            k.update_now_playing_socket()
-            broadcast_event("preferences_reset", PreferenceManager.DEFAULTS)
-            broadcast_event("score_phrases_update", _get_active_score_phrases(k))
-        flash(message, "is-success" if success else "is-danger")
-    else:
-        # MSG: Message shown after trying to clear preferences without admin permissions.
-        flash(_("You don't have permission to clear preferences"), "is-danger")
+    success, message = k.preferences.reset_all()
+    if success:
+        k.update_now_playing_socket()
+        broadcast_event("preferences_reset", PreferenceManager.DEFAULTS)
+        broadcast_event("score_phrases_update", _get_active_score_phrases(k))
+    flash(message, "is-success" if success else "is-danger")
     return redirect(url_for("info.info"))

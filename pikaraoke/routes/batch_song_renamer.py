@@ -4,21 +4,14 @@ import re
 import unicodedata
 
 import flask_babel
-from flask import (
-    Response,
-    jsonify,
-    redirect,
-    render_template,
-    render_template_string,
-    request,
-    url_for,
-)
+from flask import Response, jsonify, render_template, render_template_string, request
 from flask_paginate import Pagination
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import SongInUseError
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.auth import answers_json
+from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.metadata_parser import get_song_correct_name, youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
 
@@ -135,9 +128,6 @@ def _error(message: str) -> Response:
 @batch_song_renamer_bp.route("/batch-song-renamer", methods=["GET"])
 def browse():
     """Batch song renamer page."""
-    if not is_admin():
-        return redirect(url_for("files.browse"))
-
     site_name = get_site_name()
     show_all_songs = request.args.get("show_all_songs") == "true"
 
@@ -159,9 +149,6 @@ def browse():
 @batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
 def get_all_songs(page):
     """Get all songs with suggested renames."""
-    if not is_admin():
-        return redirect(url_for("files.browse"))
-
     start_index = (page - 1) * RESULTS_PER_PAGE
 
     k = get_karaoke_instance()
@@ -195,9 +182,6 @@ def get_all_songs(page):
 @batch_song_renamer_bp.arguments(GetSongsToRenameQuery, location="query")
 def get_songs_to_rename(query):
     """Get songs that have rename suggestions different from their current name."""
-    if not is_admin():
-        return redirect(url_for("files.browse"))
-
     song_index = query["song_index"]
     page = query["page"]
 
@@ -229,6 +213,7 @@ def get_songs_to_rename(query):
 
 
 @batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
+@answers_json
 @batch_song_renamer_bp.arguments(RenameSongForm, location="form")
 def rename_song(form):
     """Rename a song file."""

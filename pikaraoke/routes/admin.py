@@ -7,12 +7,13 @@ import threading
 import time
 
 import flask_babel
-from flask import flash, jsonify, redirect, session, url_for
+from flask import Response, flash, jsonify, redirect, session, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance, is_admin
+from pikaraoke.lib.auth import answers_json, public
+from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
@@ -58,34 +59,28 @@ def update_ytdl():
         time.sleep(3)
         k.youtubedl_version = upgrade_youtubedl()
 
-    if is_admin():
-        flash(
-            # MSG: Message shown after starting the yt-dlp update.
-            _("Updating yt-dlp! Should take a minute or two... "),
-            "is-warning",
-        )
-        th = threading.Thread(target=update_youtube_dl)
-        th.start()
-    else:
-        # MSG: Message shown after trying to update yt-dlp without admin permissions.
-        flash(_("You don't have permission to update yt-dlp"), "is-danger")
+    flash(
+        # MSG: Message shown after starting the yt-dlp update.
+        _("Updating yt-dlp! Should take a minute or two... "),
+        "is-warning",
+    )
+    th = threading.Thread(target=update_youtube_dl)
+    th.start()
     return redirect(url_for("info.info"))
 
 
 @admin_bp.route("/library_stats")
+@answers_json
 def library_stats():
     """Return song count for the admin dashboard."""
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
     k = get_karaoke_instance()
     return jsonify({"song_count": len(k.song_manager.songs)})
 
 
 @admin_bp.route("/sync_library", methods=["POST"])
+@answers_json
 def sync_library():
     """Trigger a background library scan."""
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
     k = get_karaoke_instance()
     started = k.sync_library()
     if started:
@@ -93,76 +88,53 @@ def sync_library():
     return jsonify({"status": "already_syncing"})
 
 
+def _announce_halt(cmd: int, message: str) -> Response:
+    """Tell every screen in the room, then halt once the page has rendered."""
+    k = get_karaoke_instance()
+    flash(message, "is-danger")
+    k.send_notification(message, "danger")
+    threading.Thread(target=delayed_halt, args=[cmd, k]).start()
+    return redirect(url_for("home.home"))
+
+
 @admin_bp.route("/quit", methods=["POST"])
 def quit():
     """Exit the PiKaraoke application."""
-    k = get_karaoke_instance()
-    if is_admin():
-        # MSG: Message shown after quitting pikaraoke.
-        msg = _("Exiting pikaraoke now!")
-        flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[0, k])
-        th.start()
-    else:
-        # MSG: Message shown after trying to quit pikaraoke without admin permissions.
-        flash(_("You don't have permission to quit"), "is-danger")
-    return redirect(url_for("home.home"))
+    # MSG: Message shown after quitting pikaraoke.
+    return _announce_halt(0, _("Exiting pikaraoke now!"))
 
 
 @admin_bp.route("/shutdown", methods=["POST"])
 def shutdown():
     """Shut down the host system."""
-    k = get_karaoke_instance()
-    if is_admin():
-        # MSG: Message shown after shutting down the system.
-        msg = _("Shutting down system now!")
-        flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[1, k])
-        th.start()
-    else:
-        # MSG: Message shown after trying to shut down the system without admin permissions.
-        flash(_("You don't have permission to shut down"), "is-danger")
-    return redirect(url_for("home.home"))
+    # MSG: Message shown after shutting down the system.
+    return _announce_halt(1, _("Shutting down system now!"))
 
 
 @admin_bp.route("/reboot", methods=["POST"])
 def reboot():
     """Reboot the host system."""
-    k = get_karaoke_instance()
-    if is_admin():
-        # MSG: Message shown after rebooting the system.
-        msg = _("Rebooting system now!")
-        flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[2, k])
-        th.start()
-    else:
-        # MSG: Message shown after trying to reboot the system without admin permissions.
-        flash(_("You don't have permission to Reboot"), "is-danger")
-    return redirect(url_for("home.home"))
+    # MSG: Message shown after rebooting the system.
+    return _announce_halt(2, _("Rebooting system now!"))
 
 
 @admin_bp.route("/expand_fs", methods=["POST"])
 def expand_fs():
     """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
-    if is_admin() and k.is_raspberry_pi:
+    if k.is_raspberry_pi:
         # MSG: Message shown after expanding the filesystem.
         flash(_("Expanding filesystem and rebooting system now!"), "is-danger")
         th = threading.Thread(target=delayed_halt, args=[3, k])
         th.start()
-    elif not k.is_raspberry_pi:
+    else:
         # MSG: Message shown after trying to expand the filesystem on a non-raspberry pi device.
         flash(_("Cannot expand fs on non-raspberry pi devices!"), "is-danger")
-    else:
-        # MSG: Message shown after trying to expand the filesystem without admin permissions
-        flash(_("You don't have permission to resize the filesystem"), "is-danger")
     return redirect(url_for("home.home"))
 
 
 @admin_bp.route("/auth", methods=["POST"])
+@public
 @admin_bp.arguments(AuthForm, location="form")
 def auth(form):
     """Authenticate as admin."""
@@ -188,11 +160,6 @@ def auth(form):
 @admin_bp.arguments(AdminPasswordForm, location="form")
 def set_admin_password(form):
     """Set, change or clear the admin password without restarting."""
-    if not is_admin():
-        # MSG: Message shown after trying to change the admin password without permission.
-        flash(_("You don't have permission to change the admin password"), "is-danger")
-        return redirect(url_for("info.info"))
-
     # No current-password field: an admin session can already shut the box down.
     password = form["admin_password"]
     admin_auth = get_admin_auth()
@@ -210,6 +177,9 @@ def set_admin_password(form):
 
 
 @admin_bp.route("/logout", methods=["POST"])
+# Public though the button is admin-only: it clears the caller's own
+# session and grants nothing, so gating it would refuse a no-op.
+@public
 def logout():
     """Log out of admin mode."""
     session.pop("admin", None)
