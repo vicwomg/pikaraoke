@@ -1,4 +1,5 @@
 """Image serving routes for QR code and logo."""
+
 import os
 
 import flask_babel
