@@ -381,14 +381,12 @@ class TestUpgradeYoutubedl:
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
         error.output = pip_message
 
-        with patch(
-            "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"
-        ), patch("shutil.which", return_value=None), patch(
-            "subprocess.check_output"
-        ) as mock_check, patch(
-            "pikaraoke.lib.youtube_dl.sys.prefix", "/venv"
-        ), patch(
-            "pikaraoke.lib.youtube_dl.sys.base_prefix", "/different"
+        with (
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"),
+            patch("shutil.which", return_value=None),
+            patch("subprocess.check_output") as mock_check,
+            patch("pikaraoke.lib.youtube_dl.sys.prefix", "/venv"),
+            patch("pikaraoke.lib.youtube_dl.sys.base_prefix", "/different"),
         ):
             # First call raises error suggesting pip, second call succeeds
             mock_check.side_effect = [error, b"Successfully installed yt-dlp"]
@@ -408,14 +406,12 @@ class TestUpgradeYoutubedl:
         error = subprocess.CalledProcessError(1, "yt-dlp", pip_message)
         error.output = pip_message
 
-        with patch(
-            "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"
-        ), patch("shutil.which", return_value=None), patch(
-            "subprocess.check_output"
-        ) as mock_check, patch(
-            "pikaraoke.lib.youtube_dl.sys.prefix", "/usr"
-        ), patch(
-            "pikaraoke.lib.youtube_dl.sys.base_prefix", "/usr"
+        with (
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"),
+            patch("shutil.which", return_value=None),
+            patch("subprocess.check_output") as mock_check,
+            patch("pikaraoke.lib.youtube_dl.sys.prefix", "/usr"),
+            patch("pikaraoke.lib.youtube_dl.sys.base_prefix", "/usr"),
         ):
             # First call raises error suggesting pip, second call succeeds
             mock_check.side_effect = [error, b"Successfully installed yt-dlp"]
