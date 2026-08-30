@@ -6,7 +6,7 @@ import json
 from urllib.parse import unquote
 
 import flask_babel
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -67,7 +67,7 @@ def queue():
 def get_queue():
     """Get the current song queue."""
     k = get_karaoke_instance()
-    return json.dumps(k.queue_manager.queue)
+    return jsonify(k.queue_manager.queue)
 
 
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["POST"])
@@ -93,11 +93,11 @@ def reorder(form):
     k = get_karaoke_instance()
     try:
         success = k.queue_manager.reorder(form["old_index"], form["new_index"])
-        return json.dumps({"success": success})
+        return jsonify({"success": success})
     except (ValueError, IndexError):
         pass
 
-    return json.dumps({"success": False})
+    return jsonify({"success": False})
 
 
 @queue_bp.route("/queue/edit", methods=["POST"])
@@ -167,7 +167,7 @@ def _do_enqueue(song: str, user: str) -> str:
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.display_name_from_path(song)
-    return json.dumps({"song": song_title, "success": rc})
+    return jsonify({"song": song_title, "success": rc})
 
 
 @queue_bp.route("/api/enqueue", methods=["POST"])
@@ -183,7 +183,7 @@ def enqueue_form(form):
 def get_current_downloads():
     """Get the status of current and pending downloads."""
     k = get_karaoke_instance()
-    return json.dumps(k.download_manager.get_downloads_status())
+    return jsonify(k.download_manager.get_downloads_status())
 
 
 @queue_bp.route("/api/queue/downloads/errors/<error_id>", methods=["DELETE"])
@@ -192,8 +192,8 @@ def delete_download_error(error_id):
     """Remove a download error from the list."""
     k = get_karaoke_instance()
     if k.download_manager.remove_error(error_id):
-        return json.dumps({"success": True})
-    return json.dumps({"success": False, "error": "Error not found"}), 404
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Error not found"}), 404
 
 
 @queue_bp.route("/api/queue/downloads/errors/<error_id>/retry", methods=["POST"])
@@ -202,5 +202,5 @@ def retry_download_error(error_id):
     """Re-queue a failed download."""
     k = get_karaoke_instance()
     if k.download_manager.retry_error(error_id):
-        return json.dumps({"success": True})
-    return json.dumps({"success": False, "error": "Error not found"}), 404
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Error not found"}), 404

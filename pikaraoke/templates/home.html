@@ -10,7 +10,7 @@
 	function loadNowPlaying() {
 		console.log("Loading now playing data");
 		$.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-			handleNowPlaying(JSON.parse(data));
+			handleNowPlaying(data);
 		});
 	}
 

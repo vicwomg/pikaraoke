@@ -36,8 +36,8 @@
       $.get('{{ url_for("queue.get_queue") }}'),
       $.get('{{ url_for("now_playing.now_playing") }}')
     ).done(function(queueResp, nowPlayingResp) {
-      var newQueue = JSON.parse(queueResp[0]);
-      var newNowPlaying = nowPlayingResp[0] ? JSON.parse(nowPlayingResp[0]) : null;
+      var newQueue = queueResp[0];
+      var newNowPlaying = nowPlayingResp[0] || null;
 
       var queueChanged = !isEqual(newQueue, window.queuePageState.previousQueue);
       var npChanged = !isEqual(newNowPlaying, window.queuePageState.previousNowPlaying);
@@ -264,7 +264,7 @@
       }
 
       $.get('{{ url_for("queue.get_current_downloads") }}', function(data) {
-          var status = JSON.parse(data);
+          var status = data;
           var html = "";
 
           if (status.pending && status.pending.length > 0) {
@@ -440,6 +440,8 @@
           method: 'POST',
           headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }).done(function(response) {
+          // Still parsed by hand: queue/edit answers this page's own AJAX, not a
+          // program, so it stays a page route and keeps its text/html body.
           var result = JSON.parse(response);
           if (!result.success && result.error) {
               console.error('Queue action failed:', result.error);

@@ -1,8 +1,8 @@
 """Now playing status endpoint."""
 
-import json
 import logging
 
+from flask import jsonify
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.auth import public
@@ -17,7 +17,7 @@ def now_playing():
     """Get current playback status."""
     k = get_karaoke_instance()
     try:
-        return json.dumps(k.get_now_playing())
+        return jsonify(k.get_now_playing())
     except Exception as e:
         logging.error("Problem loading /nowplaying, pikaraoke may still be starting up: " + str(e))
         return ""
