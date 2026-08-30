@@ -118,9 +118,8 @@ def queue_edit(query):
     else:
         success = k.queue_manager.queue_edit(song, action)
 
-    # Note: No need to manually emit events here - all QueueManager methods
-    # (queue_clear, queue_edit, reorder) already emit queue_update and now_playing_update events
-
+    # QueueManager emits queue_update and now_playing_update itself, and Karaoke
+    # bridges those to the socket -- so this path adds no broadcast_event.
     return jsonify({"success": success})
 
 
