@@ -390,8 +390,7 @@ const handleNowPlayingUpdate = (np) => {
 }
 
 async function loadNowPlaying() {
-  const data = await $.get(withBasePath("/api/now_playing"));
-  handleNowPlayingUpdate(JSON.parse(data));
+  handleNowPlayingUpdate(await $.get(withBasePath("/api/now_playing")));
 }
 
 const setupOverlayMenus = () => {

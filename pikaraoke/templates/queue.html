@@ -263,8 +263,7 @@
           return;
       }
 
-      $.get('{{ url_for("queue.get_current_downloads") }}', function(data) {
-          var status = data;
+      $.get('{{ url_for("queue.get_current_downloads") }}', function(status) {
           var html = "";
 
           if (status.pending && status.pending.length > 0) {
