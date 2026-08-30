@@ -11,9 +11,7 @@ import re
 # render_template_string is deliberately absent: the batch renamer builds a table
 # fragment with it and returns it inside a JSON field, which is still JSON.
 _ANSWERS_A_BROWSER = re.compile(r"\brender_template\(|\bredirect\(")
-# json.dumps is deliberately absent: queue/edit answers its own page's AJAX with
-# it, which is a browser talking to the page it came from, not a program.
-_ANSWERS_A_PROGRAM = re.compile(r"\bjsonify\(|\breturn \{")
+_ANSWERS_A_PROGRAM = re.compile(r"\bjsonify\(|\bjson\.dumps\(|\breturn \{")
 
 
 def _routes(app):

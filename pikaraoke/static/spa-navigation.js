@@ -232,7 +232,7 @@
             basePath + '/batch-song-renamer', // Bulk rename page
             basePath + '/files/edit', // Edit single song
             basePath + '/files/delete', // Delete song
-            basePath + '/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
+            basePath + '/api/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
         ];
 
         // Check if the href matches any excluded path

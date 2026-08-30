@@ -198,9 +198,10 @@ class TestQueueEditSocketUpdates:
         qm.queue = [_make_queue_item(1), _make_queue_item(2)]
         mock_get_instance.return_value = mock_karaoke
 
-        response = client_with_session.post(f"/queue/edit?action={action}{song_param}")
+        response = client_with_session.post(f"/api/queue/edit?action={action}{song_param}")
 
-        assert response.status_code == 302
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
         assert len(queue_updates) >= 1, "queue_update event should be emitted"
         assert len(now_playing_updates) >= 1, "now_playing_update event should be emitted"
 
@@ -230,9 +231,10 @@ class TestQueueEditSocketUpdates:
         qm.queue = [_make_queue_item(1), _make_queue_item(2), _make_queue_item(3)]
         mock_get_instance.return_value = mock_karaoke
 
-        response = client_with_session.post(f"/queue/edit?action={action}{song_param}")
+        response = client_with_session.post(f"/api/queue/edit?action={action}{song_param}")
 
-        assert response.status_code == 302
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
         assert qm.queue[expected_new_index]["file"] in song_param.split("=")[1]
         assert len(queue_updates) == 1, "queue_update event should be emitted once"
         assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"

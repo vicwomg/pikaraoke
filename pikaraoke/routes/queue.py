@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from urllib.parse import unquote
 
 import flask_babel
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -99,12 +98,10 @@ def reorder(form):
     return jsonify({"success": False})
 
 
-@queue_bp.route("/queue/edit", methods=["POST"])
+@queue_bp.route("/api/queue/edit", methods=["POST"])
 @queue_bp.arguments(QueueEditQuery, location="query")
 def queue_edit(query):
     """Edit queue items (admin only)."""
-    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
     k = get_karaoke_instance()
     action = query["action"]
     success = False
@@ -112,10 +109,8 @@ def queue_edit(query):
 
     if action == "clear":
         k.queue_manager.queue_clear()
+        # MSG: Message shown after clearing the queue
         message = _("Cleared the queue!")
-        if not is_ajax:
-            # MSG: Message shown after clearing the queue
-            flash(message, "is-warning")
         broadcast_event("skip", "clear queue")
         success = True
     else:
@@ -150,15 +145,10 @@ def queue_edit(query):
                 (success_labels[action] if success else error_labels[action]) + ": " + song_title
             )
 
-        if message and not is_ajax:
-            flash(message, "is-success" if success else "is-danger")
-
     # Note: No need to manually emit events here - all QueueManager methods
     # (queue_clear, queue_edit, reorder) already emit queue_update and now_playing_update events
 
-    if is_ajax:
-        return json.dumps({"success": success, "message": message})
-    return redirect(url_for("queue.queue"))
+    return jsonify({"success": success, "message": message})
 
 
 def _do_enqueue(song: str, user: str) -> str:
