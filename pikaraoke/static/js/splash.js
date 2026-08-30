@@ -55,10 +55,16 @@ const formatTime = (seconds) => {
   return `${formattedMinutes}:${formattedSeconds}`;
 }
 
+const releaseProbeVideo = (probe) => {
+  probe.pause();
+  probe.removeAttribute('src');
+  probe.load();
+};
+
 const testAutoplayCapability = async () => {
   // Test if autoplay with audio is allowed using a real video file
+  const testVideo = document.createElement('video');
   try {
-    const testVideo = document.createElement('video');
     testVideo.playsInline = true;
     testVideo.muted = true;  // Start muted (always allowed)
     testVideo.src = withBasePath("/static/video/test_autoplay.mp4");
@@ -78,16 +84,20 @@ const testAutoplayCapability = async () => {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Check if browser paused or muted the video
-    if (testVideo.muted || testVideo.paused) {
-      testVideo.pause();
+    const autoplayBlocked = testVideo.muted || testVideo.paused;
+    // Release before handleConfirmation starts the background media: pausing
+    // leaves the decoded stream held, and a device with a media pipeline limit
+    // counts this probe against it for the rest of the session.
+    releaseProbeVideo(testVideo);
+    if (autoplayBlocked) {
       $('#permissions-modal').addClass('is-active');
     } else {
-      testVideo.pause();
       handleConfirmation();
     }
   } catch (e) {
     // Autoplay blocked
     console.log("Autoplay error thrown", e);
+    releaseProbeVideo(testVideo);
     $('#permissions-modal').addClass('is-active');
   }
 };
@@ -144,6 +154,10 @@ const getNextBgMusicSong = () => {
 
 const playBGMusic = async (play) => {
   const audio = getBackgroundMusicPlayer();
+  // The fade-out defers pause() into its completion callback, and isMediaPlaying
+  // reads true until it lands, so without this a toggle inside the fade window
+  // is skipped as redundant and the stale pause inverts the element.
+  $(audio).stop(true);
   if (play) {
     if (PikaraokeConfig.disableBgMusic) return;
     if (!autoplayConfirmed) return;
@@ -151,10 +165,11 @@ const playBGMusic = async (play) => {
 
     if (!audio.getAttribute('src')) audio.setAttribute('src', getNextBgMusicSong());
 
-    if (isMediaPlaying(audio)) return;
-    audio.volume = 0;
-    if (audio.readyState <= 2) await audio.load();
-    await audio.play().catch(e => console.log("Autoplay blocked (music)"));
+    if (!isMediaPlaying(audio)) {
+      audio.volume = 0;
+      if (audio.readyState <= 2) await audio.load();
+      await audio.play().catch(e => console.log("Autoplay blocked (music)"));
+    }
     $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, 2000);
   } else {
     if (audio) {
@@ -190,6 +205,15 @@ const shouldBackgroundMediaPlay = () => {
     !nowPlaying.up_next;
 };
 
+// Asserts both media's desired state rather than acting on the one that moved,
+// so turning either off leaves the other playing. playBGMusic(true) means "do
+// not start" when the preference is off, so the caller resolves it here.
+const applyBackgroundMediaState = () => {
+  const shouldPlay = shouldBackgroundMediaPlay();
+  playBGMusic(shouldPlay && !PikaraokeConfig.disableBgMusic);
+  playBGVideo(shouldPlay && hasBgVideo && !PikaraokeConfig.disableBgVideo);
+};
+
 const updateBackgroundMediaState = (immediate = false) => {
   // Clear any pending resume
   if (bgMediaResumeTimeout) {
@@ -197,23 +221,14 @@ const updateBackgroundMediaState = (immediate = false) => {
     bgMediaResumeTimeout = null;
   }
 
-  if (shouldBackgroundMediaPlay()) {
-    if (immediate) {
-      playBGMusic(true);
-      if (hasBgVideo) playBGVideo(true);
-    } else {
-      bgMediaResumeTimeout = setTimeout(() => {
-        bgMediaResumeTimeout = null;
-        if (shouldBackgroundMediaPlay()) {
-          playBGMusic(true);
-          if (hasBgVideo) playBGVideo(true);
-        }
-      }, bgMediaResumeDelay);
-    }
-  } else {
-    playBGMusic(false);
-    playBGVideo(false);
+  if (immediate || !shouldBackgroundMediaPlay()) {
+    applyBackgroundMediaState();
+    return;
   }
+  bgMediaResumeTimeout = setTimeout(() => {
+    bgMediaResumeTimeout = null;
+    applyBackgroundMediaState();
+  }, bgMediaResumeDelay);
 };
 
 const flashNotification = (message, categoryClass) => {
@@ -522,14 +537,9 @@ const stopClock = () => {
   clockIntervalId = null;
 }
 
-const toggleBGMedia = (configKey, playFn, disabled) => {
-  PikaraokeConfig[configKey] = disabled;
-  disabled ? playFn(false) : shouldBackgroundMediaPlay() && playFn(true);
-};
-
 const PREFERENCE_EFFECTS = {
-  disable_bg_video:    (v) => toggleBGMedia("disableBgVideo", playBGVideo, v),
-  disable_bg_music:    (v) => toggleBGMedia("disableBgMusic", playBGMusic, v),
+  disable_bg_video:    (v) => { PikaraokeConfig.disableBgVideo = v; applyBackgroundMediaState(); },
+  disable_bg_music:    (v) => { PikaraokeConfig.disableBgMusic = v; applyBackgroundMediaState(); },
   disable_score:       (v) => { PikaraokeConfig.disableScore = v; },
   show_splash_clock:   (v) => {
     PikaraokeConfig.showSplashClock = v;

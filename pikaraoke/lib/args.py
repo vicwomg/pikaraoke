@@ -276,7 +276,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     background.add_argument(
         "--bg-music-path",
         nargs="+",
-        help="Path to a custom directory for the splash screen background music. Directory must contain mp3 files which will be randomized in a playlist.",
+        help="Path to custom background music for the splash screen: either a single mp3 or mp4 track, or a directory of them to be played in a random order.",
         default=None,
         required=False,
     )
