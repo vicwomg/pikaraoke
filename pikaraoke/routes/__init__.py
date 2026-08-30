@@ -13,6 +13,7 @@ from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.home import home_bp
 from pikaraoke.routes.images import images_bp
 from pikaraoke.routes.info import info_bp
+from pikaraoke.routes.library_api import library_bp
 from pikaraoke.routes.metadata_api import metadata_bp
 from pikaraoke.routes.now_playing import nowplaying_bp
 from pikaraoke.routes.preferences import preferences_bp
@@ -29,7 +30,7 @@ API_BLUEPRINTS = [
     queue_bp,
     search_bp,
     preferences_bp,
-    admin_bp,
+    library_bp,
     background_music_bp,
     nowplaying_bp,
     metadata_bp,
@@ -40,6 +41,7 @@ API_BLUEPRINTS = [
 # page they sit beside because the rule above is per blueprint, not per route.
 INTERNAL_BLUEPRINTS = [
     home_bp,
+    admin_bp,
     sessions_bp,
     files_bp,
     controller_bp,

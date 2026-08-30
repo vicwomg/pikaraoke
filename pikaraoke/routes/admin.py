@@ -7,7 +7,7 @@ import threading
 import time
 
 import flask_babel
-from flask import Response, flash, jsonify, redirect, session, url_for
+from flask import Response, flash, redirect, session, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -67,23 +67,6 @@ def update_ytdl():
     th = threading.Thread(target=update_youtube_dl)
     th.start()
     return redirect(url_for("info.info"))
-
-
-@admin_bp.route("/api/library_stats")
-def library_stats():
-    """Return song count for the admin dashboard."""
-    k = get_karaoke_instance()
-    return jsonify({"song_count": len(k.song_manager.songs)})
-
-
-@admin_bp.route("/api/sync_library", methods=["POST"])
-def sync_library():
-    """Trigger a background library scan."""
-    k = get_karaoke_instance()
-    started = k.sync_library()
-    if started:
-        return jsonify({"status": "started"})
-    return jsonify({"status": "already_syncing"})
 
 
 def _announce_halt(cmd: int, message: str) -> Response:

@@ -10,6 +10,7 @@ from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.library_api import library_bp
 
 PASSWORD = "hunter2"
 
@@ -31,6 +32,7 @@ def app(auth):
     test_app.permanent_session_lifetime = datetime.timedelta(days=90)
     Babel(test_app)
     test_app.register_blueprint(admin_bp)
+    test_app.register_blueprint(library_bp)
     test_app.add_url_rule("/info", "info.info", public(lambda: ""))
     test_app.add_url_rule("/", "home.home", public(lambda: ""))
     install_auth_gate(test_app)

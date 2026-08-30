@@ -13,12 +13,13 @@ from flask import Flask
 from pikaraoke.routes.admin import admin_bp
 from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
+from pikaraoke.routes.library_api import library_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue import queue_bp
 
 STATE_CHANGING_ENDPOINTS = {
     "admin.update_ytdl",
-    "admin.sync_library",
+    "library.sync_library",
     "admin.quit",
     "admin.shutdown",
     "admin.reboot",
@@ -44,7 +45,7 @@ STATE_CHANGING_ENDPOINTS = {
 @pytest.fixture
 def url_map():
     app = Flask(__name__)
-    for blueprint in (admin_bp, controller_bp, files_bp, preferences_bp, queue_bp):
+    for blueprint in (admin_bp, controller_bp, files_bp, library_bp, preferences_bp, queue_bp):
         app.register_blueprint(blueprint)
     return app.url_map
 
