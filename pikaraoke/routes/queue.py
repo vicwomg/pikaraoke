@@ -62,7 +62,7 @@ def queue():
     )
 
 
-@queue_bp.route("/get_queue")
+@queue_bp.route("/api/get_queue")
 @public
 def get_queue():
     """Get the current song queue."""
@@ -85,7 +85,7 @@ def add_random(amount):
     return redirect(url_for("queue.queue"))
 
 
-@queue_bp.route("/queue/reorder", methods=["POST"])
+@queue_bp.route("/api/queue/reorder", methods=["POST"])
 @answers_json
 @queue_bp.arguments(ReorderForm, location="form")
 def reorder(form):
@@ -170,7 +170,7 @@ def _do_enqueue(song: str, user: str) -> str:
     return json.dumps({"song": song_title, "success": rc})
 
 
-@queue_bp.route("/enqueue", methods=["POST"])
+@queue_bp.route("/api/enqueue", methods=["POST"])
 @public
 @queue_bp.arguments(EnqueueForm, location="form")
 def enqueue_form(form):
@@ -178,7 +178,7 @@ def enqueue_form(form):
     return _do_enqueue(form["song_to_add"], form["song_added_by"])
 
 
-@queue_bp.route("/queue/downloads")
+@queue_bp.route("/api/queue/downloads")
 @public
 def get_current_downloads():
     """Get the status of current and pending downloads."""
@@ -186,7 +186,7 @@ def get_current_downloads():
     return json.dumps(k.download_manager.get_downloads_status())
 
 
-@queue_bp.route("/queue/downloads/errors/<error_id>", methods=["DELETE"])
+@queue_bp.route("/api/queue/downloads/errors/<error_id>", methods=["DELETE"])
 @public
 def delete_download_error(error_id):
     """Remove a download error from the list."""
@@ -196,7 +196,7 @@ def delete_download_error(error_id):
     return json.dumps({"success": False, "error": "Error not found"}), 404
 
 
-@queue_bp.route("/queue/downloads/errors/<error_id>/retry", methods=["POST"])
+@queue_bp.route("/api/queue/downloads/errors/<error_id>/retry", methods=["POST"])
 @public
 def retry_download_error(error_id):
     """Re-queue a failed download."""

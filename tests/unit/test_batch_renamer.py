@@ -45,7 +45,7 @@ def _accept(client, k, old_name, new_name):
     """POST the accept button's form, as the page's jQuery does."""
     with patch("pikaraoke.routes.batch_song_renamer.get_karaoke_instance", return_value=k):
         response = client.post(
-            "/batch-song-renamer/rename-song",
+            "/api/batch-song-renamer/rename-song",
             data={"old_name": old_name, "new_name": new_name},
         )
     return response.get_json()

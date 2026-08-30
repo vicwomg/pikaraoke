@@ -105,7 +105,7 @@ class TestSetAdminPassword:
         _login(client)
         client.post("/admin_password", data={"admin_password": "new-one"})
 
-        assert other.get("/library_stats").status_code == 403
+        assert other.get("/api/library_stats").status_code == 403
 
     def test_an_empty_password_clears_it(self, client, auth):
         _login(client)

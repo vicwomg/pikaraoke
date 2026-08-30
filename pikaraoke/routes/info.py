@@ -100,7 +100,7 @@ def info():
     )
 
 
-@info_bp.route("/info/stats")
+@info_bp.route("/api/info/stats")
 @answers_json
 def get_system_stats():
     """Get system statistics (CPU, Memory, Disk).

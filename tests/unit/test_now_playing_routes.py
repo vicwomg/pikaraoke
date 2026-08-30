@@ -53,7 +53,7 @@ class TestNowPlayingApiContract:
         }
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/now_playing")
+        response = client.get("/api/now_playing")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -86,7 +86,7 @@ class TestNowPlayingApiContract:
         }
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/now_playing")
+        response = client.get("/api/now_playing")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -111,7 +111,7 @@ class TestNowPlayingApiContract:
         }
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/now_playing")
+        response = client.get("/api/now_playing")
 
         assert response.status_code == 200
         data = json.loads(response.data)

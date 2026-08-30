@@ -30,7 +30,7 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/history", "sessions.history"),
     ("/sessions", "sessions.sessions"),
     ("/api/sessions/singers", "sessions_api.get_singers"),
-    ("/enqueue", "queue.enqueue_form"),
+    ("/api/enqueue", "queue.enqueue_form"),
 ]
 
 

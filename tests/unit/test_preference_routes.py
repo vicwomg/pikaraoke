@@ -55,7 +55,7 @@ class TestChangePreferencesBroadcast:
     def test_broadcasts_preferences_update_on_success(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
 
-        client.post("/change_preferences", data={"pref": "disable_bg_video", "val": "True"})
+        client.post("/api/change_preferences", data={"pref": "disable_bg_video", "val": "True"})
 
         route_mocks["broadcast"].assert_any_call(
             "preferences_update", {"key": "disable_bg_video", "value": "True"}
@@ -64,7 +64,7 @@ class TestChangePreferencesBroadcast:
     def test_does_not_broadcast_on_failure(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (False, "Error")
 
-        client.post("/change_preferences", data={"pref": "volume", "val": "0.5"})
+        client.post("/api/change_preferences", data={"pref": "volume", "val": "0.5"})
 
         route_mocks["broadcast"].assert_not_called()
 
@@ -72,7 +72,7 @@ class TestChangePreferencesBroadcast:
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
         route_mocks["phrases"].return_value = {"low": ["Bad"], "mid": ["OK"], "high": ["Great"]}
 
-        client.post("/change_preferences", data={"pref": "low_score_phrases", "val": "Bad"})
+        client.post("/api/change_preferences", data={"pref": "low_score_phrases", "val": "Bad"})
 
         assert route_mocks["broadcast"].call_count == 2
         route_mocks["broadcast"].assert_any_call(
@@ -85,7 +85,7 @@ class TestChangePreferencesBroadcast:
     def test_non_score_pref_does_not_broadcast_score_phrases(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
 
-        client.post("/change_preferences", data={"pref": "hide_overlay", "val": "True"})
+        client.post("/api/change_preferences", data={"pref": "hide_overlay", "val": "True"})
 
         assert route_mocks["broadcast"].call_count == 1
         route_mocks["broadcast"].assert_called_once_with(

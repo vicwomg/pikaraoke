@@ -61,7 +61,7 @@ class TestQueueReorderSocketUpdates:
     ):
         mock_get_instance.return_value = queue_with_events
 
-        response = client.post("/queue/reorder", data={"old_index": 0, "new_index": 1})
+        response = client.post("/api/queue/reorder", data={"old_index": 0, "new_index": 1})
 
         assert response.status_code == 200
         assert json.loads(response.data)["success"] is True

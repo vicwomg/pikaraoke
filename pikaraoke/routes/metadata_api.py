@@ -21,7 +21,7 @@ class SuggestNamesQuery(Schema):
     country = fields.String(load_default=None)
 
 
-@metadata_bp.route("/metadata/auto-format")
+@metadata_bp.route("/api/metadata/auto-format")
 @answers_json
 @metadata_bp.arguments(AutoFormatQuery, location="query")
 def auto_format(query):
@@ -30,7 +30,7 @@ def auto_format(query):
     return {"formatted_name": formatted or query["filename"]}
 
 
-@metadata_bp.route("/metadata/suggest-names")
+@metadata_bp.route("/api/metadata/suggest-names")
 @answers_json
 @metadata_bp.arguments(SuggestNamesQuery, location="query")
 def suggest_names(query):

@@ -69,7 +69,7 @@ def update_ytdl():
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/library_stats")
+@admin_bp.route("/api/library_stats")
 @answers_json
 def library_stats():
     """Return song count for the admin dashboard."""
@@ -77,7 +77,7 @@ def library_stats():
     return jsonify({"song_count": len(k.song_manager.songs)})
 
 
-@admin_bp.route("/sync_library", methods=["POST"])
+@admin_bp.route("/api/sync_library", methods=["POST"])
 @answers_json
 def sync_library():
     """Trigger a background library scan."""

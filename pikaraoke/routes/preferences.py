@@ -20,7 +20,7 @@ class ChangePreferenceForm(Schema):
     val = fields.String(required=True, metadata={"description": "New value for the preference"})
 
 
-@preferences_bp.route("/change_preferences", methods=["POST"])
+@preferences_bp.route("/api/change_preferences", methods=["POST"])
 @preferences_bp.arguments(ChangePreferenceForm, location="form")
 def change_preferences(form):
     """Change a user preference setting."""

@@ -390,7 +390,7 @@ const handleNowPlayingUpdate = (np) => {
 }
 
 async function loadNowPlaying() {
-  const data = await $.get(withBasePath("/now_playing"));
+  const data = await $.get(withBasePath("/api/now_playing"));
   handleNowPlayingUpdate(JSON.parse(data));
 }
 
@@ -484,7 +484,7 @@ const setupVideoPlayer = () => {
 }
 
 const setupBackgroundMusicPlayer = () => {
-  $.get(withBasePath("/bg_playlist"), function (data) {
+  $.get(withBasePath("/api/bg_playlist"), function (data) {
     if (data) bg_playlist = data;
   });
   const bgMusic = getBackgroundMusicPlayer();

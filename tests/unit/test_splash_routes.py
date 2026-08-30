@@ -96,7 +96,7 @@ class TestScorePhrasesEndpoint:
     def test_returns_json_with_all_tiers(self, mock_get_instance, client):
         mock_get_instance.return_value = _make_karaoke(low="Bad|Terrible")
 
-        response = client.get("/splash/score_phrases")
+        response = client.get("/api/splash/score_phrases")
 
         assert response.status_code == 200
         data = response.get_json()

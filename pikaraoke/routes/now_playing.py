@@ -11,7 +11,7 @@ from pikaraoke.lib.current_app import get_karaoke_instance
 nowplaying_bp = Blueprint("now_playing", __name__)
 
 
-@nowplaying_bp.route("/now_playing")
+@nowplaying_bp.route("/api/now_playing")
 @public
 def now_playing():
     """Get current playback status."""

@@ -42,7 +42,7 @@ class TestQueueRoutes:
         expected_status = {"active": {"title": "Test Song", "progress": 50}, "pending": []}
         mock_karaoke.download_manager.get_downloads_status.return_value = expected_status
 
-        response = client.get("/queue/downloads")
+        response = client.get("/api/queue/downloads")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -56,13 +56,13 @@ class TestQueueRoutes:
 
         # Test successful deletion
         mock_karaoke.download_manager.remove_error.return_value = True
-        response = client.delete("/queue/downloads/errors/123")
+        response = client.delete("/api/queue/downloads/errors/123")
         assert response.status_code == 200
         assert json.loads(response.data)["success"] is True
 
         # Test not found
         mock_karaoke.download_manager.remove_error.return_value = False
-        response = client.delete("/queue/downloads/errors/999")
+        response = client.delete("/api/queue/downloads/errors/999")
         assert response.status_code == 404
         assert json.loads(response.data)["success"] is False
 
@@ -88,7 +88,7 @@ class TestQueueApiContract:
         ]
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/get_queue")
+        response = client.get("/api/get_queue")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -108,7 +108,7 @@ class TestQueueApiContract:
         mock_karaoke.queue_manager.queue = []
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/get_queue")
+        response = client.get("/api/get_queue")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -248,7 +248,7 @@ class TestQueueEditSocketUpdates:
         mock_get_instance.return_value = mock_karaoke
 
         response = client_with_session.post(
-            "/queue/reorder", data={"old_index": "1", "new_index": "3"}
+            "/api/queue/reorder", data={"old_index": "1", "new_index": "3"}
         )
 
         assert response.status_code == 200
