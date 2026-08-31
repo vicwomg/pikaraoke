@@ -25,8 +25,9 @@ from pikaraoke.routes.sessions_api import sessions_api_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 
-# Shown in /apidocs when swagger is enabled: each carries at least one /api/
-# route, which is where a route answering a program lives.
+# Shown in /apidocs when swagger is enabled. Membership is audience, not medium:
+# `/api` says which refusal the gate sends, this says what a stranger should
+# script against.
 API_BLUEPRINTS = [
     auth_api_bp,
     queue_bp,
@@ -34,14 +35,14 @@ API_BLUEPRINTS = [
     preferences_bp,
     controller_bp,
     library_bp,
-    background_music_bp,
     nowplaying_bp,
     metadata_bp,
     sessions_api_bp,
 ]
 
-# Hidden from /apidocs. The last three do carry an /api/ route, hidden with the
-# page they sit beside because the rule above is per blueprint, not per route.
+# Hidden from /apidocs: pages, media byte streams, and the JSON only this app's
+# own screens poll. Four carry an /api/ route, kept out with the screen they
+# serve because the split is per blueprint, not per route.
 INTERNAL_BLUEPRINTS = [
     home_bp,
     admin_bp,
@@ -49,6 +50,7 @@ INTERNAL_BLUEPRINTS = [
     files_bp,
     images_bp,
     stream_bp,
+    background_music_bp,
     info_bp,
     splash_bp,
     batch_song_renamer_bp,
