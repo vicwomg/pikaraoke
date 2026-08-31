@@ -434,11 +434,7 @@
           window.highlightAfterRefresh = file;
       }
 
-      $.ajax({
-          url: url,
-          method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      }).done(function(result) {
+      $.post(url).done(function(result) {
           if (!result.success) {
               console.error('Queue action failed:', action);
           }
