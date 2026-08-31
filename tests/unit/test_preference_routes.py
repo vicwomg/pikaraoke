@@ -96,8 +96,9 @@ class TestClearPreferencesBroadcast:
         route_mocks["karaoke"].preferences.reset_all.return_value = (True, "Success")
         route_mocks["phrases"].return_value = {"low": ["L"], "mid": ["M"], "high": ["H"]}
 
-        client.post("/clear_preferences", follow_redirects=False)
+        response = client.post("/api/clear_preferences")
 
+        assert response.get_json() == [True, "Success"]
         route_mocks["broadcast"].assert_any_call("preferences_reset", PreferenceManager.DEFAULTS)
         route_mocks["broadcast"].assert_any_call(
             "score_phrases_update", {"low": ["L"], "mid": ["M"], "high": ["H"]}
@@ -106,6 +107,7 @@ class TestClearPreferencesBroadcast:
     def test_does_not_broadcast_on_reset_failure(self, client, route_mocks):
         route_mocks["karaoke"].preferences.reset_all.return_value = (False, "Error")
 
-        client.post("/clear_preferences", follow_redirects=False)
+        response = client.post("/api/clear_preferences")
 
+        assert response.get_json() == [False, "Error"]
         route_mocks["broadcast"].assert_not_called()

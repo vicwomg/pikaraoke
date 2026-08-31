@@ -1,6 +1,6 @@
 """User preferences management routes."""
 
-from flask import flash, jsonify, redirect, url_for
+from flask import jsonify
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -35,14 +35,17 @@ def change_preferences(form):
     return jsonify([success, message])
 
 
-@preferences_bp.route("/clear_preferences", methods=["POST"])
+@preferences_bp.route("/api/clear_preferences", methods=["POST"])
 def clear_preferences():
-    """Reset all preferences to defaults."""
+    """Reset all preferences to defaults.
+
+    Answers `[success, message]` like `change_preferences` beside it. The caller
+    re-renders /info, whose controls are server-rendered and listen for nothing.
+    """
     k = get_karaoke_instance()
     success, message = k.preferences.reset_all()
     if success:
         k.update_now_playing_socket()
         broadcast_event("preferences_reset", PreferenceManager.DEFAULTS)
         broadcast_event("score_phrases_update", _get_active_score_phrases(k))
-    flash(message, "is-success" if success else "is-danger")
-    return redirect(url_for("info.info"))
+    return jsonify([success, message])

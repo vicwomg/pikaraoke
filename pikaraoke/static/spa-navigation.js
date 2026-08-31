@@ -219,7 +219,9 @@
             return true;
         }
 
-        // Exclude admin action links that perform system operations
+        // Links whose click is already handled above. Without the exclusion the SPA
+        // handles it too and GETs the href, which on a POST-only route renders a
+        // 405 page in place of the app.
         const basePath = window.pikaraokeConfig.basePath;
         const excludedPaths = [
             basePath + '/quit',
@@ -227,7 +229,7 @@
             basePath + '/reboot',
             basePath + '/update_ytdl',
             basePath + '/expand_fs',
-            basePath + '/clear_preferences',
+            basePath + '/api/clear_preferences',
             basePath + '/auth',
             basePath + '/batch-song-renamer', // Bulk rename page
             basePath + '/files/edit', // Edit single song
@@ -571,7 +573,16 @@
             currentPath = path;
         },
         // base.html calls this on first load; SPA transitions call it internally.
-        updateNavHighlight: window.highlightNavItem
+        updateNavHighlight: window.highlightNavItem,
+
+        /**
+         * Re-render the current page from the server, after an action changed what
+         * it shows. addToHistory is false, or navigateTo's "already here" guard
+         * turns re-rendering the page you are on into a no-op.
+         */
+        rerender: function() {
+            return navigateTo(currentPath, false);
+        }
     };
 
     // Initialize when DOM is ready

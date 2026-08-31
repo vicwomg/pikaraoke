@@ -81,7 +81,14 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user clears preferences. #}
 				if (window.confirm({{ _('Are you sure you want to clear your preferences?') | tojson }})) {
-					window.postNavigate(this.href);
+					$.post(this.href).done(function (data) {
+						// The controls here are server-rendered and listen for nothing, so
+						// they show the old values until the page comes back. Notify after:
+						// the re-render replays base.html's script, which hides the bar.
+						window.spaNavigation.rerender().then(function () {
+							showNotification(data[1], data[0] ? "is-success" : "is-danger");
+						});
+					});
 				}
 			});
 
