@@ -84,6 +84,10 @@ CREATE TABLE IF NOT EXISTS plays (
     youtube_id TEXT,
     song_title TEXT NOT NULL,
     performer TEXT NOT NULL,
+    -- The shift the singer settled on, not the key the song is in: that is
+    -- songs.musical_key. Written when the play ends, because it can change
+    -- while the song runs.
+    semitones INTEGER DEFAULT 0,
     played_at TEXT DEFAULT CURRENT_TIMESTAMP,
     ended_at TEXT,
     completed INTEGER DEFAULT 0,
@@ -153,14 +157,26 @@ class KaraokeDatabase:
         """
         with self._conn:
             if from_version < 2:
-                for column, coltype in (
-                    ("suggested_genre", "TEXT"),
-                    ("suggested_year", "INTEGER"),
-                    ("suggested_score", "INTEGER"),
-                    ("metadata_country", "TEXT"),
-                    ("musical_key", "TEXT"),
+                for table, column, coltype in (
+                    ("songs", "suggested_genre", "TEXT"),
+                    ("songs", "suggested_year", "INTEGER"),
+                    ("songs", "suggested_score", "INTEGER"),
+                    ("songs", "metadata_country", "TEXT"),
+                    ("songs", "musical_key", "TEXT"),
+                    ("plays", "semitones", "INTEGER DEFAULT 0"),
                 ):
-                    self._conn.execute(f"ALTER TABLE songs ADD COLUMN {column} {coltype}")
+                    # 1.20.0 stamped version 1 before `plays` existed, so a
+                    # database can report 1 and not have the table. _SCHEMA
+                    # creates it complete straight after this runs.
+                    if not self._table_exists(table):
+                        continue
+                    self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+
+    def _table_exists(self, name: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+        ).fetchone()
+        return row is not None
 
     # ------------------------------------------------------------------
     # Read operations

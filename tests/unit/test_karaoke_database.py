@@ -42,8 +42,35 @@ _NEW_IN_V2 = {
 }
 
 
+_PLAY_HISTORY_PRE_V2 = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE NOT NULL,
+    name TEXT,
+    started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS plays (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    song_id INTEGER,
+    youtube_id TEXT,
+    song_title TEXT NOT NULL,
+    performer TEXT NOT NULL,
+    played_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT,
+    completed INTEGER DEFAULT 0
+);
+"""
+
+
 def _song_columns(conn):
     return {row[1] for row in conn.execute("PRAGMA table_info(songs)").fetchall()}
+
+
+def _play_columns(conn):
+    return {row[1] for row in conn.execute("PRAGMA table_info(plays)").fetchall()}
 
 
 @pytest.fixture
@@ -172,7 +199,7 @@ class TestSchemaV2Migration:
             db = KaraokeDatabase(legacy_db_path)
             db.close()
 
-    def test_play_history_tables_are_untouched_by_the_v2_step(self, legacy_db_path):
+    def test_play_history_tables_are_created_when_absent(self, legacy_db_path):
         db = KaraokeDatabase(legacy_db_path)
         tables = {
             row[0]
@@ -183,6 +210,12 @@ class TestSchemaV2Migration:
         db.close()
         assert {"sessions", "plays"} <= tables
 
+    def test_fresh_database_has_the_plays_key_column(self, tmp_path):
+        db = KaraokeDatabase(str(tmp_path / "fresh.db"))
+        columns = _play_columns(db._conn)
+        db.close()
+        assert "semitones" in columns
+
     def test_a_fresh_database_does_not_enter_the_migration(self, tmp_path, monkeypatch):
         # user_version 0 means there is no songs table to ALTER yet.
         def fail(*args):
@@ -191,6 +224,45 @@ class TestSchemaV2Migration:
         monkeypatch.setattr(KaraokeDatabase, "_migrate", fail)
         db = KaraokeDatabase(str(tmp_path / "fresh.db"))
         db.close()
+
+
+class TestSchemaV2PlaysMigration:
+    """1.20.0 stamped version 1 before play history existed, so a version 1
+    database may or may not have the plays table. The migration has to add the
+    key column when it is there and skip it when it is not."""
+
+    @pytest.fixture
+    def legacy_db_with_play_history(self, tmp_path):
+        path = str(tmp_path / "pikaraoke.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(_SCHEMA_1_20_0)
+        conn.executescript(_PLAY_HISTORY_PRE_V2)
+        conn.execute("INSERT INTO sessions (uuid, name) VALUES ('abc', 'Friday')")
+        conn.execute(
+            "INSERT INTO plays (session_id, song_title, performer) VALUES (1, ?, ?)",
+            ("Halo", "Beyonce"),
+        )
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_existing_plays_table_gains_the_key_column(self, legacy_db_with_play_history):
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        columns = _play_columns(db._conn)
+        db.close()
+        assert "semitones" in columns
+
+    def test_existing_play_rows_survive_and_default_to_no_shift(self, legacy_db_with_play_history):
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        row = db._conn.execute("SELECT song_title, performer, semitones FROM plays").fetchone()
+        db.close()
+        assert tuple(row) == ("Halo", "Beyonce", 0)
+
+    def test_reopening_does_not_re_run_the_migration(self, legacy_db_with_play_history):
+        for _ in range(3):
+            db = KaraokeDatabase(legacy_db_with_play_history)
+            db.close()
 
 
 class TestGetSongIdentity:
