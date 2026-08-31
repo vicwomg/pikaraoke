@@ -177,8 +177,10 @@
         $(document).on('click', '.add-random', function(e) {
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
-            const baseUrl = `${window.pikaraokeConfig.basePath}/queue/addrandom`;
-            $.post(`${baseUrl}/${amount}`);
+            const baseUrl = `${window.pikaraokeConfig.basePath}/api/queue/addrandom`;
+            $.post(`${baseUrl}/${amount}`, function (data) {
+                if (!data.success) showNotification(data.message, 'is-warning');
+            });
         });
     }
 

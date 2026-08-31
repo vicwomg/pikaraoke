@@ -5,7 +5,7 @@ from __future__ import annotations
 from urllib.parse import unquote
 
 import flask_babel
-from flask import flash, jsonify, redirect, render_template, url_for
+from flask import jsonify, render_template
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
@@ -69,19 +69,19 @@ def get_queue():
     return jsonify(k.queue_manager.queue)
 
 
-@queue_bp.route("/queue/addrandom/<int:amount>", methods=["POST"])
+@queue_bp.route("/api/queue/addrandom/<int:amount>", methods=["POST"])
 def add_random(amount):
-    """Add random songs to the queue."""
+    """Add random songs to the queue.
+
+    The queue redraws itself off `queue_update`, so only the empty-handed case
+    needs saying.
+    """
     k = get_karaoke_instance()
-    rc = k.queue_manager.queue_add_random(amount)
-    if rc:
-        # MSG: Message shown after adding random tracks
-        flash(_("Added %s random tracks") % amount, "is-success")
-    else:
-        # MSG: Message shown after running out songs to add during random track addition
-        flash(_("Ran out of songs!"), "is-warning")
+    added = k.queue_manager.queue_add_random(amount)
     broadcast_event("queue_update")
-    return redirect(url_for("queue.queue"))
+    # MSG: Message shown after running out songs to add during random track addition
+    message = "" if added else _("Ran out of songs!")
+    return jsonify({"success": added, "message": message})
 
 
 @queue_bp.route("/api/queue/reorder", methods=["POST"])

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from flask import Flask
+from flask_babel import Babel
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -14,6 +15,7 @@ from pikaraoke.routes.queue import queue_bp
 def app():
     """Create a Flask app for testing."""
     test_app = Flask(__name__)
+    Babel(test_app)
     test_app.register_blueprint(queue_bp)
     return test_app
 
@@ -42,6 +44,32 @@ class TestQueueRoutes:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data == expected_status
+
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_add_random_says_when_the_library_ran_dry(
+        self, mock_get_instance, mock_broadcast, client
+    ):
+        """The only outcome the queue redrawing does not already show."""
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.queue_add_random.return_value = False
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post("/api/queue/addrandom/3")
+
+        assert response.status_code == 200
+        assert response.get_json() == {"success": False, "message": "Ran out of songs!"}
+
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_add_random_stays_quiet_when_it_worked(self, mock_get_instance, mock_broadcast, client):
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.queue_add_random.return_value = True
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post("/api/queue/addrandom/3")
+
+        assert response.get_json() == {"success": True, "message": ""}
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     def test_delete_download_error(self, mock_get_instance, client):
