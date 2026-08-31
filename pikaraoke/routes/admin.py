@@ -29,9 +29,6 @@ class AdminPasswordForm(Schema):
 
 class AuthForm(Schema):
     admin_password = fields.String(load_default="", metadata={"description": "Admin password"})
-    next = fields.String(
-        load_default="/", metadata={"description": "URL to redirect to after login"}
-    )
 
 
 def delayed_halt(cmd: int, k: Karaoke):
@@ -119,19 +116,14 @@ def expand_fs():
 @admin_bp.arguments(AuthForm, location="form")
 def auth(form):
     """Authenticate as admin from the browser form."""
-    next_url = form["next"]
-
-    # Validate next_url to prevent open redirect vulnerabilities
-    if not next_url.startswith("/"):
-        next_url = "/"
-
     if log_in(form["admin_password"]):
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
-    return redirect(next_url)
+    # The login form only renders on the info page, so that is where login ends.
+    return redirect(url_for("info.info"))
 
 
 @admin_bp.route("/admin_password", methods=["POST"])
