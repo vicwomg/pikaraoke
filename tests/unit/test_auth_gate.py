@@ -1,5 +1,7 @@
 """The authorization gate: every endpoint is decided, and refusals are uniform."""
 
+import re
+
 import pytest
 from flask import Flask
 from flask_babel import Babel
@@ -12,6 +14,8 @@ from tests.conftest import StubAdminAuth
 EXPECTED_PUBLIC_ENDPOINTS = {
     "admin.auth",
     "admin.logout",
+    "auth_api.auth_status",
+    "auth_api.login",
     "bg_music.bg_music",
     "bg_music.bg_playlist",
     "files.browse",
@@ -105,3 +109,39 @@ class TestRefusal:
 
     def test_an_unmatched_path_is_a_404_not_a_refusal(self, guest):
         assert guest.get("/nothing-here").status_code == 404
+
+
+def _openapi_path(rule) -> str:
+    """`/api/transpose/<semitones>` as the spec spells it."""
+    return re.sub(r"<(?:[^:<>]+:)?([^<>]+)>", r"{\1}", rule.rule)
+
+
+class TestSpec:
+    """/apidocs answers what the gate answers, off the same markers."""
+
+    @pytest.fixture
+    def spec(self, real_app):
+        return real_app.test_client().get("/openapi.json").get_json()
+
+    def test_it_names_the_credential(self, spec):
+        scheme = spec["components"]["securitySchemes"]["adminSession"]
+        assert (scheme["type"], scheme["in"], scheme["name"]) == ("apiKey", "cookie", "session")
+
+    def test_it_asks_for_the_credential_by_default(self, spec):
+        assert spec["security"] == [{"adminSession": []}]
+
+    def test_a_public_operation_clears_the_default(self, spec):
+        assert spec["paths"]["/api/get_queue"]["get"]["security"] == []
+
+    def test_a_host_only_operation_inherits_it(self, spec):
+        assert "security" not in spec["paths"]["/api/skip"]["post"]
+
+    def test_every_documented_operation_matches_its_marker(self, spec, real_app):
+        for rule in real_app.url_map.iter_rules():
+            operations = spec["paths"].get(_openapi_path(rule))
+            if operations is None:
+                continue
+            is_public = getattr(real_app.view_functions[rule.endpoint], "pika_public", False)
+            for method in rule.methods & {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+                security = operations[method.lower()].get("security")
+                assert (security == []) is is_public, f"{method} {rule.rule}"

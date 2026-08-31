@@ -12,7 +12,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.auth import public
+from pikaraoke.lib.auth import grant_admin_session, log_in, public
 from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
@@ -118,17 +118,14 @@ def expand_fs():
 @public
 @admin_bp.arguments(AuthForm, location="form")
 def auth(form):
-    """Authenticate as admin."""
+    """Authenticate as admin from the browser form."""
     next_url = form["next"]
 
     # Validate next_url to prevent open redirect vulnerabilities
     if not next_url.startswith("/"):
         next_url = "/"
 
-    admin_auth = get_admin_auth()
-    if admin_auth.verify(form["admin_password"]):
-        session["admin"] = admin_auth.session_token
-        session.permanent = True
+    if log_in(form["admin_password"]):
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
@@ -147,8 +144,7 @@ def set_admin_password(form):
     admin_auth.set_password(password)
     if password:
         # set_password logged every device out; keep the one that just set it.
-        session["admin"] = admin_auth.session_token
-        session.permanent = True
+        grant_admin_session()
         # MSG: Message shown after setting a new admin password.
         flash(_("Admin password set. Other devices will need to log in again."), "is-success")
     else:

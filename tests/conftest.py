@@ -8,7 +8,7 @@ import pytest
 from flask import Flask
 from flask_babel import Babel
 
-from pikaraoke.lib.auth import install_auth_gate, public
+from pikaraoke.lib.auth import document_auth, install_auth_gate, public
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -112,6 +112,7 @@ def real_app():
         api.register_blueprint(bp)
     for bp in INTERNAL_BLUEPRINTS:
         app.register_blueprint(bp)
+    document_auth(app, api)
     return app
 
 
