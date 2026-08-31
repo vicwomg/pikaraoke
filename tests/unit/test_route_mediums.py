@@ -10,8 +10,11 @@ import inspect
 import re
 import sys
 
-# render_template_string is deliberately absent: the batch renamer builds a table
-# fragment with it and returns it inside a JSON field, which is still JSON.
+# These match the return shapes this repo writes, not JSON in general: a
+# `Response(body, mimetype=...)` or a bare `return [...]` escapes both, so a route
+# reaching for one needs a pattern adding here. render_template_string is absent
+# on purpose -- the batch renamer builds a table fragment with it and returns it
+# inside a JSON field, which is still JSON.
 _ANSWERS_A_BROWSER = re.compile(r"\brender_template\(|\bredirect\(")
 _ANSWERS_A_PROGRAM = re.compile(r"\bjsonify\(|\bjson\.dumps\(|\breturn \{")
 

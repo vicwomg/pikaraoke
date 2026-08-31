@@ -25,9 +25,8 @@ _SECURITY_SCHEME = "adminSession"
 def public(view: Callable) -> Callable:
     """This endpoint is open to everyone in the room, to the gate and to the spec."""
     view.pika_public = True
-    # flask-smorest collects `_apidoc` when `@route` registers the view -- always
-    # the decorator directly above this one -- and merges `manual_doc` over the
-    # operation it generates.
+    # flask-smorest reads `_apidoc` when `@route` registers the view, so this has
+    # to sit below it -- above, the gate opens while the spec still asks for a login.
     apidoc = getattr(view, "_apidoc", {})
     apidoc.setdefault("manual_doc", {})["security"] = []
     view._apidoc = apidoc
