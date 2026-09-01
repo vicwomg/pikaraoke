@@ -33,6 +33,7 @@ from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.security_checks import warn_if_internet_exposed
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
@@ -312,6 +313,9 @@ class Karaoke:
             additional_ytdl_args=self.additional_ytdl_args,
         )
         self.download_manager.start()
+
+        # Check for internet exposure and warn if detected
+        warn_if_internet_exposed(self.port, self.url)
 
         # Song library startup: warm cache from DB or blocking cold scan
         paths = self.db.get_all_song_paths()
