@@ -4,11 +4,12 @@ import shutil
 import subprocess
 
 import flask_babel
-from flask import jsonify, render_template
+from flask import jsonify, render_template, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.auth import public
+from pikaraoke.lib.background_video import video_choices
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 
@@ -88,6 +89,8 @@ def splash():
                 # handle raspiwifi connection mode
                 text = get_raspi_wifi_text(k.url)
 
+    bg_videos = video_choices(k.bg_video_path)
+
     return render_template(
         "splash.html",
         site_title=site_name,
@@ -104,5 +107,5 @@ def splash():
         disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,
         bg_music_volume=k.bg_music_volume,
-        has_bg_video=k.bg_video_path is not None,
+        bg_video_urls=[url_for("stream.stream_bg_video", file=name) for name in bg_videos],
     )

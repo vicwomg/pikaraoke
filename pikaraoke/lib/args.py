@@ -283,7 +283,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     background.add_argument(
         "--bg-video-path",
         nargs="+",
-        help="Path to a background video mp4 file. Will play in the background of the splash screen.",
+        help="Path to a custom background video for the splash screen. Either a single mp4, m4v or webm file, or a directory of them, one of which is picked at random each time the splash screen returns.",
         default=None,
         required=False,
     )
@@ -396,8 +396,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
             os.path.dirname(__file__), "..", "static", "video", "the_drive_by_visualdon.mp4"
         )
 
-    if bg_video_path is not None and not os.path.isfile(bg_video_path):
-        print(f"Background video not found: {bg_video_path}. Setting to None")
+    if bg_video_path is not None and not os.path.exists(bg_video_path):
+        print(f"Background video not found: {bg_video_path}. Using the default.")
+        bg_video_path = None
 
     dl_path = os.path.expanduser(arg_path_parse(args.download_path) or default_dl_dir)
 
