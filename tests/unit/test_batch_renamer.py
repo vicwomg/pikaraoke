@@ -146,3 +146,31 @@ class TestAcceptingASuggestion:
 
         assert body["success"] is False
         assert "Invalid argument" in body["message"]
+
+
+class TestNameOrderPreference:
+    """The renamer's suggestions follow the admin's chosen join order."""
+
+    @pytest.mark.parametrize(
+        ("preference", "artist_first"),
+        [("artist_title", True), ("title_artist", False)],
+    )
+    def test_the_preference_reaches_the_suggestion(self, app, client, preference, artist_first):
+        # app.py binds this global for real; the row template calls it.
+        app.jinja_env.globals["filename_from_path"] = lambda path: Path(path).stem
+        k = MagicMock()
+        k.song_manager.songs = ["/songs/Song - Artist.mp4"]
+        k.song_manager.filename_from_path.return_value = "Song - Artist"
+        k.preferences.get_or_default.return_value = preference
+
+        with (
+            patch("pikaraoke.routes.batch_song_renamer.get_karaoke_instance", return_value=k),
+            patch(
+                "pikaraoke.routes.batch_song_renamer.get_song_correct_name",
+                return_value="Artist - Song",
+            ) as mock_correct,
+        ):
+            response = client.get("/batch-song-renamer/get-songs-to-rename")
+
+        assert response.status_code == 200
+        assert mock_correct.call_args.kwargs["artist_first"] is artist_first

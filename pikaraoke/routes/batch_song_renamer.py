@@ -153,6 +153,7 @@ def get_all_songs(page):
 
     k = get_karaoke_instance()
     available_songs = k.song_manager.songs
+    artist_first = k.preferences.get_or_default("suggestion_name_order") == "artist_title"
 
     pagination = Pagination(
         css_framework="bulma",
@@ -166,7 +167,9 @@ def get_all_songs(page):
     songs = []
     for song in available_songs[start_index : start_index + RESULTS_PER_PAGE]:
         song_name = k.song_manager.filename_from_path(song)
-        correct_name = get_song_correct_name(song_name, raw_filename=song)
+        correct_name = get_song_correct_name(
+            song_name, raw_filename=song, artist_first=artist_first
+        )
         is_equal = _names_match(song_name, correct_name)
         songs.append({"file": song, "correct_name": correct_name, "is_equal": is_equal})
 
@@ -187,6 +190,7 @@ def get_songs_to_rename(query):
 
     k = get_karaoke_instance()
     available_songs = k.song_manager.songs
+    artist_first = k.preferences.get_or_default("suggestion_name_order") == "artist_title"
 
     songs = []
     display_offset = page * RESULTS_PER_PAGE
@@ -194,7 +198,9 @@ def get_songs_to_rename(query):
     while len(songs) < RESULTS_PER_PAGE and song_index < len(available_songs):
         song = available_songs[song_index]
         song_name = k.song_manager.filename_from_path(song)
-        correct_name = get_song_correct_name(song_name, raw_filename=song)
+        correct_name = get_song_correct_name(
+            song_name, raw_filename=song, artist_first=artist_first
+        )
         song_index += 1
 
         if _names_match(song_name, correct_name):

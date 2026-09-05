@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.metadata_parser import (
-    _detect_artist_first,
     clean_search_query,
     clear_song_name_cache,
     get_best_result,
@@ -327,37 +326,6 @@ class TestScoreResult:
         assert isinstance(score, int)
 
 
-class TestDetectArtistFirst:
-    """Tests for the _detect_artist_first format detection function."""
-
-    def test_detects_artist_first(self):
-        assert _detect_artist_first("Coldplay - Viva La Vida", "Coldplay", "Viva La Vida") is True
-
-    def test_detects_title_first(self):
-        assert _detect_artist_first("Viva La Vida - Coldplay", "Coldplay", "Viva La Vida") is False
-
-    def test_no_separator_returns_false(self):
-        assert _detect_artist_first("Bohemian Rhapsody", "Queen", "Bohemian Rhapsody") is False
-
-    def test_handles_accented_characters(self):
-        assert _detect_artist_first("Beyonce - Halo", "Beyonc\u00e9", "Halo") is True
-
-    def test_partial_artist_match(self):
-        assert _detect_artist_first("Coldplay Band - Song", "Coldplay", "Song") is True
-
-    def test_cross_references_part2_when_part1_ambiguous(self):
-        assert _detect_artist_first("AC DC - Back In Black", "AC/DC", "Back in Black") is True
-
-    def test_cross_references_part2_for_title_first(self):
-        assert _detect_artist_first("Back In Black - AC DC", "AC/DC", "Back in Black") is False
-
-    def test_no_space_separator(self):
-        assert _detect_artist_first("Artist-Song Title", "Artist", "Song Title") is True
-
-    def test_fullwidth_pipe_separator(self):
-        assert _detect_artist_first("Artist \uff5c Song", "Artist", "Song") is True
-
-
 class TestGetBestResult:
     """Tests for the get_best_result function."""
 
@@ -367,14 +335,16 @@ class TestGetBestResult:
     def test_returns_none_for_none_results(self):
         assert get_best_result(None, "Artist - Song") is None
 
-    def test_preserves_artist_first_format(self):
+    def test_joins_artist_first(self):
+        """The query is title-first; the requested order wins anyway."""
         results = [{"name": "Song Title", "artist": "Artist Name"}]
-        result = get_best_result(results, "Artist Name - Song Title")
+        result = get_best_result(results, "Song Title - Artist Name", artist_first=True)
         assert result == "Artist Name - Song Title"
 
-    def test_preserves_title_first_format(self):
+    def test_joins_title_first(self):
+        """And the same in reverse, so neither order is merely the default."""
         results = [{"name": "Song Title", "artist": "Artist Name"}]
-        result = get_best_result(results, "Song Title - Artist Name")
+        result = get_best_result(results, "Artist Name - Song Title", artist_first=False)
         assert result == "Song Title - Artist Name"
 
     def test_selects_best_match(self):
@@ -438,7 +408,7 @@ class TestLookupLastfm:
         assert "official" not in params["track"].lower()
 
     @patch("requests.get")
-    def test_preserves_format_from_original_filename(self, mock_get):
+    def test_the_filename_order_does_not_decide(self, mock_get):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "results": {
@@ -449,8 +419,24 @@ class TestLookupLastfm:
                 }
             }
         }
-        result = lookup_lastfm("Artist Name - Song Title (Official Video) karaoke")
+        result = lookup_lastfm("Song Title - Artist Name (Official Video) karaoke")
         assert result == "Artist Name - Song Title"
+
+    @patch("requests.get")
+    def test_the_order_is_part_of_the_cache_key(self, mock_get):
+        """Without it the second call would serve the first call's join."""
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "results": {
+                "trackmatches": {
+                    "track": [
+                        {"name": "Viva La Vida", "artist": "Coldplay"},
+                    ]
+                }
+            }
+        }
+        assert lookup_lastfm("Viva La Vida", artist_first=True) == "Coldplay - Viva La Vida"
+        assert lookup_lastfm("Viva La Vida", artist_first=False) == "Viva La Vida - Coldplay"
 
     @patch("requests.get")
     def test_returns_none_on_missing_trackmatches(self, mock_get):
@@ -882,21 +868,21 @@ class TestProvenanceRouting:
         result = get_song_correct_name(
             "Sweet Caroline", raw_filename="/songs/Sweet Caroline---dQw4w9WgXcQ.mp4"
         )
-        mock_lookup.assert_called_once_with("Sweet Caroline")
+        mock_lookup.assert_called_once_with("Sweet Caroline", artist_first=True)
         assert result == "Sweet Caroline - Neil Diamond"
 
     @patch("pikaraoke.lib.metadata_parser.lookup_lastfm")
     def test_non_youtube_file_always_uses_lastfm(self, mock_lookup):
         mock_lookup.return_value = "Artist - Song"
         result = get_song_correct_name("Artist - Song", raw_filename="/songs/Artist - Song.mp4")
-        mock_lookup.assert_called_once_with("Artist - Song")
+        mock_lookup.assert_called_once_with("Artist - Song", artist_first=True)
         assert result == "Artist - Song"
 
     @patch("pikaraoke.lib.metadata_parser.lookup_lastfm")
     def test_no_raw_filename_uses_lastfm(self, mock_lookup):
         mock_lookup.return_value = "Artist - Song"
         result = get_song_correct_name("Artist - Song")
-        mock_lookup.assert_called_once_with("Artist - Song")
+        mock_lookup.assert_called_once_with("Artist - Song", artist_first=True)
 
     @patch("pikaraoke.lib.metadata_parser.lookup_lastfm")
     def test_youtube_bracket_format_with_separator(self, mock_lookup):
