@@ -15,7 +15,12 @@ from pikaraoke.lib.current_app import (
     get_site_name,
     is_admin,
 )
-from pikaraoke.lib.get_platform import get_platform, is_linux, is_running_in_docker
+from pikaraoke.lib.get_platform import (
+    get_installed_js_runtime,
+    get_platform,
+    is_linux,
+    is_running_in_docker,
+)
 
 _ = flask_babel.gettext
 
@@ -51,6 +56,7 @@ def info():
         ffmpeg_version=k.ffmpeg_version,
         is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
+        js_runtime=get_installed_js_runtime(),
         pikaraoke_version=VERSION,
         cpu=None,
         memory=None,
