@@ -218,7 +218,7 @@
 		// The same endpoint and response shape the browse page uses: `success` is
 		// [ok, message], the message being what to show either way.
 		$.post("{{ url_for('queue.enqueue_form') }}", { song_to_add: path, song_added_by: resolveSinger() }, function (data) {
-			var result = JSON.parse(data).success;
+			var result = data.success;
 			showNotification(result[1], result[0] ? "is-success" : "is-danger");
 		});
 	}

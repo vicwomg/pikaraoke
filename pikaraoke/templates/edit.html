@@ -20,7 +20,7 @@
       $btn.addClass("is-loading");
       $("#suggest_results").html("");
       var country = $('#itunes-country').val();
-      $.getJSON(window.pikaraokeConfig.basePath + '/metadata/suggest-names', { filename: filename, limit: 5, country: country }, function (data) {
+      $.getJSON(window.pikaraokeConfig.basePath + '/api/metadata/suggest-names', { filename: filename, limit: 5, country: country }, function (data) {
         var $container = $("#suggest_results").empty();
         if (data.suggestions && data.suggestions.length > 0) {
           $.each(data.suggestions, function (i, item) {
@@ -62,7 +62,7 @@
       var filename = $.trim($('#new_file_name').val());
       if (!filename) return;
       $btn.addClass("is-loading");
-      $.getJSON(window.pikaraokeConfig.basePath + '/metadata/auto-format', { filename: filename }, function (data) {
+      $.getJSON(window.pikaraokeConfig.basePath + '/api/metadata/auto-format', { filename: filename }, function (data) {
         if (data.formatted_name) {
           $('#new_file_name').val(data.formatted_name);
           updateSaveState();

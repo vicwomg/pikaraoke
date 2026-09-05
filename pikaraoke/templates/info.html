@@ -81,7 +81,14 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user clears preferences. #}
 				if (window.confirm({{ _('Are you sure you want to clear your preferences?') | tojson }})) {
-					window.postNavigate(this.href);
+					$.post(this.href).done(function (data) {
+						// The controls here are server-rendered and listen for nothing, so
+						// they show the old values until the page comes back. Notify after:
+						// the re-render replays base.html's script, which hides the bar.
+						window.spaNavigation.rerender().then(function () {
+							showNotification(data[1], data[0] ? "is-success" : "is-danger");
+						});
+					});
 				}
 			});
 
@@ -257,7 +264,7 @@
 			});
 
 			// Song library stats
-			$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
+			$.getJSON("{{ url_for('library.library_stats') }}", function(data) {
 				if (!data.error) {
 					$("#library-song-count").text(data.song_count);
 				}
@@ -267,7 +274,7 @@
 			$("#sync-library-btn").click(function() {
 				var $btn = $(this);
 				$btn.addClass("is-loading").prop("disabled", true);
-				$.post("{{ url_for('admin.sync_library') }}", function(data) {
+				$.post("{{ url_for('library.sync_library') }}", function(data) {
 					if (data.status !== "already_syncing") return;
 					// stays disabled -- sync_finished will re-enable
 				}).fail(function() {
@@ -297,7 +304,7 @@
 			});
 			window.socket.on("sync_finished", function() {
 				$("#sync-library-btn").removeClass("is-loading").prop("disabled", false);
-				$.getJSON("{{ url_for('admin.library_stats') }}", function(data) {
+				$.getJSON("{{ url_for('library.library_stats') }}", function(data) {
 					if (!data.error) $("#library-song-count").text(data.song_count);
 				});
 				showNotification({{ _('Library sync complete') | tojson }}, "is-success");

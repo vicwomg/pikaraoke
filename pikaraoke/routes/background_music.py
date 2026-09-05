@@ -50,7 +50,7 @@ def bg_music(file):
     return send_from_directory(k.bg_music_path, file, mimetype="audio/mpeg")
 
 
-@background_music_bp.route("/bg_playlist", methods=["GET"])
+@background_music_bp.route("/api/bg_playlist", methods=["GET"])
 @public
 def bg_playlist():
     """Get a randomized background music playlist."""

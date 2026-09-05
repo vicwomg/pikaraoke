@@ -4,12 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
 from flask import Flask
-
-# Monkeypatch werkzeug.__version__ for Flask compatibility if missing
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.routes.now_playing import nowplaying_bp
 
@@ -53,7 +48,7 @@ class TestNowPlayingApiContract:
         }
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/now_playing")
+        response = client.get("/api/now_playing")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -86,7 +81,7 @@ class TestNowPlayingApiContract:
         }
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/now_playing")
+        response = client.get("/api/now_playing")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -111,7 +106,7 @@ class TestNowPlayingApiContract:
         }
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/now_playing")
+        response = client.get("/api/now_playing")
 
         assert response.status_code == 200
         data = json.loads(response.data)

@@ -1,27 +1,23 @@
 """Playback control routes for skip, pause, volume, and transpose."""
 
-import flask_babel
-from flask import redirect, request, url_for
+from flask import jsonify
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
 
-_ = flask_babel.gettext
-
-
 controller_bp = Blueprint("controller", __name__)
 
 
-@controller_bp.route("/skip", methods=["POST"])
+@controller_bp.route("/api/skip", methods=["POST"])
 def skip():
     """Skip the currently playing song."""
     k = get_karaoke_instance()
     broadcast_event("skip", "user command")
     k.playback_controller.skip()
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})
 
 
-@controller_bp.route("/pause", methods=["POST"])
+@controller_bp.route("/api/pause", methods=["POST"])
 def pause():
     """Toggle pause/resume playback."""
     k = get_karaoke_instance()
@@ -30,49 +26,49 @@ def pause():
     else:
         broadcast_event("pause")
     k.playback_controller.pause()
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})
 
 
-@controller_bp.route("/transpose/<semitones>", methods=["POST"])
+@controller_bp.route("/api/transpose/<semitones>", methods=["POST"])
 def transpose(semitones):
     """Transpose (pitch shift) the current song."""
     k = get_karaoke_instance()
     broadcast_event("skip", "transpose current")
     k.transpose_current(int(semitones))
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})
 
 
-@controller_bp.route("/restart", methods=["POST"])
+@controller_bp.route("/api/restart", methods=["POST"])
 def restart():
     """Restart the current song from the beginning."""
     k = get_karaoke_instance()
     broadcast_event("restart")
     k.restart()
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})
 
 
-@controller_bp.route("/volume/<volume>", methods=["POST"])
+@controller_bp.route("/api/volume/<volume>", methods=["POST"])
 def volume(volume):
     """Set the playback volume."""
     k = get_karaoke_instance()
     broadcast_event("volume", volume)
     k.volume_change(float(volume))
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})
 
 
-@controller_bp.route("/vol_up", methods=["POST"])
+@controller_bp.route("/api/vol_up", methods=["POST"])
 def vol_up():
     """Increase volume by 10%."""
     k = get_karaoke_instance()
     broadcast_event("volume", "up")
     k.vol_up()
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})
 
 
-@controller_bp.route("/vol_down", methods=["POST"])
+@controller_bp.route("/api/vol_down", methods=["POST"])
 def vol_down():
     """Decrease volume by 10%."""
     k = get_karaoke_instance()
     broadcast_event("volume", "down")
     k.vol_down()
-    return redirect(url_for("home.home"))
+    return jsonify({"success": True})

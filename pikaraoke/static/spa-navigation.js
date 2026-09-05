@@ -177,8 +177,10 @@
         $(document).on('click', '.add-random', function(e) {
             e.preventDefault();
             const amount = $('#randomNumberInput').val();
-            const baseUrl = `${window.pikaraokeConfig.basePath}/queue/addrandom`;
-            $.post(`${baseUrl}/${amount}`);
+            const baseUrl = `${window.pikaraokeConfig.basePath}/api/queue/addrandom`;
+            $.post(`${baseUrl}/${amount}`, function (data) {
+                if (!data.success) showNotification(data.message, 'is-warning');
+            });
         });
     }
 
@@ -217,22 +219,22 @@
             return true;
         }
 
-        // Exclude admin action links that perform system operations
+        // Links whose click is already handled above. Without the exclusion the SPA
+        // handles it too and GETs the href, which on a POST-only route renders a
+        // 405 page in place of the app.
         const basePath = window.pikaraokeConfig.basePath;
         const excludedPaths = [
             basePath + '/quit',
             basePath + '/shutdown',
             basePath + '/reboot',
-            basePath + '/login',
             basePath + '/update_ytdl',
-            basePath + '/refresh',
             basePath + '/expand_fs',
-            basePath + '/clear_preferences',
+            basePath + '/api/clear_preferences',
             basePath + '/auth',
             basePath + '/batch-song-renamer', // Bulk rename page
             basePath + '/files/edit', // Edit single song
             basePath + '/files/delete', // Delete song
-            basePath + '/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
+            basePath + '/api/queue/edit' // Queue edit actions (move up/down/top/bottom/delete)
         ];
 
         // Check if the href matches any excluded path
@@ -571,7 +573,16 @@
             currentPath = path;
         },
         // base.html calls this on first load; SPA transitions call it internally.
-        updateNavHighlight: window.highlightNavItem
+        updateNavHighlight: window.highlightNavItem,
+
+        /**
+         * Re-render the current page from the server, after an action changed what
+         * it shows. addToHistory is false, or navigateTo's "already here" guard
+         * turns re-rendering the page you are on into a no-op.
+         */
+        rerender: function() {
+            return navigateTo(currentPath, false);
+        }
     };
 
     // Initialize when DOM is ready

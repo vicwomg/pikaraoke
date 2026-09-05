@@ -3,17 +3,15 @@
 import datetime
 
 import pytest
-import werkzeug
 from flask import Flask
 from flask_babel import Babel
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.auth_api import auth_api_bp
+from pikaraoke.routes.library_api import library_bp
 
 PASSWORD = "hunter2"
 
@@ -35,8 +33,13 @@ def app(auth):
     test_app.permanent_session_lifetime = datetime.timedelta(days=90)
     Babel(test_app)
     test_app.register_blueprint(admin_bp)
+    test_app.register_blueprint(auth_api_bp)
+    test_app.register_blueprint(library_bp)
     test_app.add_url_rule("/info", "info.info", public(lambda: ""))
     test_app.add_url_rule("/", "home.home", public(lambda: ""))
+    # Host-only and free of the Karaoke instance, so a test can watch the gate
+    # open rather than a view succeed.
+    test_app.add_url_rule("/api/gated", "gated", lambda: "")
     install_auth_gate(test_app)
     return test_app
 
@@ -105,7 +108,7 @@ class TestSetAdminPassword:
         _login(client)
         client.post("/admin_password", data={"admin_password": "new-one"})
 
-        assert other.get("/library_stats").status_code == 403
+        assert other.get("/api/library_stats").status_code == 403
 
     def test_an_empty_password_clears_it(self, client, auth):
         _login(client)
@@ -118,3 +121,37 @@ class TestSetAdminPassword:
         client.post("/admin_password", data={"admin_password": "new-one"})
 
         assert auth.verify(PASSWORD)
+
+
+class TestApiLogin:
+    """The JSON door, for a client that cannot read a flash message."""
+
+    def test_correct_password_establishes_the_session(self, client, auth):
+        response = client.post("/api/auth", json={"admin_password": PASSWORD})
+
+        assert response.status_code == 200
+        with client.session_transaction() as session:
+            assert session["admin"] == auth.session_token
+
+    def test_incorrect_password_is_a_401(self, client):
+        response = client.post("/api/auth", json={"admin_password": "wrong"})
+
+        assert response.status_code == 401
+        with client.session_transaction() as session:
+            assert "admin" not in session
+
+    def test_the_cookie_it_issues_opens_a_host_only_route(self, client):
+        client.post("/api/auth", json={"admin_password": PASSWORD})
+
+        assert client.get("/api/gated").status_code == 200
+
+    def test_status_tells_a_guest_a_password_is_wanted(self, client):
+        assert client.get("/api/auth").get_json() == {
+            "authenticated": False,
+            "password_required": True,
+        }
+
+    def test_an_open_box_accepts_anyone(self, client, auth):
+        auth.set_password(None)
+
+        assert client.post("/api/auth", json={"admin_password": ""}).status_code == 200

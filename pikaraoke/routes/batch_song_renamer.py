@@ -10,7 +10,6 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import SongInUseError
-from pikaraoke.lib.auth import answers_json
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.metadata_parser import get_song_correct_name, youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
@@ -146,7 +145,7 @@ def browse():
     )
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
+@batch_song_renamer_bp.route("/api/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
 def get_all_songs(page):
     """Get all songs with suggested renames."""
     start_index = (page - 1) * RESULTS_PER_PAGE
@@ -178,7 +177,7 @@ def get_all_songs(page):
     return jsonify({"html": html})
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"])
+@batch_song_renamer_bp.route("/api/batch-song-renamer/get-songs-to-rename", methods=["GET"])
 @batch_song_renamer_bp.arguments(GetSongsToRenameQuery, location="query")
 def get_songs_to_rename(query):
     """Get songs that have rename suggestions different from their current name."""
@@ -212,8 +211,7 @@ def get_songs_to_rename(query):
     return jsonify({"html": html, "page": page + 1, "song_index": song_index})
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
-@answers_json
+@batch_song_renamer_bp.route("/api/batch-song-renamer/rename-song", methods=["POST"])
 @batch_song_renamer_bp.arguments(RenameSongForm, location="form")
 def rename_song(form):
     """Rename a song file."""

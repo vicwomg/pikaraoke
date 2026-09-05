@@ -36,8 +36,8 @@
       $.get('{{ url_for("queue.get_queue") }}'),
       $.get('{{ url_for("now_playing.now_playing") }}')
     ).done(function(queueResp, nowPlayingResp) {
-      var newQueue = JSON.parse(queueResp[0]);
-      var newNowPlaying = nowPlayingResp[0] ? JSON.parse(nowPlayingResp[0]) : null;
+      var newQueue = queueResp[0];
+      var newNowPlaying = nowPlayingResp[0] || null;
 
       var queueChanged = !isEqual(newQueue, window.queuePageState.previousQueue);
       var npChanged = !isEqual(newNowPlaying, window.queuePageState.previousNowPlaying);
@@ -263,8 +263,7 @@
           return;
       }
 
-      $.get('{{ url_for("queue.get_current_downloads") }}', function(data) {
-          var status = JSON.parse(data);
+      $.get('{{ url_for("queue.get_current_downloads") }}', function(status) {
           var html = "";
 
           if (status.pending && status.pending.length > 0) {
@@ -428,21 +427,16 @@
   // Execute queue edit action via AJAX
   window.executeQueueAction = function(action) {
       var file = window.currentSongOptions.file;
-      var url = window.pikaraokeConfig.basePath + "/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
+      var url = window.pikaraokeConfig.basePath + "/api/queue/edit?song=" + encodeURIComponent(file) + "&action=" + action;
 
       // Track moved file for highlight (except delete)
       if (action !== 'delete') {
           window.highlightAfterRefresh = file;
       }
 
-      $.ajax({
-          url: url,
-          method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      }).done(function(response) {
-          var result = JSON.parse(response);
-          if (!result.success && result.error) {
-              console.error('Queue action failed:', result.error);
+      $.post(url).done(function(result) {
+          if (!result.success) {
+              console.error('Queue action failed:', action);
           }
           // Socket event will trigger queue refresh
       }).fail(function() {
@@ -520,7 +514,7 @@
 
   // Execute playback action and close modal
   window.executePlaybackAction = function(action) {
-      $.post(window.pikaraokeConfig.basePath + '/' + action);
+      $.post(window.pikaraokeConfig.basePath + '/api/' + action);
       window.closeNowPlayingOptions();
   };
 
@@ -571,7 +565,7 @@
 			{% trans %}Add <input id="randomNumberInput" class="input mx-2 p-2" pattern="\d*" maxlength="2" value="3" min="1" max="99" style="width: 42px" /> random songs{% endtrans %}
 	</div>
 	<div>
-		<a class="button is-danger is-outlined confirm-clear" href="{{ request.script_root }}/queue/edit?action=clear">
+		<a class="button is-danger is-outlined confirm-clear" href="{{ request.script_root }}/api/queue/edit?action=clear">
 		<i class="icon icon-trash-empty mr-1"></i>{% trans %}Clear all{% endtrans %}</a>
 	</div>
 </div>
