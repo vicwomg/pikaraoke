@@ -678,11 +678,7 @@ def lookup_lastfm(song: str, artist_first: bool = True) -> str | None:
     if not isinstance(results, list):
         return None
 
-    result = (
-        get_best_result(results, cleaned_query, original_name=song, artist_first=artist_first)
-        if results
-        else None
-    )
+    result = get_best_result(results, cleaned_query, original_name=song, artist_first=artist_first)
     _song_name_cache[key] = result
     return result
 
@@ -846,21 +842,14 @@ def get_song_correct_name(
 ) -> str | None:
     """Get the best corrected name for a song, using provenance-based routing.
 
-    For YouTube-sourced files (detected via raw_filename):
-      - regex_tidy() first; if it produces "Artist - Title", use that (fast, no API)
-      - Otherwise fall through to lookup_lastfm (to find the artist)
-    For non-YouTube files:
-      - Always use lookup_lastfm
-
-    artist_first orders only the names Last.fm resolves. A name regex_tidy
-    already separated is returned as it stands, because nothing in it says
-    which half is the artist.
+    A YouTube-sourced file whose tidied name already reads "Artist - Title"
+    costs no API call, and keeps the order it has: regex_tidy is subtractive,
+    so nothing in that name says which half is the artist. Everything else
+    goes to Last.fm, and artist_first orders what comes back.
     """
     if raw_filename and has_youtube_id(raw_filename):
         tidied = regex_tidy(song)
         if has_artist_title_separator(tidied):
             return tidied
-        # No separator — need Last.fm to find the artist
-        return lookup_lastfm(song, artist_first=artist_first)
 
     return lookup_lastfm(song, artist_first=artist_first)
