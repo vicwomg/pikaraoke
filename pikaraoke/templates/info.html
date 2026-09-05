@@ -21,6 +21,29 @@
 		}
 
 		$(function () {
+			// Copied as markdown bullets, since this is pasted into a bug report where
+			// plain lines collapse into one paragraph. Read back off the rendered list
+			// so the copy cannot drift from what the page shows.
+			$("#copy-system-info").click(function() {
+				var $btn = $(this);
+				// execCommand, not navigator.clipboard: PiKaraoke serves plain HTTP on a
+				// LAN, so every device but the host fails the secure-context test.
+				var scratch = $("<textarea readonly>")
+					.val($("#system-info-list li").map(function() {
+						return "- " + $(this).text().replace(/\s+/g, " ").trim();
+					}).get().join("\n"))
+					.css({position: "fixed", opacity: 0})
+					.appendTo("body");
+				scratch[0].select();
+				var copied = document.execCommand("copy");
+				scratch.remove();
+				if (!copied) return;
+				var original = $btn.text();
+				// {# MSG: Shown on the copy button for a moment after the system info is copied. #}
+				$btn.text({{ _('Copied') | tojson }});
+				setTimeout(function() { $btn.text(original); }, 2000);
+			});
+
 			$(".user-preference-input").change(function() {
 				let val = $(this).val();
 				let pref = $(this).attr("data-pref");
@@ -755,13 +778,15 @@
 		<h2>{% trans %}System Data{% endtrans %}</h2>
 
 		<div class="card">
-			<header class="card-header py-3 px-5">
+			<header class="card-header py-3 px-5 is-align-items-center">
 					{# MSG: Header of the information section about the computer running Pikaraoke. #}
 					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
+					{# MSG: Button that copies the system info below it, for pasting into a bug report. #}
+					<button id="copy-system-info" class="button is-small is-primary is-inverted ml-auto">{% trans %}Copy{% endtrans %}</button>
 			</header>
 			<div class="card-content">
 				<div class="content">
-					<ul>
+					<ul id="system-info-list">
 					{# MSG: The hardware platform  #}
 					<li><u>{% trans %}Platform:{% endtrans %}</u> {{ platform }}</li>
 					{# MSG: The os version  #}
