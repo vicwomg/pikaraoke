@@ -697,14 +697,9 @@ class TestScoreAnchoring:
     def test_a_misplaced_article_is_one_correction(self):
         """The vendor-export "Commodores, The" names the same artist iTunes
         does, so the rename that fixes it is a rewrite, not a failed match."""
-        assert (
-            _anchored("Commodores, The - Three Times a Lady", "Commodores", "Three Times a Lady")
-            == 98
-        )
-        assert (
-            _anchored("The Commodores - Three Times a Lady", "Commodores", "Three Times a Lady")
-            == 98
-        )
+        commodores = ("The Commodores", "Three Times a Lady")
+        assert _anchored("Commodores, The - Three Times a Lady", *commodores) == 98
+        assert _anchored("Commodores - Three Times a Lady", *commodores) == 98
         assert _anchored("Beatles - Hey Jude", "The Beatles", "Hey Jude") == 98
         assert _anchored("Simon & Garfunkel - Boxer, The", "Simon & Garfunkel", "The Boxer") == 98
 
@@ -712,7 +707,9 @@ class TestScoreAnchoring:
         """The guard reads the title, which the fold does not reach past."""
         assert (
             _anchored(
-                "Commodores, The - Three Times a Lady (Live)", "Commodores", "Three Times a Lady"
+                "Commodores, The - Three Times a Lady (Live)",
+                "The Commodores",
+                "Three Times a Lady",
             )
             <= 94
         )
