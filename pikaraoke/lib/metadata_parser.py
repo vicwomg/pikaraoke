@@ -159,9 +159,12 @@ _LEADING_NOISE = re.compile(
     rf"^(?:{_KARAOKE_KEYWORDS_ALT}|official\s+(?:music\s+)?video)\s*[-|:】》」』]\s*",
     re.IGNORECASE,
 )
-# Leading [square brackets] containing a karaoke keyword — strip entirely.
+# A leading bracket containing a karaoke keyword — strip entirely. Round as well
+# as square: "(USA Karaoke) Title - Artist" is a real YouTube name, and left
+# here its keyword is where the trailing sweep starts deleting, taking the song
+# with it.
 _LEADING_BRACKET_NOISE_RE = re.compile(
-    rf"^\s*\[[^\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^\]]*?\]\s*",
+    rf"^\s*[\(\[][^)\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^)\]]*?[\)\]]\s*",
     re.IGNORECASE,
 )
 
@@ -752,13 +755,20 @@ def _step_extract_attribution_or_strip_noise(name: str) -> str:
         prev = None
         while prev != name:
             prev = name
-            name = noise_pat.sub("", name)
+            stripped = noise_pat.sub("", name)
+            # A keyword can open the name -- "Karaoke Cover of Title - Artist" --
+            # where everything after it is everything. A name we cannot read is
+            # worth more than no name at all: the search still gets a query, and
+            # the score still gets something to measure against.
+            name = stripped if stripped.strip() else name
     return name
 
 
 def _step_normalize_separators_and_whitespace(name: str) -> str:
-    # Strip dangling open paren/bracket left by noise removal (e.g. "Title (")
-    name = re.sub(r"\s*[\(\[]\s*$", "", name)
+    # Strip an unclosed bracket left by noise removal, with whatever text trails
+    # it: the sweep deletes from a keyword inside a bracket, so "(Piano Karaoke)"
+    # leaves "(Piano" behind as well as the bare "Title (" case.
+    name = re.sub(r"\s*[\(\[][^)\]]*$", "", name)
     # Normalize separators: en-dash, em-dash, big solidus, fullwidth solidus -> " - "
     name = re.sub(r"\s*[\u2013\u2014\u29f8\uff0f]\s*", " - ", name)
     # Collapse whitespace

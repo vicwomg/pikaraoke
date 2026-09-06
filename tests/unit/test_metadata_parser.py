@@ -644,6 +644,28 @@ class TestRegexTidy:
         )
         assert result == "Paul Kelly - Firewood and Candles"
 
+    def test_a_leading_round_bracket_of_noise_is_stripped_not_swept(self):
+        """The sweep deletes from a karaoke keyword to the end, so a vendor who
+        opens with the tag rather than closing with it lost the whole song."""
+        assert (
+            regex_tidy("(USA Karaoke) The Sound Of Silence - Simon & Garfunkel")
+            == "The Sound Of Silence - Simon & Garfunkel"
+        )
+
+    def test_a_name_opening_on_a_keyword_survives(self):
+        """Nothing precedes it, so the sweep would take everything. An unreadable
+        name still gives the search a query and the score something to measure."""
+        name = "Karaoke Cover of Sound of Silence - Todd Hoffman Cover"
+        assert regex_tidy(name) == name
+
+    def test_an_unclosed_bracket_takes_its_tail_with_it(self):
+        """The sweep starts inside the bracket, so what it leaves is an opening
+        bracket and the words before the keyword: "(Piano", not "(" alone."""
+        assert (
+            regex_tidy("Simon&Garfunkel - Sound Of Silence (Piano Karaoke) Higher Key")
+            == "Simon&Garfunkel - Sound Of Silence"
+        )
+
     def test_preserves_feat_parenthetical(self):
         assert regex_tidy("Artist - Song (feat. Other)") == "Artist - Song (feat. Other)"
 
