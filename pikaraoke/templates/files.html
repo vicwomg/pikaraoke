@@ -188,11 +188,15 @@
 				inflight.abort();
 				inflight = null;
 			}
-			// Both sides through URLSearchParams: url_for leaves the "/" of a nested
-			// folder unescaped where URLSearchParams writes %2F.
+			// Compared as sorted, decoded pairs: the date sort link puts `sort` first,
+			// and url_for leaves the "/" of a nested folder unescaped where a raw
+			// query string carries %2F.
+			const key = (params) => [...params].sort().join("&");
 			const target = new URL(clearLink.href);
-			const here = new URLSearchParams(window.location.search).toString();
-			if (target.pathname === window.location.pathname && target.searchParams.toString() === here) {
+			if (
+				target.pathname === window.location.pathname &&
+				key(target.searchParams) === key(new URLSearchParams(window.location.search))
+			) {
 				e.preventDefault();
 				input.focus();
 			}
