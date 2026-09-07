@@ -469,7 +469,7 @@
 			{% trans %}Sort Alphabetically{% endtrans %}
 		</a>
 		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
-			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None, sort='date') }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
 			{% trans %}Sort by Date{% endtrans %}
 		</a>
