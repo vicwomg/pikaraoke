@@ -26,6 +26,7 @@ class PlaybackResult:
     Attributes:
         success: Whether playback started successfully.
         stream_url: URL path for the video stream.
+        stream_uid: Identifier of this playback, unique per play of a file.
         subtitle_url: URL path for subtitles (if present).
         duration: Video duration in seconds.
         error: Error message if playback failed.
@@ -33,6 +34,7 @@ class PlaybackResult:
 
     success: bool
     stream_url: str | None = None
+    stream_uid: str | None = None
     subtitle_url: str | None = None
     duration: int | None = None
     error: str | None = None
@@ -168,6 +170,7 @@ class StreamManager:
             return PlaybackResult(
                 success=True,
                 stream_url=stream_url_path,
+                stream_uid=str(fr.stream_uid),
                 subtitle_url=subtitle_url,
                 duration=fr.duration,
             )

@@ -53,7 +53,7 @@ def setup_socket_events(socketio):
         return register
 
     @open_to_room("end_song")
-    def end_song(reason: str, playback_id: int | None = None) -> None:
+    def end_song(reason: str, playback_id: str | None = None) -> None:
         """Handle end_song WebSocket event from client.
 
         Args:
@@ -64,7 +64,7 @@ def setup_socket_events(socketio):
         k.playback_controller.end_song(reason, playback_id)
 
     @open_to_room("start_song")
-    def start_song(playback_id: int | None = None) -> None:
+    def start_song(playback_id: str | None = None) -> None:
         """Handle start_song WebSocket event when playback begins.
 
         Args:

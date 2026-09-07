@@ -10,7 +10,6 @@ let autoplayConfirmed = false;
 let volume = 0.85;
 const playbackStartTimeout = 10000;
 const bgMediaResumeDelay = 2000;
-let isScoreShown = false;
 const bgVideoChoices = PikaraokeConfig.bgVideoChoices;
 let currentVideoUrl = null;
 let hlsInstance = null;
@@ -136,11 +135,11 @@ const endSong = async (reason = null, showScore = false) => {
   const endedPlaybackId = currentPlaybackId;
   currentPlaybackId = null;
   if (showScore && !PikaraokeConfig.disableScore) {
-    isScoreShown = true;
     await startScore(withBasePath("/static/"));
-    isScoreShown = false;
   }
-  stopVideoPlayback();
+  // A song that started during the score screen has loaded itself into the
+  // player already; tearing down now would leave the screen black.
+  if (currentPlaybackId === null) stopVideoPlayback();
   if (isMaster) {
     socket.emit("end_song", reason, endedPlaybackId);
   } else {
@@ -426,9 +425,9 @@ const handleNowPlayingUpdate = (np) => {
 
     const loadedPlaybackId = currentPlaybackId;
     setTimeout(() => {
-      // Only judge the song this timer was armed for, and count a paused video as
-      // a failure too: a blocked autoplay leaves it paused and silent forever.
-      if (loadedPlaybackId !== currentPlaybackId) return;
+      // Only the master ends a song, and only the one this timer was armed for.
+      if (!isMaster || loadedPlaybackId !== currentPlaybackId) return;
+      // A paused video is a failure too: a blocked autoplay stays silent forever.
       if (!isMediaPlaying(video) && !nowPlaying.is_paused) {
         endSong("failed to start");
       }

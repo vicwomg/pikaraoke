@@ -688,9 +688,8 @@ class Karaoke:
         self.running = True
         while self.running:
             try:
-                # Clean up if the playback state is inconsistent. Only the second
-                # case is new: the loop starts songs when is_playing is False, so
-                # a "playing" flag with no song loaded would wedge it forever.
+                # The two must agree: a "playing" flag with no song loaded stops
+                # the loop below from ever starting one.
                 if self.playback_controller.is_playing != (
                     self.playback_controller.now_playing is not None
                 ):
