@@ -211,14 +211,15 @@ def get_search_results(query: str) -> list[SearchResult]:
     """Search YouTube for videos matching the query.
 
     Args:
-        query: Search query string.
+        query: Search query string, passed to YouTube verbatim. Quoting is the
+            caller's, and reaches YouTube as part of the query text.
 
     Returns:
         One SearchResult per hit, in the order yt-dlp reported them.
     """
     logging.info(f"Searching YouTube for: {query}")
     num_results = 10
-    yt_search = f'ytsearch{num_results}:"{query}"'
+    yt_search = f"ytsearch{num_results}:{query}"
     cmd = yt_dlp_cmd + ["-j", "--no-playlist", "--flat-playlist", yt_search]
     logging.debug(f"yt-dlp search command: {' '.join(cmd)}")
     try:
