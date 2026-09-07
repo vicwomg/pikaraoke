@@ -177,11 +177,29 @@
 		});
 		input.addEventListener("compositionend", runFilter);
 
+		// `letter` and `page` narrow the list too but live only in the URL, so
+		// emptying the box resolves to the query already rendered and applyFilter
+		// returns early. The href hands those cases to the SPA layer instead.
+		const clearLink = document.getElementById("clear-filter");
+
 		$("#clear-filter").on("click", function (e) {
-			e.preventDefault();
 			input.value = "";
-			applyFilter();
-			input.focus();
+			if (inflight) {
+				inflight.abort();
+				inflight = null;
+			}
+			// Compared as sorted, decoded pairs: the date sort link puts `sort` first,
+			// and url_for leaves the "/" of a nested folder unescaped where a raw
+			// query string carries %2F.
+			const key = (params) => [...params].sort().join("&");
+			const target = new URL(clearLink.href);
+			if (
+				target.pathname === window.location.pathname &&
+				key(target.searchParams) === key(new URLSearchParams(window.location.search))
+			) {
+				e.preventDefault();
+				input.focus();
+			}
 		});
 
 		// A cookie, not the preference Settings edits, which everyone shares. Not
@@ -372,7 +390,9 @@
 	</div>
 	<div class="control">
 		{# MSG: Button which empties the filter box and shows every song again. #}
-		<a id="clear-filter" class="button">{% trans %}Clear{% endtrans %}</a>
+		<a id="clear-filter" class="button"
+			href="{{ url_for('files.browse', view=view or None, folder=folder or None, sort=sort_param) }}"
+			>{% trans %}Clear{% endtrans %}</a>
 	</div>
 </div>
 
@@ -449,7 +469,7 @@
 			{% trans %}Sort Alphabetically{% endtrans %}
 		</a>
 		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
-			href="{{ url_for('files.browse', sort='date', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None, sort='date') }}">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
 			{% trans %}Sort by Date{% endtrans %}
 		</a>
