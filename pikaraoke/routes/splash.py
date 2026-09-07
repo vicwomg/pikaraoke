@@ -61,7 +61,7 @@ def _get_active_score_phrases(k: Karaoke) -> dict[str, list[str]]:
     return result
 
 
-@splash_bp.route("/splash/score_phrases")
+@splash_bp.route("/api/splash/score_phrases")
 @public
 def get_score_phrases():
     """Active score phrases as JSON — translated defaults or user-defined custom phrases."""

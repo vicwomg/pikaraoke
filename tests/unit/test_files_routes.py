@@ -7,10 +7,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.events import EventSystem
