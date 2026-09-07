@@ -177,11 +177,25 @@
 		});
 		input.addEventListener("compositionend", runFilter);
 
+		// `letter` and `page` narrow the list too but live only in the URL, so
+		// emptying the box resolves to the query already rendered and applyFilter
+		// returns early. The href hands those cases to the SPA layer instead.
+		const clearLink = document.getElementById("clear-filter");
+
 		$("#clear-filter").on("click", function (e) {
-			e.preventDefault();
 			input.value = "";
-			applyFilter();
-			input.focus();
+			if (inflight) {
+				inflight.abort();
+				inflight = null;
+			}
+			// Both sides through URLSearchParams: url_for leaves the "/" of a nested
+			// folder unescaped where URLSearchParams writes %2F.
+			const target = new URL(clearLink.href);
+			const here = new URLSearchParams(window.location.search).toString();
+			if (target.pathname === window.location.pathname && target.searchParams.toString() === here) {
+				e.preventDefault();
+				input.focus();
+			}
 		});
 
 		// A cookie, not the preference Settings edits, which everyone shares. Not
@@ -372,7 +386,9 @@
 	</div>
 	<div class="control">
 		{# MSG: Button which empties the filter box and shows every song again. #}
-		<a id="clear-filter" class="button">{% trans %}Clear{% endtrans %}</a>
+		<a id="clear-filter" class="button"
+			href="{{ url_for('files.browse', view=view or None, folder=folder or None, sort=sort_param) }}"
+			>{% trans %}Clear{% endtrans %}</a>
 	</div>
 </div>
 
