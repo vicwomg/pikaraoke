@@ -58,7 +58,23 @@ from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
 socketio_path = f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url, path=socketio_path)
+# --url replaces engineio's same-origin default rather than adding to it, so setting it
+# makes that URL the ONLY accepted origin. A headless host running its own kiosk browser
+# reaches the splash on loopback, and that connection is then refused: the splash stays
+# on the logo with no play events and nothing is logged but "is not an accepted origin".
+# Keep None when --url is unset, so the same-origin default is preserved for everyone
+# who is not overriding the URL.
+if args.url:
+    cors_allowed_origins = [
+        args.url,
+        f"http://localhost:{args.port}",
+        f"http://127.0.0.1:{args.port}",
+    ]
+else:
+    cors_allowed_origins = None
+socketio = SocketIO(
+    async_mode="gevent", cors_allowed_origins=cors_allowed_origins, path=socketio_path
+)
 babel = Babel()
 
 
