@@ -174,12 +174,9 @@ def build_ytdl_download_command(
     height = 1080 if high_quality else 720
     # The capped fallback matters because -S sorts on resolution: without it, a video with
     # no avc1 DASH pair lands on a 1080p HLS variant no matter what the cap says.
-    # bestaudio[ext!=webm] stays first so the audio can be stream-copied, but YouTube
-    # publishes opus-in-webm as the only audio for some videos: that pair then matches
-    # nothing, so pair with any audio before falling back to a single format. Every
-    # fallback requires acodec!=none -- a video-only format otherwise satisfies
-    # best[...], downloads silently, exits 0, and only fails later at -map 0:a, which
-    # is a successful download that will not play.
+    # Every fallback needs acodec!=none: a video-only format otherwise satisfies
+    # best[...], downloads, exits 0, then fails at -map 0:a -- a "successful"
+    # download that cannot play. The bare +bestaudio pair covers opus-in-webm-only.
     file_quality = (
         f"bestvideo[vcodec^=avc1][height<={height}]+bestaudio[ext!=webm]"
         f"/bestvideo[vcodec^=avc1][height<={height}]+bestaudio"
