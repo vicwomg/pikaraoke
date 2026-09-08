@@ -13,7 +13,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import flask_babel
 from flask import Flask, request, session
@@ -58,7 +58,21 @@ from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
 socketio_path = f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url, path=socketio_path)
+# Setting cors_allowed_origins REPLACES engineio's same-origin default, so --url alone
+# locks out the kiosk browser on loopback ("is not an accepted origin"). Origin headers
+# never carry a path, hence the normalise.
+cors_allowed_origins = None
+if args.url:
+    split_url = urlsplit(args.url)
+    cors_allowed_origins = [
+        f"{split_url.scheme}://{split_url.netloc}",
+        f"http://localhost:{args.port}",
+        f"http://127.0.0.1:{args.port}",
+        f"http://[::1]:{args.port}",
+    ]
+socketio = SocketIO(
+    async_mode="gevent", cors_allowed_origins=cors_allowed_origins, path=socketio_path
+)
 babel = Babel()
 
 
