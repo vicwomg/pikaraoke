@@ -113,6 +113,13 @@ def build_ffmpeg_cmd(
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
         cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
         video = cdg_input.video.filter("fps", fps=25)
+        # CDG graphics routinely end seconds before the music does: the lyrics finish
+        # and the instrumental outro plays on with nothing left to draw. That leaves
+        # video shorter than audio -- 7 to 17s on the discs I have measured -- and a
+        # browser that stops at the shorter track then never fires "ended", so the
+        # queue never advances. Hold the last graphic frame instead; -shortest below
+        # trims the output at the end of the audio, so the whole song still plays.
+        video = video.filter("tpad", stop_mode="clone", stop_duration=600)
         if cdg_pixel_scaling:
             video = video.filter("scale", -1, 720, flags="neighbor")
     else:
@@ -134,7 +141,7 @@ def build_ffmpeg_cmd(
             f="mp4",
             video_bitrate=vbitrate,
             movflags=movflags,
-            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+            **({"pix_fmt": "yuv420p", "shortest": None} if is_cdg else {}),
         )
     else:
         # HLS format with fMP4 segments
@@ -160,7 +167,7 @@ def build_ffmpeg_cmd(
             hls_segment_filename=fr.segment_pattern,
             video_bitrate=vbitrate,
             # CDG needs pix_fmt for proper color space
-            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+            **({"pix_fmt": "yuv420p", "shortest": None} if is_cdg else {}),
             **{
                 "fps_mode": "cfr",
                 "avoid_negative_ts": "make_zero",
