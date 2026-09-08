@@ -121,12 +121,12 @@ class TestIsFfmpegInstalled:
 class TestGetMediaDuration:
     """Tests for the get_media_duration function."""
 
-    def test_returns_duration_rounded(self):
-        """Test that duration is returned as rounded integer."""
+    def test_returns_exact_duration(self):
+        """Duration is returned unrounded: the CDG -t trim needs sub-second precision."""
         with patch("pikaraoke.lib.ffmpeg.ffmpeg.probe") as mock_probe:
             mock_probe.return_value = {"format": {"duration": "183.456"}}
             result = get_media_duration("/path/to/video.mp4")
-            assert result == 183
+            assert result == 183.456
 
     def test_returns_none_on_probe_error(self):
         """Test that None is returned when probe fails."""
