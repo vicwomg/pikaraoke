@@ -110,3 +110,20 @@ class TestParsePikaraokeArgs:
         monkeypatch.setattr("sys.argv", ["pikaraoke", "--admin-password", "hunter2"])
         args = parse_pikaraoke_args()
         assert args.admin_password == "hunter2"
+
+    def test_a_background_video_path_that_does_not_exist_is_dropped(self, monkeypatch, tmp_path):
+        """The message always claimed this; nothing used to reassign the path."""
+        monkeypatch.setattr("sys.argv", ["pikaraoke", "--bg-video-path", str(tmp_path / "nope")])
+        args = parse_pikaraoke_args()
+        assert args.bg_video_path is None
+
+    @pytest.mark.parametrize("names_a_directory", [True, False])
+    def test_a_background_video_path_that_exists_survives(
+        self, monkeypatch, tmp_path, names_a_directory
+    ):
+        video = tmp_path / "clip.mp4"
+        video.write_bytes(b"video")
+        path = tmp_path if names_a_directory else video
+        monkeypatch.setattr("sys.argv", ["pikaraoke", "--bg-video-path", str(path)])
+        args = parse_pikaraoke_args()
+        assert args.bg_video_path == str(path)

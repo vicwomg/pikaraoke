@@ -5,7 +5,14 @@ import re
 import time
 
 import flask_babel
-from flask import Response, make_response, request, send_file
+from flask import (
+    Response,
+    abort,
+    make_response,
+    request,
+    send_file,
+    send_from_directory,
+)
 from flask_smorest import Blueprint
 
 _ = flask_babel.gettext
@@ -213,16 +220,26 @@ def stream_full(id):
     return stream_file_path_full(file_path)
 
 
-@stream_bp.route("/stream/bg_video")
+@stream_bp.route("/stream/bg_video/<file>")
 @public
-def stream_bg_video():
-    """Stream the background video file."""
+def stream_bg_video(file):
+    """Serve one background video by name.
+
+    send_from_directory, not send_file: `file` comes from the URL, and only
+    this refuses one that escapes the directory. No mimetype, so the extension
+    decides and a .webm is not announced as mp4.
+    """
     k = get_karaoke_instance()
-    file_path = k.bg_video_path
-    if k.bg_video_path is not None:
-        return send_file(os.path.abspath(file_path), mimetype="video/mp4")
-    else:
-        return Response("Background video not found.", status=404)
+    path = k.bg_video_path
+    if path is None or not os.path.exists(path):
+        abort(404)
+    directory = path
+    if os.path.isfile(path):
+        # Pointing at one video is not consent to share the rest of its folder.
+        if file != os.path.basename(path):
+            abort(404)
+        directory = os.path.dirname(path)
+    return send_from_directory(directory, file)
 
 
 # subtitle .ass

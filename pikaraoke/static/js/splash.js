@@ -11,7 +11,7 @@ let volume = 0.85;
 const playbackStartTimeout = 10000;
 const bgMediaResumeDelay = 2000;
 let isScoreShown = false;
-const hasBgVideo = PikaraokeConfig.hasBgVideo;
+const bgVideoChoices = PikaraokeConfig.bgVideoChoices;
 let currentVideoUrl = null;
 let hlsInstance = null;
 let idleTime = 0;
@@ -128,6 +128,10 @@ const endSong = async (reason = null, showScore = false) => {
 
 const getBackgroundMusicPlayer = () => document.getElementById('background-music');
 const getBackgroundVideoPlayer = () => document.getElementById('bg-video');
+// No withBasePath: the server built these with url_for, which already carries
+// the base path.
+const getRandomBgVideo = () =>
+  bgVideoChoices[Math.floor(Math.random() * bgVideoChoices.length)];
 const getVideoPlayer = () => $("#video")[0]
 
 const getNextBgMusicSong = () => {
@@ -170,9 +174,13 @@ const playBGVideo = async (play) => {
   if (play) {
     if (PikaraokeConfig.disableBgVideo) return;
     if (!autoplayConfirmed) return;
+    if (bgVideoChoices.length === 0) return;
 
     if (isMediaPlaying(bgVideo)) return;
-    $("#bg-video").attr("src", withBasePath("/stream/bg_video"));
+    // A fresh video per idle spell, looping until the next song starts. Some
+    // backgrounds run ten seconds and are cut to loop, so swapping them out
+    // while the splash is up reads as a fault.
+    bgVideo.setAttribute("src", getRandomBgVideo());
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
     bgVideoContainer.fadeIn(2000);
@@ -200,13 +208,13 @@ const updateBackgroundMediaState = (immediate = false) => {
   if (shouldBackgroundMediaPlay()) {
     if (immediate) {
       playBGMusic(true);
-      if (hasBgVideo) playBGVideo(true);
+      playBGVideo(true);
     } else {
       bgMediaResumeTimeout = setTimeout(() => {
         bgMediaResumeTimeout = null;
         if (shouldBackgroundMediaPlay()) {
           playBGMusic(true);
-          if (hasBgVideo) playBGVideo(true);
+          playBGVideo(true);
         }
       }, bgMediaResumeDelay);
     }
