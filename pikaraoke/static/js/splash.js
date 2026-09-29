@@ -382,16 +382,28 @@ const handleNowPlayingUpdate = (np) => {
     video.load();
     $("#video-source").attr("src", streamUrl);
 
+    // A screen loading mid-song - a second screen, or this one reloaded - picks the
+    // song up where it is. hls.js starts there; a plain <video> seeks once it can.
+    const resumeAt = np.now_playing_position || 0;
+    const seekOnceLoaded = () => {
+      if (resumeAt) {
+        video.addEventListener("loadedmetadata", () => { video.currentTime = resumeAt; }, { once: true });
+      }
+    };
+
     if (streamUrl.endsWith('.m3u8')) {
       const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
       if (useNativeHLS) {
         video.src = streamUrl;
+        seekOnceLoaded();
       } else {
         if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        hlsInstance = new Hls({ startPosition: 0 });
+        hlsInstance = new Hls({ startPosition: resumeAt });
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(video);
       }
+    } else {
+      seekOnceLoaded();
     }
 
     video.load();
@@ -415,13 +427,6 @@ const handleNowPlayingUpdate = (np) => {
       // Retry once if it was an autoplay block
       setTimeout(() => video.play(), 1000);
     });
-
-    if (np.now_playing_position && isMediaPlaying(video)) {
-      if (Math.abs(video.currentTime - np.now_playing_position) > 2) {
-        console.log("Syncing to server position:", np.now_playing_position);
-        video.currentTime = np.now_playing_position;
-      }
-    }
 
     const loadedPlaybackId = currentPlaybackId;
     setTimeout(() => {
