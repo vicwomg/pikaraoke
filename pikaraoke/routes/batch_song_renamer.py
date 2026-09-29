@@ -10,7 +10,6 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import SongInUseError
-from pikaraoke.lib.auth import answers_json
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.metadata_parser import get_song_correct_name, youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
@@ -39,7 +38,7 @@ table_lines_template = """
 {% for song in songs %}
 <tr>
     <td class="vertical-align-middle col-num px-2">{{ loop.index + skip }}</td>
-    <td class="vertical-align-middle col-old-name px-1 old-name">{{ filename_from_path(song.file) }}</td>
+    <td class="vertical-align-middle col-old-name px-1 old-name">{{ song.name }}</td>
     <td class="vertical-align-middle col-new-name pr-0"><input class="input new-name
         {% if song.correct_name and song.is_equal %}
             is-success
@@ -47,7 +46,7 @@ table_lines_template = """
             is-warning
         {% else %}
             is-danger
-        {% endif %}" type="text" value="{{ song.correct_name or 'N/A' }}" data-new-name="{{ song.correct_name or 'N/A' }}" data-old-name="{{ filename_from_path(song.file) }}" /></td>
+        {% endif %}" type="text" value="{{ song.correct_name or 'N/A' }}" data-new-name="{{ song.correct_name or 'N/A' }}" data-old-name="{{ song.name }}" /></td>
     <td class="vertical-align-middle col-btn pr-2">
     <div class="buttons are-small is-flex-wrap-nowrap">
 		  <a class="accept-change button has-text-weight-bold has-text-success is-small "
@@ -146,13 +145,14 @@ def browse():
     )
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
+@batch_song_renamer_bp.route("/api/batch-song-renamer/get-all-songs/<int:page>", methods=["GET"])
 def get_all_songs(page):
     """Get all songs with suggested renames."""
     start_index = (page - 1) * RESULTS_PER_PAGE
 
     k = get_karaoke_instance()
     available_songs = k.song_manager.songs
+    artist_first = k.preferences.get_or_default("suggestion_name_order") == "artist_title"
 
     pagination = Pagination(
         css_framework="bulma",
@@ -165,10 +165,14 @@ def get_all_songs(page):
 
     songs = []
     for song in available_songs[start_index : start_index + RESULTS_PER_PAGE]:
-        song_name = k.song_manager.filename_from_path(song)
-        correct_name = get_song_correct_name(song_name, raw_filename=song)
+        song_name = k.song_manager.filename_from_path(song, tidy=False)
+        correct_name = get_song_correct_name(
+            song_name, raw_filename=song, artist_first=artist_first
+        )
         is_equal = _names_match(song_name, correct_name)
-        songs.append({"file": song, "correct_name": correct_name, "is_equal": is_equal})
+        songs.append(
+            {"file": song, "name": song_name, "correct_name": correct_name, "is_equal": is_equal}
+        )
 
     table_lines_html = render_template_string(table_lines_template, songs=songs, skip=start_index)
     html = render_template_string(
@@ -178,7 +182,7 @@ def get_all_songs(page):
     return jsonify({"html": html})
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/get-songs-to-rename", methods=["GET"])
+@batch_song_renamer_bp.route("/api/batch-song-renamer/get-songs-to-rename", methods=["GET"])
 @batch_song_renamer_bp.arguments(GetSongsToRenameQuery, location="query")
 def get_songs_to_rename(query):
     """Get songs that have rename suggestions different from their current name."""
@@ -187,20 +191,25 @@ def get_songs_to_rename(query):
 
     k = get_karaoke_instance()
     available_songs = k.song_manager.songs
+    artist_first = k.preferences.get_or_default("suggestion_name_order") == "artist_title"
 
     songs = []
     display_offset = page * RESULTS_PER_PAGE
 
     while len(songs) < RESULTS_PER_PAGE and song_index < len(available_songs):
         song = available_songs[song_index]
-        song_name = k.song_manager.filename_from_path(song)
-        correct_name = get_song_correct_name(song_name, raw_filename=song)
+        song_name = k.song_manager.filename_from_path(song, tidy=False)
+        correct_name = get_song_correct_name(
+            song_name, raw_filename=song, artist_first=artist_first
+        )
         song_index += 1
 
         if _names_match(song_name, correct_name):
             continue
 
-        songs.append({"file": song, "correct_name": correct_name, "is_equal": False})
+        songs.append(
+            {"file": song, "name": song_name, "correct_name": correct_name, "is_equal": False}
+        )
 
     table_lines_html = render_template_string(
         table_lines_template, songs=songs, skip=display_offset
@@ -212,8 +221,7 @@ def get_songs_to_rename(query):
     return jsonify({"html": html, "page": page + 1, "song_index": song_index})
 
 
-@batch_song_renamer_bp.route("/batch-song-renamer/rename-song", methods=["POST"])
-@answers_json
+@batch_song_renamer_bp.route("/api/batch-song-renamer/rename-song", methods=["POST"])
 @batch_song_renamer_bp.arguments(RenameSongForm, location="form")
 def rename_song(form):
     """Rename a song file."""

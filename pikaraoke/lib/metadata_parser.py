@@ -159,9 +159,12 @@ _LEADING_NOISE = re.compile(
     rf"^(?:{_KARAOKE_KEYWORDS_ALT}|official\s+(?:music\s+)?video)\s*[-|:】》」』]\s*",
     re.IGNORECASE,
 )
-# Leading [square brackets] containing a karaoke keyword — strip entirely.
+# A leading bracket containing a karaoke keyword — strip entirely. Round as well
+# as square: "(USA Karaoke) Title - Artist" is a real YouTube name, and left
+# here its keyword is where the trailing sweep starts deleting, taking the song
+# with it.
 _LEADING_BRACKET_NOISE_RE = re.compile(
-    rf"^\s*\[[^\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^\]]*?\]\s*",
+    rf"^\s*[\(\[][^)\]]*?(?:{_KARAOKE_KEYWORDS_ALT})[^)\]]*?[\)\]]\s*",
     re.IGNORECASE,
 )
 
@@ -474,58 +477,6 @@ def _score_penalties(
     return penalty
 
 
-# ---------------------------------------------------------------------------
-# Format detection
-# ---------------------------------------------------------------------------
-
-
-def _normalize_for_detection(text: str) -> str:
-    """Normalize text for artist/title format detection."""
-    return remove_accents(clean_search_query(text.strip().lower()))
-
-
-def _is_similar(a: str, b: str) -> bool:
-    """Check if two strings are similar (exact or substring match)."""
-    return bool(a) and bool(b) and (a == b or a in b or b in a)
-
-
-def _detect_artist_first(original_query: str, artist: str, title: str) -> bool:
-    """Detect if the original query uses 'Artist - Title' format."""
-    part1_raw, part2_raw = _split_query_parts(original_query)
-    if not part2_raw:
-        return False
-
-    part1 = _normalize_for_detection(part1_raw)
-    part2 = _normalize_for_detection(part2_raw)
-    artist_norm = _normalize_for_detection(artist)
-    title_norm = _normalize_for_detection(title)
-
-    part1_is_artist = _is_similar(part1, artist_norm)
-    part1_is_title = _is_similar(part1, title_norm)
-    part2_is_artist = _is_similar(part2, artist_norm)
-    part2_is_title = _is_similar(part2, title_norm)
-
-    # Both parts match their expected positions
-    if part1_is_artist and part2_is_title:
-        return True
-    if part1_is_title and part2_is_artist:
-        return False
-
-    # Single-part matches on part1
-    if part1_is_artist and not part1_is_title:
-        return True
-    if part1_is_title and not part1_is_artist:
-        return False
-
-    # Cross-reference with part2
-    if part2_is_title and not part2_is_artist:
-        return True
-    if part2_is_artist and not part2_is_title:
-        return False
-
-    return False
-
-
 def normalize_for_comparison(text: str) -> str:
     """Normalize text for artist/track comparison by removing punctuation."""
     normalized = text.lower().replace("&", " and ")
@@ -587,9 +538,12 @@ def _preserve_original_artist(original_name: str, lastfm_artist: str) -> str | N
 
 
 def get_best_result(
-    results: list[dict] | None, original_query: str, original_name: str | None = None
+    results: list[dict] | None,
+    original_query: str,
+    original_name: str | None = None,
+    artist_first: bool = True,
 ) -> str | None:
-    """Select the highest-scoring result and format to match the input convention."""
+    """Select the highest-scoring result and join it in the admin's chosen order."""
     if not results:
         return None
 
@@ -608,8 +562,7 @@ def get_best_result(
         if preserved:
             artist = preserved
 
-    format_query = original_name or original_query
-    if _detect_artist_first(format_query, best["artist"], clean_track_name):
+    if artist_first:
         return f"{artist} - {clean_track_name}"
 
     return f"{clean_track_name} - {artist}"
@@ -699,10 +652,11 @@ def _lastfm_track_search(cleaned_query: str, limit: int | None = None) -> list[d
     return _RATE_LIMITED
 
 
-# Cache for lookup_lastfm: maps song filename -> corrected name.
+# Cache for lookup_lastfm: maps (song filename, artist_first) -> corrected name.
+# The order is part of the key because the cached value is already joined.
 # Uses a plain dict instead of lru_cache so that rate-limited None results
 # are not cached (they should be retried on next request).
-_song_name_cache: dict[str, str | None] = {}
+_song_name_cache: dict[tuple[str, bool], str | None] = {}
 
 
 def clear_song_name_cache() -> None:
@@ -710,24 +664,28 @@ def clear_song_name_cache() -> None:
     _song_name_cache.clear()
 
 
-def lookup_lastfm(song: str) -> str | None:
+def lookup_lastfm(song: str, artist_first: bool = True) -> str | None:
     """Look up the canonical song name via the Last.fm API.
 
     Definitive results (including genuine "no results") are cached for the
     lifetime of the process. Rate-limited failures are NOT cached so the
     lookup is retried on the next request.
     """
-    if song in _song_name_cache:
-        return _song_name_cache[song]
+    key = (song, artist_first)
+    if key in _song_name_cache:
+        return _song_name_cache[key]
 
-    cleaned_query = clean_search_query(song)
+    # regex_tidy first: clean_search_query alone leaves vendor noise like
+    # "from Zoom Karaoke" in the query. suggest_metadata splits the two the
+    # same way -- tidy to search with, untidied to compare against.
+    cleaned_query = clean_search_query(regex_tidy(song))
     results = _lastfm_track_search(cleaned_query)
 
     if not isinstance(results, list):
         return None
 
-    result = get_best_result(results, cleaned_query, original_name=song) if results else None
-    _song_name_cache[song] = result
+    result = get_best_result(results, cleaned_query, original_name=song, artist_first=artist_first)
+    _song_name_cache[key] = result
     return result
 
 
@@ -797,13 +755,20 @@ def _step_extract_attribution_or_strip_noise(name: str) -> str:
         prev = None
         while prev != name:
             prev = name
-            name = noise_pat.sub("", name)
+            stripped = noise_pat.sub("", name)
+            # A keyword can open the name -- "Karaoke Cover of Title - Artist" --
+            # where everything after it is everything. A name we cannot read is
+            # worth more than no name at all: the search still gets a query, and
+            # the score still gets something to measure against.
+            name = stripped if stripped.strip() else name
     return name
 
 
 def _step_normalize_separators_and_whitespace(name: str) -> str:
-    # Strip dangling open paren/bracket left by noise removal (e.g. "Title (")
-    name = re.sub(r"\s*[\(\[]\s*$", "", name)
+    # Strip an unclosed bracket left by noise removal, with whatever text trails
+    # it: the sweep deletes from a keyword inside a bracket, so "(Piano Karaoke)"
+    # leaves "(Piano" behind as well as the bare "Title (" case.
+    name = re.sub(r"\s*[\(\[][^)\]]*$", "", name)
     # Normalize separators: en-dash, em-dash, big solidus, fullwidth solidus -> " - "
     name = re.sub(r"\s*[\u2013\u2014\u29f8\uff0f]\s*", " - ", name)
     # Collapse whitespace
@@ -885,20 +850,22 @@ def search_lastfm_tracks(query: str, limit: int | None = None) -> list[dict]:
     return [{"name": r.get("name", ""), "artist": r.get("artist", "")} for r in results]
 
 
-def get_song_correct_name(song: str, raw_filename: str | None = None) -> str | None:
-    """Get the best corrected name for a song, using provenance-based routing.
+def get_song_correct_name(
+    song: str, raw_filename: str | None = None, artist_first: bool = True
+) -> str | None:
+    """Get the best corrected name for a song, joined in the requested order.
 
-    For YouTube-sourced files (detected via raw_filename):
-      - regex_tidy() first; if it produces "Artist - Title", use that (fast, no API)
-      - Otherwise fall through to lookup_lastfm (to find the artist)
-    For non-YouTube files:
-      - Always use lookup_lastfm
+    Every song is looked up, because only a resolved artist says which half of
+    a name is which. regex_tidy still supplies the fallback for a YouTube-sourced
+    file, so a lookup that finds nothing costs the ordering, not the suggestion.
     """
+    resolved = lookup_lastfm(song, artist_first=artist_first)
+    if resolved:
+        return resolved
+
     if raw_filename and has_youtube_id(raw_filename):
         tidied = regex_tidy(song)
         if has_artist_title_separator(tidied):
             return tidied
-        # No separator — need Last.fm to find the artist
-        return lookup_lastfm(song)
 
-    return lookup_lastfm(song)
+    return None

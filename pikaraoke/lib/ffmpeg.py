@@ -15,18 +15,18 @@ if TYPE_CHECKING:
     from pikaraoke.lib.file_resolver import FileResolver
 
 
-def get_media_duration(file_path: str) -> int | None:
+def get_media_duration(file_path: str) -> float | None:
     """Get the duration of a media file in seconds.
 
     Args:
         file_path: Path to the media file.
 
     Returns:
-        Duration in seconds (rounded), or None if unable to determine.
+        Duration in seconds, or None if unable to determine.
     """
     try:
         duration = ffmpeg.probe(file_path)["format"]["duration"]
-        return round(float(duration))
+        return float(duration)
     except:
         return None
 
@@ -57,7 +57,7 @@ def build_ffmpeg_cmd(
         ffmpeg stream object ready to execute with run_async().
     """
     avsync = float(avsync)
-    is_cdg = fr.cdg_file_path is not None
+    is_cdg = fr.cdg_file_path is not None or fr.cdg_stream is not None
     is_transposed = semitones != 0
 
     if fr.file_path is None:
@@ -111,12 +111,24 @@ def build_ffmpeg_cmd(
     # Video source: CDG input or original video stream
     if is_cdg:
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
-        cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
+        if fr.cdg_stream is not None:
+            # Decoded from an .mcg; the caller writes it to ffmpeg's stdin
+            cdg_input = ffmpeg.input("pipe:", f="cdg", copyts=None)
+        else:
+            cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
         video = cdg_input.video.filter("fps", fps=25)
+        # CDG graphics end 7-17s before the music, and Chromium 150+ stops at the
+        # shorter track rather than playing through, so "ended" never fires (#942).
+        # 600s is a ceiling on any outro; -t trims back to the audio length.
+        video = video.filter("tpad", stop_mode="clone", stop_duration=600)
         if cdg_pixel_scaling:
             video = video.filter("scale", -1, 720, flags="neighbor")
     else:
         video = input.video
+
+    cdg_opts = {"pix_fmt": "yuv420p"}
+    if is_cdg and fr.duration_exact:
+        cdg_opts["t"] = fr.duration_exact + avsync
 
     # Build output based on format
     if force_mp4_encoding:
@@ -134,7 +146,7 @@ def build_ffmpeg_cmd(
             f="mp4",
             video_bitrate=vbitrate,
             movflags=movflags,
-            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+            **(cdg_opts if is_cdg else {}),
         )
     else:
         # HLS format with fMP4 segments
@@ -159,8 +171,7 @@ def build_ffmpeg_cmd(
             hls_fmp4_init_filename=fr.init_filename,
             hls_segment_filename=fr.segment_pattern,
             video_bitrate=vbitrate,
-            # CDG needs pix_fmt for proper color space
-            **({"pix_fmt": "yuv420p"} if is_cdg else {}),
+            **(cdg_opts if is_cdg else {}),
             **{
                 "fps_mode": "cfr",
                 "avoid_negative_ts": "make_zero",

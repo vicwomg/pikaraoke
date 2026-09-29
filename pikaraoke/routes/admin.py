@@ -7,12 +7,12 @@ import threading
 import time
 
 import flask_babel
-from flask import Response, flash, jsonify, redirect, session, url_for
+from flask import Response, flash, redirect, session, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.auth import answers_json, public
+from pikaraoke.lib.auth import grant_admin_session, log_in, public
 from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
@@ -66,25 +66,6 @@ def update_ytdl():
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/library_stats")
-@answers_json
-def library_stats():
-    """Return song count for the admin dashboard."""
-    k = get_karaoke_instance()
-    return jsonify({"song_count": len(k.song_manager.songs)})
-
-
-@admin_bp.route("/sync_library", methods=["POST"])
-@answers_json
-def sync_library():
-    """Trigger a background library scan."""
-    k = get_karaoke_instance()
-    started = k.sync_library()
-    if started:
-        return jsonify({"status": "started"})
-    return jsonify({"status": "already_syncing"})
-
-
 def _announce_halt(cmd: int, message: str) -> Response:
     """Tell every screen in the room, then halt once the page has rendered."""
     k = get_karaoke_instance()
@@ -134,11 +115,8 @@ def expand_fs():
 @public
 @admin_bp.arguments(AuthForm, location="form")
 def auth(form):
-    """Authenticate as admin."""
-    admin_auth = get_admin_auth()
-    if admin_auth.verify(form["admin_password"]):
-        session["admin"] = admin_auth.session_token
-        session.permanent = True
+    """Authenticate as admin from the browser form."""
+    if log_in(form["admin_password"]):
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
@@ -158,8 +136,7 @@ def set_admin_password(form):
     admin_auth.set_password(password)
     if password:
         # set_password logged every device out; keep the one that just set it.
-        session["admin"] = admin_auth.session_token
-        session.permanent = True
+        grant_admin_session()
         # MSG: Message shown after setting a new admin password.
         flash(_("Admin password set. Other devices will need to log in again."), "is-success")
     else:

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.ffmpeg import (
+    build_ffmpeg_cmd,
     get_ffmpeg_version,
     get_media_duration,
     is_ffmpeg_installed,
@@ -66,6 +67,33 @@ class TestIsTransposeEnabled:
             assert is_transpose_enabled() is False
 
 
+class TestBuildFfmpegCmdCdg:
+    """Tests for where build_ffmpeg_cmd reads CDG graphics from."""
+
+    def _fr(self, cdg_file_path=None, cdg_stream=None):
+        fr = MagicMock()
+        fr.file_path = "/songs/song.mp3"
+        fr.file_extension = ".mp3"
+        fr.cdg_file_path = cdg_file_path
+        fr.cdg_stream = cdg_stream
+        fr.output_file = "/tmp/1.m3u8"
+        fr.init_filename = "1_init.mp4"
+        fr.segment_pattern = "/tmp/1_segment_%03d.m4s"
+        return fr
+
+    @patch("pikaraoke.lib.ffmpeg.supports_hardware_h264_encoding", return_value=False)
+    def test_reads_cdg_file(self, mock_hw):
+        args = build_ffmpeg_cmd(self._fr(cdg_file_path="/songs/song.cdg")).get_args()
+        assert "/songs/song.cdg" in args
+        assert "pipe:" not in args
+
+    @patch("pikaraoke.lib.ffmpeg.supports_hardware_h264_encoding", return_value=False)
+    def test_reads_decoded_mcg_from_stdin(self, mock_hw):
+        args = build_ffmpeg_cmd(self._fr(cdg_stream=b"cdg stream")).get_args()
+        pipe = args.index("pipe:")
+        assert args[pipe - 4 : pipe + 1] == ["-f", "cdg", "-copyts", "-i", "pipe:"]
+
+
 class TestSupportsHardwareH264Encoding:
     """Tests for the supports_hardware_h264_encoding function."""
 
@@ -121,12 +149,12 @@ class TestIsFfmpegInstalled:
 class TestGetMediaDuration:
     """Tests for the get_media_duration function."""
 
-    def test_returns_duration_rounded(self):
-        """Test that duration is returned as rounded integer."""
+    def test_returns_exact_duration(self):
+        """Duration is returned unrounded: the CDG -t trim needs sub-second precision."""
         with patch("pikaraoke.lib.ffmpeg.ffmpeg.probe") as mock_probe:
             mock_probe.return_value = {"format": {"duration": "183.456"}}
             result = get_media_duration("/path/to/video.mp4")
-            assert result == 183
+            assert result == 183.456
 
     def test_returns_none_on_probe_error(self):
         """Test that None is returned when probe fails."""

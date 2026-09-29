@@ -138,7 +138,8 @@ class TestBuildYtdlDownloadCommand:
         """A video with no avc1 DASH pair still has to respect the height cap.
 
         -S sorts on resolution, so an uncapped fallback would pick a 1080p HLS variant.
-        The uncapped tier stays last so selection can never fail outright.
+        The uncapped tier stays last so selection can never fail outright, and every
+        pre-merged tier requires an audio track so it cannot land on a video-only format.
         """
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
@@ -146,8 +147,9 @@ class TestBuildYtdlDownloadCommand:
             high_quality=high_quality,
         )
         tiers = cmd[cmd.index("-f") + 1].split("/")
-        assert tiers[1] == f"best[ext!=webm][height<={height}]"
-        assert tiers[2] == "best[ext!=webm]"
+        assert tiers[1] == f"bestvideo[vcodec^=avc1][height<={height}]+bestaudio"
+        assert tiers[2] == f"best[ext!=webm][height<={height}][acodec!=none]"
+        assert tiers[3] == "best[ext!=webm][acodec!=none]"
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
     def test_progress_templates(self, mock_js):

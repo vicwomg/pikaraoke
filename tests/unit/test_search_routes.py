@@ -3,10 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.lib.youtube_dl import SearchResult
 from pikaraoke.routes.search import search_bp

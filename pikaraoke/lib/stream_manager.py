@@ -50,6 +50,21 @@ def enqueue_output(out: Any, queue: Queue) -> None:
     out.close()
 
 
+def feed_stdin(process: Any, data: bytes) -> None:
+    """Write `data` to a process's stdin, then close it to signal end of input.
+
+    Args:
+        process: Subprocess started with a piped stdin.
+        data: Bytes to write.
+    """
+    try:
+        process.stdin.write(data)
+        process.stdin.close()
+    except OSError as e:
+        # The song was skipped and ffmpeg killed before it read everything
+        logging.debug(f"FFmpeg stdin closed early: {e}")
+
+
 class StreamManager:
     """Manages video transcoding and stream preparation for playback.
 
@@ -221,6 +236,11 @@ class StreamManager:
             daemon=True,
         )
         t.start()
+
+        if fr.cdg_stream is not None:
+            Thread(
+                target=feed_stdin, args=(self.ffmpeg_process, fr.cdg_stream), daemon=True
+            ).start()
 
         transcode_max_retries = 2500  # ~2 minutes max
         is_transcoding_complete = False

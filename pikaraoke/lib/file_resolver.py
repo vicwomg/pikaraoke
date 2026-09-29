@@ -10,6 +10,7 @@ from sys import maxsize
 
 from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import get_platform
+from pikaraoke.lib.mcg import decode_mcg
 
 
 def get_tmp_dir() -> str:
@@ -63,7 +64,7 @@ def string_to_hash(s: str) -> int:
 
 
 def is_cdg_file(file_path: str) -> bool:
-    """Check if a file is a CDG karaoke file (zip or mp3 with cdg).
+    """Check if a file is a CDG karaoke file (zip, or mp3 with cdg or mcg).
 
     Args:
         file_path: Path to the file.
@@ -99,6 +100,7 @@ class FileResolver:
     Attributes:
         file_path: Path to the main media file (audio).
         cdg_file_path: Path to the CDG graphics file, if applicable.
+        cdg_stream: CDG graphics decoded in memory from a CAVS .mcg, if applicable.
         file_extension: Lowercase file extension of the input file.
         tmp_dir: Temporary directory for extracted files.
         stream_uid: Unique identifier for the stream based on file path hash.
@@ -106,11 +108,13 @@ class FileResolver:
         segment_pattern: Pattern for HLS segment filenames.
         init_filename: Filename for HLS initialization segment.
         streaming_format: Video streaming format ('hls' or 'mp4').
-        duration: Duration of the media file in seconds.
+        duration: Duration of the media file in seconds, rounded.
+        duration_exact: Unrounded duration, used for the CDG output trim.
     """
 
     file_path: str | None = None
     cdg_file_path: str | None = None
+    cdg_stream: bytes | None = None
     file_extension: str | None = None
     ass_file_path: str | None = None
 
@@ -214,16 +218,17 @@ class FileResolver:
     def handle_mp3_cdg(self, file_path: str) -> bool:
         """Find and set the CDG file path for an MP3 file.
 
-        Searches for a CDG file with the same base name as the MP3.
+        Searches for a CDG file with the same base name as the MP3, falling back
+        to a CAVS .mcg, which is decoded in memory for ffmpeg to read from stdin.
 
         Args:
             file_path: Path to the MP3 file.
 
         Returns:
-            True if a matching CDG file was found.
+            True if a matching CDG or MCG file was found.
 
         Raises:
-            Exception: If no matching CDG file is found.
+            Exception: If no matching CDG or MCG file is found.
         """
         base_name = os.path.splitext(file_path)[0]
 
@@ -235,7 +240,14 @@ class FileResolver:
                 self.cdg_file_path = cdg_path
                 return True
 
-        raise Exception("No matching .cdg file found for: " + file_path)
+        for ext in (".mcg", ".MCG", ".Mcg"):
+            mcg_path = base_name + ext
+            if os.path.exists(mcg_path):
+                self.file_path = file_path
+                self.cdg_stream = decode_mcg(mcg_path)
+                return True
+
+        raise Exception("No matching .cdg or .mcg file found for: " + file_path)
 
     def process_file(self, file_path: str) -> None:
         """Process a file path and set up resolution based on file type.
@@ -256,4 +268,8 @@ class FileResolver:
             self.handle_aegissub_subtile(file_path)
         if not self.file_path:
             raise ValueError("File path is required to process file")
-        self.duration = get_media_duration(self.file_path)
+        duration = get_media_duration(self.file_path)
+        # duration is what the UI shows; duration_exact drives the CDG -t trim, where
+        # rounding to the nearest second would clip the end of the song.
+        self.duration = round(duration) if duration is not None else None
+        self.duration_exact = duration
