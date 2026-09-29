@@ -1,6 +1,8 @@
 """Admin routes for system control and authentication."""
 
-import os
+import getpass
+import logging
+import shutil
 import subprocess
 import sys
 import threading
@@ -31,20 +33,51 @@ class AuthForm(Schema):
     admin_password = fields.String(load_default="", metadata={"description": "Admin password"})
 
 
-def delayed_halt(cmd: int, k: Karaoke):
+# A desktop session's polkit agent would otherwise put a password dialog on the TV and
+# hold the halt until someone answers it.
+_SYSTEMCTL = ["systemctl", "--no-ask-password"]
+
+
+def _run_as_root(cmd: list[str]) -> bool:
+    """Run a root-only command directly, then through passwordless sudo.
+
+    PiKaraoke normally runs as a user, so the direct attempt only succeeds as root or
+    where polkit allows it, and the sudo one only where a sudoers rule does.
+    """
+    for attempt in (cmd, ["sudo", "-n", *cmd]):
+        try:
+            result = subprocess.run(attempt, capture_output=True, text=True)
+        except OSError as e:
+            logging.warning(f"Could not run {' '.join(attempt)}: {e}")
+            continue
+        if result.returncode == 0:
+            return True
+        logging.warning(f"{' '.join(attempt)} was refused: {result.stderr.strip()}")
+    rule = f"{getpass.getuser()} ALL=(root) NOPASSWD: {shutil.which(cmd[0]) or cmd[0]}"
+    logging.warning(
+        f"To allow it, add this line with 'sudo visudo -f /etc/sudoers.d/pikaraoke': "
+        f"{' '.join([rule, *cmd[1:]])}"
+    )
+    return False
+
+
+def delayed_halt(k: Karaoke, commands: list[list[str]], refused: str = "") -> None:
+    """Run the host commands once the page has rendered, then stop PiKaraoke.
+
+    No commands means quit. A refused command leaves the queue and playback as they
+    were, and tells the room, since the page has already claimed success.
+    """
     time.sleep(1.5)
+    # all() stops at the first refusal, so a failed expand never reboots.
+    if not all(_run_as_root(cmd) for cmd in commands):
+        # The announcement still holds the room's one notification slot.
+        k.reset_now_playing_notification()
+        k.send_notification(refused, "danger")
+        return
     k.queue_manager.queue_clear()
     k.stop()
-    if cmd == 0:
+    if not commands:
         sys.exit()
-    if cmd == 1:
-        os.system("shutdown now")
-    if cmd == 2:
-        os.system("reboot")
-    if cmd == 3:
-        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-        process.wait()
-        os.system("reboot")
 
 
 @admin_bp.route("/update_ytdl", methods=["POST"])
@@ -66,12 +99,12 @@ def update_ytdl():
     return redirect(url_for("info.info"))
 
 
-def _announce_halt(cmd: int, message: str) -> Response:
+def _announce_halt(message: str, commands: list[list[str]], refused: str = "") -> Response:
     """Tell every screen in the room, then halt once the page has rendered."""
     k = get_karaoke_instance()
     flash(message, "is-danger")
     k.send_notification(message, "danger")
-    threading.Thread(target=delayed_halt, args=[cmd, k]).start()
+    threading.Thread(target=delayed_halt, args=[k, commands, refused]).start()
     return redirect(url_for("home.home"))
 
 
@@ -79,21 +112,31 @@ def _announce_halt(cmd: int, message: str) -> Response:
 def quit():
     """Exit the PiKaraoke application."""
     # MSG: Message shown after quitting pikaraoke.
-    return _announce_halt(0, _("Exiting pikaraoke now!"))
+    return _announce_halt(_("Exiting pikaraoke now!"), [])
 
 
 @admin_bp.route("/shutdown", methods=["POST"])
 def shutdown():
     """Shut down the host system."""
-    # MSG: Message shown after shutting down the system.
-    return _announce_halt(1, _("Shutting down system now!"))
+    return _announce_halt(
+        # MSG: Message shown after shutting down the system.
+        _("Shutting down system now!"),
+        [[*_SYSTEMCTL, "poweroff"]],
+        # MSG: Message shown when the system refuses to let pikaraoke shut it down.
+        _("Shutdown failed: pikaraoke does not have permission to power off this system."),
+    )
 
 
 @admin_bp.route("/reboot", methods=["POST"])
 def reboot():
     """Reboot the host system."""
-    # MSG: Message shown after rebooting the system.
-    return _announce_halt(2, _("Rebooting system now!"))
+    return _announce_halt(
+        # MSG: Message shown after rebooting the system.
+        _("Rebooting system now!"),
+        [[*_SYSTEMCTL, "reboot"]],
+        # MSG: Message shown when the system refuses to let pikaraoke reboot it.
+        _("Reboot failed: pikaraoke does not have permission to restart this system."),
+    )
 
 
 @admin_bp.route("/expand_fs", methods=["POST"])
@@ -103,8 +146,10 @@ def expand_fs():
     if k.is_raspberry_pi:
         # MSG: Message shown after expanding the filesystem.
         flash(_("Expanding filesystem and rebooting system now!"), "is-danger")
-        th = threading.Thread(target=delayed_halt, args=[3, k])
-        th.start()
+        commands = [["raspi-config", "--expand-rootfs"], [*_SYSTEMCTL, "reboot"]]
+        # MSG: Message shown when the system refuses to let pikaraoke expand the filesystem.
+        refused = _("Expand failed: pikaraoke does not have permission to resize the filesystem.")
+        threading.Thread(target=delayed_halt, args=[k, commands, refused]).start()
     else:
         # MSG: Message shown after trying to expand the filesystem on a non-raspberry pi device.
         flash(_("Cannot expand fs on non-raspberry pi devices!"), "is-danger")

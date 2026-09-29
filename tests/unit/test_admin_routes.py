@@ -1,6 +1,8 @@
 """Tests for admin authentication routes."""
 
 import datetime
+import subprocess
+from unittest.mock import MagicMock, patch
 
 import pytest
 from flask import Flask
@@ -9,7 +11,7 @@ from flask_babel import Babel
 from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.preference_manager import PreferenceManager
-from pikaraoke.routes.admin import admin_bp
+from pikaraoke.routes.admin import admin_bp, delayed_halt
 from pikaraoke.routes.auth_api import auth_api_bp
 from pikaraoke.routes.library_api import library_bp
 
@@ -155,3 +157,69 @@ class TestApiLogin:
         auth.set_password(None)
 
         assert client.post("/api/auth", json={"admin_password": ""}).status_code == 200
+
+
+POWEROFF = ["systemctl", "poweroff"]
+EXPAND = ["raspi-config", "--expand-rootfs"]
+REBOOT = ["systemctl", "reboot"]
+
+
+def _halt(commands, *, refuse=(), missing=False):
+    """Run delayed_halt against a fake host, returning the Karaoke and every command run.
+
+    `refuse` lists the attempts the host turns down; `missing` makes every binary absent.
+    """
+    k = MagicMock()
+    ran = []
+
+    def run(cmd, **kwargs):
+        ran.append(cmd)
+        if missing:
+            raise FileNotFoundError(cmd[0])
+        return subprocess.CompletedProcess(cmd, 1 if cmd in refuse else 0, "", "denied")
+
+    with (
+        patch("pikaraoke.routes.admin.time.sleep"),
+        patch("pikaraoke.routes.admin.subprocess.run", side_effect=run),
+    ):
+        delayed_halt(k, commands, "refused")
+    return k, ran
+
+
+class TestDelayedHalt:
+    """A halt runs where the host permits it, and says so where it does not."""
+
+    def test_root_runs_the_command_directly(self):
+        k, ran = _halt([POWEROFF])
+
+        assert ran == [POWEROFF]
+        k.stop.assert_called_once()
+
+    def test_a_refused_command_falls_back_to_passwordless_sudo(self):
+        k, ran = _halt([POWEROFF], refuse=[POWEROFF])
+
+        assert ran == [POWEROFF, ["sudo", "-n", *POWEROFF]]
+        k.stop.assert_called_once()
+
+    def test_a_refusal_keeps_the_queue_and_tells_the_room(self):
+        k, _ = _halt([POWEROFF], refuse=[POWEROFF, ["sudo", "-n", *POWEROFF]])
+
+        k.queue_manager.queue_clear.assert_not_called()
+        k.stop.assert_not_called()
+        k.reset_now_playing_notification.assert_called_once()
+        k.send_notification.assert_called_once_with("refused", "danger")
+
+    def test_a_missing_binary_is_a_refusal(self):
+        k, _ = _halt([POWEROFF], missing=True)
+
+        k.stop.assert_not_called()
+        k.send_notification.assert_called_once_with("refused", "danger")
+
+    def test_a_refused_expand_never_reboots(self):
+        _, ran = _halt([EXPAND, REBOOT], refuse=[EXPAND, ["sudo", "-n", *EXPAND]])
+
+        assert REBOOT not in ran
+
+    def test_quit_runs_nothing_and_exits(self):
+        with pytest.raises(SystemExit):
+            _halt([])
