@@ -8,6 +8,11 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.playback_controller import PlaybackController, PlaybackResult
 from pikaraoke.lib.preference_manager import PreferenceManager
 
+# Stream uids are hashes of the file path and a timestamp, so playback ids
+# look like these rather than small integers.
+PLAYBACK_UID = "17264398115502847361"
+PREVIOUS_UID = "4820159763348201975"
+
 
 @pytest.fixture
 def test_prefs():
@@ -79,7 +84,8 @@ class TestPlaybackControllerPlayFile:
         # Mock StreamManager.play_file to return success
         mock_result = PlaybackResult(
             success=True,
-            stream_url="/stream/123.m3u8",
+            stream_url=f"/stream/{PLAYBACK_UID}.m3u8",
+            stream_uid=PLAYBACK_UID,
             subtitle_url=None,
             duration=180,
         )
@@ -91,6 +97,7 @@ class TestPlaybackControllerPlayFile:
         result = pc.play_file("/songs/test.mp4", "TestUser", semitones=2)
 
         assert result.success is True
+        assert pc.playback_id == PLAYBACK_UID
         assert pc.now_playing == "Test Song"
         assert pc.now_playing_filename == "/songs/test.mp4"
         assert pc.now_playing_user == "TestUser"
@@ -230,10 +237,48 @@ class TestPlaybackControllerStartSong:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
 
-        pc.start_song()
+        pc.start_song(PLAYBACK_UID)
 
         assert pc.is_playing is True
+
+    def test_start_song_ignored_when_no_song_loaded(self, test_prefs):
+        """A player reporting a start after the song ended must not wedge the run loop."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+
+        pc.start_song(PREVIOUS_UID)
+
+        assert pc.is_playing is False
+
+    def test_start_song_ignores_stale_playback_id(self, test_prefs):
+        """A start reported for the previous song must not mark the new one playing."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
+
+        pc.start_song(PREVIOUS_UID)
+
+        assert pc.is_playing is False
+
+    def test_start_song_ignores_unidentified_report(self, test_prefs):
+        """A splash left open across an upgrade names no playback and is dropped."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
+
+        pc.start_song(None)
+
+        assert pc.is_playing is False
 
 
 class TestPlaybackControllerEndSong:
@@ -248,6 +293,7 @@ class TestPlaybackControllerEndSong:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
         pc.is_playing = True
         pc.stream_manager.kill_ffmpeg = MagicMock()
 
@@ -255,7 +301,7 @@ class TestPlaybackControllerEndSong:
         emitted_reasons = []
         events.on("song_ended", lambda reason=None: emitted_reasons.append(reason))
 
-        pc.end_song()
+        pc.end_song(None, PLAYBACK_UID)
 
         assert pc.is_playing is False
         assert pc.now_playing is None
@@ -272,14 +318,54 @@ class TestPlaybackControllerEndSong:
         filename_fn = lambda x, remove_youtube_id=True: x
 
         pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.playback_id = PLAYBACK_UID
         pc.stream_manager.kill_ffmpeg = MagicMock()
 
         emitted_reasons = []
         events.on("song_ended", lambda reason=None: emitted_reasons.append(reason))
 
-        pc.end_song(reason="complete")
+        pc.end_song("complete", PLAYBACK_UID)
 
         assert emitted_reasons == ["complete"]
+
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    def test_end_song_ignores_stale_playback_id(self, mock_delete, mock_sleep, test_prefs):
+        """A player ending the previous song must not tear down its successor."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Second Song"
+        pc.playback_id = PLAYBACK_UID
+        pc.is_playing = True
+        pc.stream_manager.kill_ffmpeg = MagicMock()
+
+        pc.end_song("complete", PREVIOUS_UID)
+
+        assert pc.is_playing is True
+        assert pc.now_playing == "Second Song"
+        pc.stream_manager.kill_ffmpeg.assert_not_called()
+        mock_delete.assert_not_called()
+
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    def test_end_song_is_idempotent(self, mock_delete, mock_sleep, test_prefs):
+        """A second end for an already-ended song is a no-op, not another teardown."""
+        events = EventSystem()
+        filename_fn = lambda x, remove_youtube_id=True: x
+
+        pc = PlaybackController(test_prefs, events, filename_fn)
+        pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
+        pc.is_playing = True
+        pc.stream_manager.kill_ffmpeg = MagicMock()
+
+        pc.end_song("complete", PLAYBACK_UID)
+        pc.end_song("complete", PLAYBACK_UID)
+
+        pc.stream_manager.kill_ffmpeg.assert_called_once()
+        mock_delete.assert_called_once()
 
 
 class TestPlaybackControllerSkip:
@@ -295,6 +381,7 @@ class TestPlaybackControllerSkip:
 
         pc = PlaybackController(test_prefs, events, filename_fn)
         pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
         pc.is_playing = True
         pc.stream_manager.kill_ffmpeg = MagicMock()
 

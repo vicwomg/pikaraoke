@@ -32,12 +32,7 @@ def stream_playlist(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.m3u8")
     k = get_karaoke_instance()
 
-    # Mark song as started when client connects (idempotent)
-    # Validate stream ID matches current song to prevent stale requests from setting is_playing
-    if not k.playback_controller.is_playing:
-        now_playing_url = k.playback_controller.now_playing_url
-        if now_playing_url and id in now_playing_url:
-            k.playback_controller.start_song()
+    k.playback_controller.start_song(id)
 
     # Wait for playlist file to exist
     max_wait = 50  # 5 seconds max
@@ -136,12 +131,7 @@ def stream_progressive_mp4(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     k = get_karaoke_instance()
 
-    # Mark song as started when client connects (idempotent)
-    # Validate stream ID matches current song to prevent stale requests from setting is_playing
-    if not k.playback_controller.is_playing:
-        now_playing_url = k.playback_controller.now_playing_url
-        if now_playing_url and id in now_playing_url:
-            k.playback_controller.start_song()
+    k.playback_controller.start_song(id)
 
     # Wait for output file to exist
     max_wait = 50  # 5 seconds max
@@ -209,12 +199,7 @@ def stream_full(id):
     """Stream video with range headers (Safari compatible)."""
     k = get_karaoke_instance()
 
-    # Mark song as started when client connects (idempotent)
-    # Validate stream ID matches current song to prevent stale requests from setting is_playing
-    if not k.playback_controller.is_playing:
-        now_playing_url = k.playback_controller.now_playing_url
-        if now_playing_url and id in now_playing_url:
-            k.playback_controller.start_song()
+    k.playback_controller.start_song(id)
 
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     return stream_file_path_full(file_path)
