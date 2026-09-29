@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     import subprocess
 
 # How long past its duration a song may run before the server ends it. Covers the
-# score screen, which holds the player's end report for up to 13s, and a slow
+# score screen, which holds the player's end report for about 15s, and a slow
 # start; late is harmless, early cuts a song.
 OVERRUN_MARGIN_S = 30
 
