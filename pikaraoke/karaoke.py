@@ -164,7 +164,7 @@ class Karaoke:
             disable_bg_music: Disable background music.
             bg_music_volume: Background music volume (0.0 to 1.0).
             bg_music_path: Directory for background music files.
-            bg_video_path: Path to background video file.
+            bg_video_path: Path to a background video, or a directory of them.
             disable_bg_video: Disable background video.
             disable_score: Disable score screen.
             limit_user_songs_by: Max songs per user in queue (0 = unlimited).
