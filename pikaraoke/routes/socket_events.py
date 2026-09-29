@@ -1,14 +1,33 @@
 """Socket.IO event handlers for PiKaraoke."""
 
 import logging
+from collections.abc import Callable
+from functools import wraps
 
 from flask import request
 
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
 
 # Track connected splash screen clients and the elected master
 splash_connections = set()
 master_splash_id = None
+
+
+def _guard(handler: Callable) -> Callable:
+    """Drop an event from a client with no admin session.
+
+    Refusing costs no reply: the only control that sends a host-only event is
+    itself host-only in the template.
+    """
+
+    @wraps(handler)
+    def guarded(*args, **kwargs):
+        if not is_admin():
+            logging.warning(f"Refused {handler.__name__}: no admin session")
+            return None
+        return handler(*args, **kwargs)
+
+    return guarded
 
 
 def setup_socket_events(socketio):
@@ -18,7 +37,22 @@ def setup_socket_events(socketio):
         socketio: The SocketIO instance.
     """
 
-    @socketio.on("end_song")
+    # The route gate is a before_request and never sees this surface, so each
+    # handler names its own audience instead. Registering through neither of
+    # these is the one way to open an event by accident, and the tests fail on
+    # a handler that appears in neither roster.
+    open_to_room = socketio.on
+
+    def host_only(event: str) -> Callable:
+        """Register a handler a guest's emit must not reach."""
+
+        def register(handler: Callable) -> Callable:
+            socketio.on(event)(_guard(handler))
+            return handler
+
+        return register
+
+    @open_to_room("end_song")
     def end_song(reason: str) -> None:
         """Handle end_song WebSocket event from client.
 
@@ -28,19 +62,19 @@ def setup_socket_events(socketio):
         k = get_karaoke_instance()
         k.playback_controller.end_song(reason)
 
-    @socketio.on("start_song")
+    @open_to_room("start_song")
     def start_song() -> None:
         """Handle start_song WebSocket event when playback begins."""
         k = get_karaoke_instance()
         k.playback_controller.start_song()
 
-    @socketio.on("clear_notification")
+    @open_to_room("clear_notification")
     def clear_notification() -> None:
         """Handle clear_notification WebSocket event to dismiss notifications."""
         k = get_karaoke_instance()
         k.reset_now_playing_notification()
 
-    @socketio.on("register_splash")
+    @open_to_room("register_splash")
     def register_splash() -> None:
         """Handle splash screen registration and assign master/slave roles."""
         global master_splash_id
@@ -56,7 +90,7 @@ def setup_socket_events(socketio):
             socketio.emit("splash_role", "slave", room=sid)
             logging.info(f"Slave splash screens assigned: {sid}")
 
-    @socketio.on("playback_position")
+    @open_to_room("playback_position")
     def handle_playback_position(position: float) -> None:
         """Handle playback_position WebSocket event from the master splash screen.
 
@@ -71,7 +105,7 @@ def setup_socket_events(socketio):
             # Broadcast position to all other splash screens (slaves)
             socketio.emit("playback_position", position, include_self=False)
 
-    @socketio.on("disconnect")
+    @open_to_room("disconnect")
     def handle_disconnect() -> None:
         """Handle Socket.IO client disconnection and manage splash role handover."""
         global master_splash_id
@@ -89,7 +123,7 @@ def setup_socket_events(socketio):
                     socketio.emit("splash_role", "master", room=new_master)
                     logging.info(f"New master splash elected: {new_master}")
 
-    @socketio.on("request_mic_devices")
+    @host_only("request_mic_devices")
     def handle_request_mic_devices() -> None:
         """Client requests the current mic device list from the server."""
         k = get_karaoke_instance()
@@ -99,7 +133,7 @@ def setup_socket_events(socketio):
             room=request.sid,
         )
 
-    @socketio.on("request_mic_settings")
+    @host_only("request_mic_settings")
     def handle_request_mic_settings() -> None:
         """Client requests current mic global settings (latency, echo cancel)."""
         k = get_karaoke_instance()
@@ -109,7 +143,7 @@ def setup_socket_events(socketio):
             room=request.sid,
         )
 
-    @socketio.on("mic_latency_change")
+    @host_only("mic_latency_change")
     def handle_mic_latency_change(data: dict) -> None:
         """Handle mic latency change from control UI."""
         k = get_karaoke_instance()
@@ -117,7 +151,7 @@ def setup_socket_events(socketio):
         state = k.sound_manager.set_latency_ms(latency_ms)
         socketio.emit("mic_settings_state", state)
 
-    @socketio.on("mic_echo_cancel_change")
+    @host_only("mic_echo_cancel_change")
     def handle_mic_echo_cancel_change(data: dict) -> None:
         """Handle echo cancellation toggle from control UI."""
         k = get_karaoke_instance()
@@ -125,14 +159,14 @@ def setup_socket_events(socketio):
         state = k.sound_manager.set_echo_cancel(enabled)
         socketio.emit("mic_settings_state", state)
 
-    @socketio.on("mic_refresh")
+    @host_only("mic_refresh")
     def handle_mic_refresh() -> None:
         """Re-enumerate mic and output devices server-side and broadcast updated lists."""
         k = get_karaoke_instance()
         enriched = k.sound_manager.refresh()
         socketio.emit("mic_devices_state", enriched)
 
-    @socketio.on("mic_update")
+    @host_only("mic_update")
     def handle_mic_update(data: dict) -> None:
         """Handle mic configuration change from control UI.
 

@@ -318,14 +318,54 @@ class TestFileResolverHandleMp3Cdg:
 
         assert fr.cdg_file_path.casefold() == str(cdg_file).casefold()
 
+    @patch("pikaraoke.lib.file_resolver.decode_mcg", return_value=b"cdg stream")
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_decodes_mcg_when_no_cdg(
+        self, mock_tmp, mock_create, mock_duration, mock_decode, tmp_path
+    ):
+        """Test that a CAVS .mcg is decoded in memory instead of written to disk."""
+        mp3_file = tmp_path / "song.mp3"
+        mcg_file = tmp_path / "song.MCG"
+        mp3_file.touch()
+        mcg_file.touch()
+
+        fr = FileResolver(str(mp3_file))
+
+        assert fr.file_path == str(mp3_file)
+        assert fr.cdg_file_path is None
+        assert fr.cdg_stream == b"cdg stream"
+        assert mock_decode.call_args.args[0].casefold() == str(mcg_file).casefold()
+
+    @patch("pikaraoke.lib.file_resolver.decode_mcg")
+    @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
+    @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
+    @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
+    def test_prefers_cdg_over_mcg(
+        self, mock_tmp, mock_create, mock_duration, mock_decode, tmp_path
+    ):
+        """Test that an existing .cdg is used without converting the .mcg."""
+        mp3_file = tmp_path / "song.mp3"
+        cdg_file = tmp_path / "song.cdg"
+        mp3_file.touch()
+        cdg_file.touch()
+        (tmp_path / "song.mcg").touch()
+
+        fr = FileResolver(str(mp3_file))
+
+        assert fr.cdg_file_path == str(cdg_file)
+        assert fr.cdg_stream is None
+        mock_decode.assert_not_called()
+
     @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
     @patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value="/tmp/12345")
     def test_raises_when_no_cdg(self, mock_tmp, mock_create, tmp_path):
-        """Test that exception is raised when no CDG file exists."""
+        """Test that exception is raised when no CDG or MCG file exists."""
         mp3_file = tmp_path / "song.mp3"
         mp3_file.touch()
 
-        with pytest.raises(Exception, match="No matching .cdg file found"):
+        with pytest.raises(Exception, match="No matching .cdg or .mcg file found"):
             FileResolver(str(mp3_file))
 
 

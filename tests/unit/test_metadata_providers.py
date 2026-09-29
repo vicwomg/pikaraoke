@@ -457,7 +457,17 @@ class TestNormalizeForMatching:
     """Tests for _normalize_for_matching edge cases."""
 
     def test_strips_commas(self):
-        assert _normalize_for_matching("Commodores, The") == "commodores the"
+        assert _normalize_for_matching("Sex Machine, Pt. 1") == "sex machine pt 1"
+
+    def test_folds_an_article_wherever_the_library_puts_it(self):
+        """All three forms have to reach the one string, or the two the vendor
+        did not write are left unable to confirm against it."""
+        assert _normalize_for_matching("Commodores, The") == "commodores"
+        assert _normalize_for_matching("The Commodores") == "commodores"
+        assert _normalize_for_matching("Commodores") == "commodores"
+
+    def test_a_name_that_is_only_an_article_survives(self):
+        assert _normalize_for_matching("The The") == "the"
 
     def test_collapses_dotted_acronyms(self):
         assert _normalize_for_matching("D.I.V.O.R.C.E.") == "divorce"
@@ -683,6 +693,26 @@ class TestScoreAnchoring:
         """The tidy decides confidence; the raw stem decides whether there is
         anything to apply. Confirmed fields alone must not reach 100."""
         assert _anchored("Beyoncé - Halo (Official Video)", "Beyoncé", "Halo") == 98
+
+    def test_a_misplaced_article_is_one_correction(self):
+        """The vendor-export "Commodores, The" names the same artist iTunes
+        does, so the rename that fixes it is a rewrite, not a failed match."""
+        commodores = ("The Commodores", "Three Times a Lady")
+        assert _anchored("Commodores, The - Three Times a Lady", *commodores) == 98
+        assert _anchored("Commodores - Three Times a Lady", *commodores) == 98
+        assert _anchored("Beatles - Hey Jude", "The Beatles", "Hey Jude") == 98
+        assert _anchored("Simon & Garfunkel - Boxer, The", "Simon & Garfunkel", "The Boxer") == 98
+
+    def test_folding_an_article_does_not_excuse_a_variant(self):
+        """The guard reads the title, which the fold does not reach past."""
+        assert (
+            _anchored(
+                "Commodores, The - Three Times a Lady (Live)",
+                "The Commodores",
+                "Three Times a Lady",
+            )
+            <= 94
+        )
 
     def test_the_variant_guard_ignores_karaoke(self):
         """'(Karaoke Version)' is this app's commonest noise token. Treating it

@@ -77,3 +77,28 @@ def test_start_noop_when_disabled(tmp_path, monkeypatch):
     manager.start()
 
     assert called is False
+
+
+def test_start_reenables_a_saved_mic(tmp_path, monkeypatch):
+    """An enabled mic comes back at startup, with nobody logged in.
+
+    The mic is a server-side loopback restored by start(), long before any
+    browser connects, so gating the socket handlers cannot reach it. A host
+    who switched a mic on keeps it whether or not anyone has a session.
+    """
+    monkeypatch.setattr(sm, "_HAS_PACTL", True)
+    monkeypatch.setattr(sm, "_SOUNDDEVICE_AVAILABLE", True)
+    manager = _make_manager(tmp_path, enabled=True)
+
+    device = {"label": "USB Mic", "deviceId": "3"}
+    monkeypatch.setattr(manager, "enumerate_devices", lambda: manager._device_list)
+    manager._device_list = [device]
+    monkeypatch.setattr(
+        manager, "load_settings", lambda: {"USB Mic": {"enabled": True, "volume": 0.6}}
+    )
+    activated = []
+    monkeypatch.setattr(manager, "activate", lambda d, v: bool(activated.append((d, v))) or True)
+
+    manager.start()
+
+    assert activated == [("3", 0.6)]

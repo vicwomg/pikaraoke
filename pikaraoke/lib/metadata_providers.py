@@ -55,6 +55,10 @@ _WHITESPACE_RE = re.compile(r"\s+")
 # Stylized character substitutions used by artists (P!nk -> Pink, Ke$ha -> Kesha)
 _STYLIZED_CHARS = str.maketrans({"!": "i", "$": "s"})
 
+# Leading or trailing, because a library writes the same name three ways:
+# "The Commodores", "Commodores, The", and the vendor's bare "Commodores".
+_ARTICLE_RE = re.compile(r"^(?:the|a|an)\s+|\s+(?:the|a|an)$")
+
 
 def _fix_ssl_recursion() -> None:
     """Fix ssl.SSLContext.minimum_version RecursionError.
@@ -233,7 +237,8 @@ def _normalize_for_matching(text: str) -> str:
     """Normalize text for fuzzy matching: punctuation, case, and conjunctions.
 
     Extends normalize_for_comparison (which handles punctuation and case) with:
-    - Comma stripping: 'Commodores, The' matches 'The Commodores'
+    - Comma stripping: 'Sex Machine, Pt. 1' matches 'Sex Machine Pt 1'
+    - Article folding: 'Commodores, The' matches 'The Commodores' and 'Commodores'
     - Dotted-letter collapse: 'D.I.V.O.R.C.E.' -> 'divorce', 'S.O.S.' -> 'sos'
     - Conjunction normalization: 'Simon And Garfunkel' matches 'Simon & Garfunkel'
     """
@@ -244,7 +249,8 @@ def _normalize_for_matching(text: str) -> str:
     # like "D.I.V.O.R.C.E." which normalize_for_comparison turns into "d i v o r c e")
     normalized = _SINGLE_LETTER_SEQ_RE.sub(_collapse_single_letters, normalized)
     normalized = _WHITESPACE_RE.sub(" ", normalized).strip()
-    return normalized
+    # "or normalized" so a name that is nothing but an article survives.
+    return _ARTICLE_RE.sub("", normalized).strip() or normalized
 
 
 def _words_near_match(w1: str, w2: str) -> bool:

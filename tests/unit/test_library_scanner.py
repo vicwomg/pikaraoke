@@ -335,6 +335,14 @@ class TestBuildSongRecord:
         record = build_song_record(str(mp3))
         assert record["format"] == "cdg"
 
+    def test_mcg_pair_detected_as_cdg(self, tmp_path):
+        mp3 = tmp_path / "Track.mp3"
+        mcg = tmp_path / "Track.MCG"
+        mp3.touch()
+        mcg.touch()
+        record = build_song_record(str(mp3))
+        assert record["format"] == "cdg"
+
     def test_mp4_ass_pair_detected(self, tmp_path):
         mp4 = tmp_path / "Song---abc1234567x.mp4"
         ass = tmp_path / "Song---abc1234567x.ass"

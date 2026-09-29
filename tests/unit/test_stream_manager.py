@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.preference_manager import PreferenceManager
-from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager, enqueue_output
+from pikaraoke.lib.stream_manager import (
+    PlaybackResult,
+    StreamManager,
+    enqueue_output,
+    feed_stdin,
+)
 
 
 @pytest.fixture
@@ -316,6 +321,24 @@ class TestStreamManagerCheckHlsBuffer:
         assert result is False
 
 
+class TestFeedStdin:
+    """Tests for the feed_stdin function."""
+
+    def test_writes_data_then_closes(self):
+        process = MagicMock()
+
+        feed_stdin(process, b"cdg stream")
+
+        process.stdin.write.assert_called_once_with(b"cdg stream")
+        process.stdin.close.assert_called_once()
+
+    def test_tolerates_ffmpeg_killed_mid_write(self):
+        process = MagicMock()
+        process.stdin.write.side_effect = BrokenPipeError
+
+        feed_stdin(process, b"cdg stream")
+
+
 class TestStreamManagerTranscodeFile:
     """Tests for StreamManager._transcode_file method."""
 
@@ -326,6 +349,7 @@ class TestStreamManagerTranscodeFile:
         mock_fr.output_file = "/tmp/12345.mp4"
         mock_fr.duration = 180
         mock_fr.tmp_dir = "/tmp"
+        mock_fr.cdg_stream = None
         mock_fr.get_current_stream_size.return_value = 500000
         return mock_fr
 
@@ -352,6 +376,21 @@ class TestStreamManagerTranscodeFile:
         assert is_complete is True
         mock_build_cmd.assert_called_once()
         mock_cmd.run_async.assert_called_once_with(pipe_stderr=True, pipe_stdin=True)
+
+    @patch("pikaraoke.lib.stream_manager.Thread")
+    @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
+    def test_transcode_feeds_decoded_mcg_to_stdin(self, mock_build_cmd, mock_thread, test_prefs):
+        """Test that graphics decoded from an .mcg are piped into ffmpeg."""
+        sm = StreamManager(test_prefs)
+        _, mock_process = self._make_mock_ffmpeg(mock_build_cmd, poll_return=0)
+        fr = self._make_mock_fr()
+        fr.cdg_stream = b"cdg stream"
+
+        sm._transcode_file(fr, semitones=0, is_hls=False)
+
+        feeders = [c for c in mock_thread.call_args_list if c.kwargs["target"] is feed_stdin]
+        assert len(feeders) == 1
+        assert feeders[0].kwargs["args"] == (mock_process, b"cdg stream")
 
     @patch("pikaraoke.lib.stream_manager.Thread")
     @patch("pikaraoke.lib.stream_manager.build_ffmpeg_cmd")
