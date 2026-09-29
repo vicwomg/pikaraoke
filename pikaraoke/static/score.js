@@ -29,9 +29,13 @@ async function showFinalScoreWithAudio(
   scoreTextElement.text(String(scoreValue).padStart(2, "0"));
   scoreReviewElement.text(scoreData.review);
   launchFireworkShow(scoreValue);
-  applauseElement.play();
+  // The song's end report waits behind this, so applause that never plays or
+  // never finishes must not hold the score screen open. The clips run under 8s.
+  const applauseTimeout = 10000;
   return new Promise((resolve) => {
     applauseElement.onended = resolve;
+    setTimeout(resolve, applauseTimeout);
+    applauseElement.play().catch((e) => console.log("Applause blocked", e));
   });
 }
 

@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.playback_controller import PlaybackController, PlaybackResult
+from pikaraoke.lib.playback_controller import (
+    OVERRUN_MARGIN_S,
+    PlaybackController,
+    PlaybackResult,
+)
 from pikaraoke.lib.preference_manager import PreferenceManager
 
 # Stream uids are hashes of the file path and a timestamp, so playback ids
@@ -436,6 +440,115 @@ class TestPlaybackControllerPause:
         result = pc.pause()
 
         assert result is False
+
+
+@patch("pikaraoke.lib.playback_controller.time.sleep")
+@patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+@patch("pikaraoke.lib.playback_controller.time.monotonic")
+class TestPlaybackControllerDeadline:
+    """The server ends a song no player reported ending, once it has overrun."""
+
+    DURATION = 200
+
+    def _playing(self, test_prefs, mock_monotonic):
+        """A controller whose 200s song started at t=1000."""
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+        pc.now_playing = "Test Song"
+        pc.now_playing_duration = self.DURATION
+        pc.playback_id = PLAYBACK_UID
+        pc.is_paused = False
+        pc.stream_manager.kill_ffmpeg = MagicMock()
+        mock_monotonic.return_value = 1000
+        pc.start_song(PLAYBACK_UID)
+        return pc
+
+    def test_ends_a_song_once_it_overruns(
+        self, mock_monotonic, mock_delete, mock_sleep, test_prefs
+    ):
+        pc = self._playing(test_prefs, mock_monotonic)
+        reasons = []
+        pc.events.on("song_ended", lambda reason=None: reasons.append(reason))
+
+        mock_monotonic.return_value = 1000 + self.DURATION + OVERRUN_MARGIN_S - 1
+        pc.end_if_overran()
+        assert pc.is_playing is True
+
+        mock_monotonic.return_value = 1000 + self.DURATION + OVERRUN_MARGIN_S + 1
+        pc.end_if_overran()
+        assert pc.is_playing is False
+        assert reasons == ["no end reported"]
+
+    def test_a_pause_holds_the_deadline_back(
+        self, mock_monotonic, mock_delete, mock_sleep, test_prefs
+    ):
+        pc = self._playing(test_prefs, mock_monotonic)
+
+        mock_monotonic.return_value = 1100
+        pc.pause()
+        mock_monotonic.return_value = 1400
+        pc.end_if_overran()
+        assert pc.is_playing is True, "a paused song is never overdue"
+        pc.pause()
+
+        mock_monotonic.return_value = 1000 + self.DURATION + OVERRUN_MARGIN_S + 1
+        pc.end_if_overran()
+        assert pc.is_playing is True, "the 300s paused are added back"
+
+        mock_monotonic.return_value = 1000 + self.DURATION + OVERRUN_MARGIN_S + 301
+        pc.end_if_overran()
+        assert pc.is_playing is False
+
+    def test_a_restart_starts_the_deadline_over(
+        self, mock_monotonic, mock_delete, mock_sleep, test_prefs
+    ):
+        pc = self._playing(test_prefs, mock_monotonic)
+
+        mock_monotonic.return_value = 1150
+        pc.restart()
+        mock_monotonic.return_value = 1000 + self.DURATION + OVERRUN_MARGIN_S + 1
+        pc.end_if_overran()
+
+        assert pc.is_playing is True
+
+    def test_a_repeated_start_report_does_not_move_the_deadline(
+        self, mock_monotonic, mock_delete, mock_sleep, test_prefs
+    ):
+        """HLS players refetch the playlist, and each fetch reports a start."""
+        pc = self._playing(test_prefs, mock_monotonic)
+
+        mock_monotonic.return_value = 1150
+        pc.start_song(PLAYBACK_UID)
+        mock_monotonic.return_value = 1000 + self.DURATION + OVERRUN_MARGIN_S + 1
+        pc.end_if_overran()
+
+        assert pc.is_playing is False
+
+    def test_no_deadline_without_a_duration(
+        self, mock_monotonic, mock_delete, mock_sleep, test_prefs
+    ):
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+        pc.now_playing = "Test Song"
+        pc.playback_id = PLAYBACK_UID
+        mock_monotonic.return_value = 1000
+        pc.start_song(PLAYBACK_UID)
+
+        mock_monotonic.return_value = 1_000_000
+        pc.end_if_overran()
+
+        assert pc.is_playing is True
+
+    def test_a_song_that_ended_leaves_no_deadline_behind(
+        self, mock_monotonic, mock_delete, mock_sleep, test_prefs
+    ):
+        pc = self._playing(test_prefs, mock_monotonic)
+        pc.end_song("complete", PLAYBACK_UID)
+        reasons = []
+        pc.events.on("song_ended", lambda reason=None: reasons.append(reason))
+
+        mock_monotonic.return_value = 1_000_000
+        pc.end_if_overran()
+
+        assert reasons == []
 
 
 class TestPlaybackControllerGetNowPlaying:

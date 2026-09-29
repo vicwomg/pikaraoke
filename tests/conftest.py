@@ -156,6 +156,9 @@ class MockPlaybackController:
             return True
         return False
 
+    def restart(self) -> None:
+        self.is_paused = False
+
     def reset_now_playing(self) -> None:
         self.now_playing = None
         self.now_playing_filename = None
