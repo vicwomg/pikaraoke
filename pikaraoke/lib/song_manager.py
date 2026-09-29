@@ -247,7 +247,7 @@ class SongManager:
         return [path for _, path in self._scoped_index(folder)]
 
     def _get_companion_files(self, song_path: str) -> list[str]:
-        """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
+        """Return paths to companion files (.cdg, .mcg, .ass) that exist alongside a song."""
         dirpath = os.path.dirname(song_path)
         base = os.path.splitext(os.path.basename(song_path))[0]
         try:
@@ -258,7 +258,7 @@ class SongManager:
         companions = []
         for f in files:
             f_base, f_ext = os.path.splitext(f)
-            if f_base.lower() == base_lower and f_ext.lower() in (".cdg", ".ass"):
+            if f_base.lower() == base_lower and f_ext.lower() in (".cdg", ".mcg", ".ass"):
                 companions.append(os.path.join(dirpath, f))
         return companions
 

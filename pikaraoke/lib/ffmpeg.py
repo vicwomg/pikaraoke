@@ -57,7 +57,7 @@ def build_ffmpeg_cmd(
         ffmpeg stream object ready to execute with run_async().
     """
     avsync = float(avsync)
-    is_cdg = fr.cdg_file_path is not None
+    is_cdg = fr.cdg_file_path is not None or fr.cdg_stream is not None
     is_transposed = semitones != 0
 
     if fr.file_path is None:
@@ -111,7 +111,11 @@ def build_ffmpeg_cmd(
     # Video source: CDG input or original video stream
     if is_cdg:
         logging.info("Playing CDG/MP3 file: " + fr.file_path)
-        cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
+        if fr.cdg_stream is not None:
+            # Decoded from an .mcg; the caller writes it to ffmpeg's stdin
+            cdg_input = ffmpeg.input("pipe:", f="cdg", copyts=None)
+        else:
+            cdg_input = ffmpeg.input(fr.cdg_file_path, copyts=None)
         video = cdg_input.video.filter("fps", fps=25)
         # CDG graphics end 7-17s before the music, and Chromium 150+ stops at the
         # shorter track rather than playing through, so "ended" never fires (#942).
