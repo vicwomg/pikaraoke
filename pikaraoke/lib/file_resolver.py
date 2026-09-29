@@ -106,7 +106,8 @@ class FileResolver:
         segment_pattern: Pattern for HLS segment filenames.
         init_filename: Filename for HLS initialization segment.
         streaming_format: Video streaming format ('hls' or 'mp4').
-        duration: Duration of the media file in seconds.
+        duration: Duration of the media file in seconds, rounded.
+        duration_exact: Unrounded duration, used for the CDG output trim.
     """
 
     file_path: str | None = None
@@ -256,4 +257,8 @@ class FileResolver:
             self.handle_aegissub_subtile(file_path)
         if not self.file_path:
             raise ValueError("File path is required to process file")
-        self.duration = get_media_duration(self.file_path)
+        duration = get_media_duration(self.file_path)
+        # duration is what the UI shows; duration_exact drives the CDG -t trim, where
+        # rounding to the nearest second would clip the end of the song.
+        self.duration = round(duration) if duration is not None else None
+        self.duration_exact = duration
