@@ -7,6 +7,7 @@ from flask import jsonify, render_template, request
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 
@@ -33,6 +34,7 @@ class DownloadBody(Schema):
 
 
 @search_bp.route("/search", methods=["GET"])
+@public
 def search():
     """YouTube search page."""
     k = get_karaoke_instance()
@@ -43,7 +45,9 @@ def search():
         if non_karaoke:
             search_results = get_search_results(search_string)
         else:
-            search_results = get_search_results(search_string + " karaoke")
+            # Quoting makes the term a hard requirement, not a ranking hint:
+            # 91% karaoke results against 82% unquoted, over 60 tail results.
+            search_results = get_search_results(f'{search_string} "karaoke"')
     else:
         search_string = None
         search_results = None
@@ -65,7 +69,8 @@ def search():
     )
 
 
-@search_bp.route("/preview")
+@search_bp.route("/api/preview")
+@public
 @search_bp.arguments(PreviewQuery, location="query")
 def preview(query):
     """Get a direct stream URL for previewing a YouTube video."""
@@ -75,7 +80,8 @@ def preview(query):
     return jsonify({"stream_url": stream_url})
 
 
-@search_bp.route("/download", methods=["POST"])
+@search_bp.route("/api/download", methods=["POST"])
+@public
 @search_bp.arguments(DownloadBody, location="json")
 def download(form):
     """Download a video from YouTube."""

@@ -5,20 +5,14 @@ endpoint in these blueprints must be closed to non-admins.
 """
 
 import json
-
-import pytest
-import werkzeug
-from flask import Flask
-
-# Monkeypatch werkzeug.__version__ for Flask compatibility if missing
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
-
 from unittest.mock import MagicMock, patch
 
+import pytest
+from flask import Flask
 from flask_babel import Babel
 
 from pikaraoke.lib.admin_auth import AdminAuth
+from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.play_history_manager import SESSION_NAME_MAX_LENGTH
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.sessions import sessions_bp
@@ -45,8 +39,9 @@ def app(admin_auth):
     test_app.register_blueprint(sessions_bp)
 
     # The non-admin redirect target; the real app supplies this via home_bp.
-    test_app.add_url_rule("/", endpoint="home.home", view_func=lambda: "home")
+    test_app.add_url_rule("/", endpoint="home.home", view_func=public(lambda: "home"))
 
+    install_auth_gate(test_app)
     return test_app
 
 

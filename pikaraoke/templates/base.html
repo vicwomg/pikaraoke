@@ -290,9 +290,8 @@
           "&song_added_by=" +
           encodeURIComponent(resolveSinger());
         $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
-          var obj = JSON.parse(data);
           // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
-          showNotification(obj.success[1], obj.success[0] ? "is-success" : "is-danger");
+          showNotification(data.success[1], data.success[0] ? "is-success" : "is-danger");
         });
       });
     }

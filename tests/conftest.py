@@ -8,6 +8,7 @@ import pytest
 from flask import Flask
 from flask_babel import Babel
 
+from pikaraoke.lib.auth import document_auth, install_auth_gate, public
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -29,17 +30,38 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/history", "sessions.history"),
     ("/sessions", "sessions.sessions"),
     ("/api/sessions/singers", "sessions_api.get_singers"),
-    ("/enqueue", "queue.enqueue_form"),
+    ("/api/enqueue", "queue.enqueue_form"),
 ]
 
 
-def make_route_app(blueprint, linked_endpoints):
+class StubAdminAuth:
+    """Just enough of AdminAuth for is_admin() to answer a fixed way.
+
+    No password set means everyone is an admin; a password set that no session
+    token matches means nobody is.
+    """
+
+    def __init__(self, admin: bool) -> None:
+        self._admin = admin
+
+    def is_password_set(self) -> bool:
+        return not self._admin
+
+    @property
+    def session_token(self) -> str:
+        return "not-the-session-cookie"
+
+
+def make_route_app(blueprint, linked_endpoints, admin: bool = True):
     """A Flask app with just enough wiring to render one blueprint's templates.
 
     `linked_endpoints` are the (rule, endpoint) pairs the templates url_for()
     but the blueprint under test does not itself define, so they need stubs.
+    `admin` decides what the authorization gate makes of the caller.
     """
     app = Flask(__name__, template_folder=str(PIKARAOKE_PACKAGE / "templates"))
+    app.secret_key = "test"
+    app.config["ADMIN_AUTH"] = StubAdminAuth(admin)
     Babel(app)
     app.register_blueprint(blueprint)
     endpoints = {endpoint: rule for rule, endpoint in _BASE_TEMPLATE_ENDPOINTS}
@@ -48,7 +70,7 @@ def make_route_app(blueprint, linked_endpoints):
         # The blueprint under test defines some of these for real; stubbing over
         # one would replace the view the test is exercising.
         if endpoint not in app.view_functions:
-            app.add_url_rule(rule, endpoint, lambda: "", methods=["GET"])
+            app.add_url_rule(rule, endpoint, public(lambda: ""), methods=["GET"])
 
     @app.context_processor
     def inject_path_config():
@@ -56,13 +78,41 @@ def make_route_app(blueprint, linked_endpoints):
 
     # app.py binds these at import for the same reason: base.html calls them on
     # every render, so a page rendered without them fails on an undefined name.
-    # Off by default -- a test that wants the admin or KJ markup overrides them.
+    # The session pair is off unless a test overrides it.
     app.jinja_env.globals.update(
         url_escape=quote,
-        is_admin=lambda: False,
+        is_admin=lambda: admin,
         has_active_session=lambda: False,
         active_session_name=lambda: "",
     )
+    install_auth_gate(app)
+    return app
+
+
+@pytest.fixture
+def real_app():
+    """Every blueprint the app registers, wired the same way.
+
+    Off the same lists app.py registers, so a new blueprint cannot reach the app
+    while missing here. Built rather than imported from app.py, which parses
+    argv and opens the data directory at import.
+    """
+    # Imported here, not at module scope: the route tree costs ~1.1s to import
+    # and only these tests need it.
+    from flask_smorest import Api
+
+    from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
+
+    app = Flask(__name__)
+    app.config.update(
+        API_TITLE="PiKaraoke", API_VERSION="test", OPENAPI_VERSION="3.0.2", OPENAPI_URL_PREFIX="/"
+    )
+    api = Api(app)
+    for bp in API_BLUEPRINTS:
+        api.register_blueprint(bp)
+    for bp in INTERNAL_BLUEPRINTS:
+        app.register_blueprint(bp)
+    document_auth(app, api)
     return app
 
 

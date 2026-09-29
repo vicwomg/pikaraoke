@@ -6,6 +6,7 @@ import random
 from flask import abort, jsonify, send_from_directory, url_for
 from flask_smorest import Blueprint
 
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance
 
 background_music_bp = Blueprint("bg_music", __name__)
@@ -28,6 +29,7 @@ def _shuffled_tracks(path: str, limit: int = 50) -> list[str]:
 
 
 @background_music_bp.route("/bg_music/<file>", methods=["GET"])
+@public
 def bg_music(file):
     """Stream a background music file.
 
@@ -44,7 +46,8 @@ def bg_music(file):
     return send_from_directory(_track_directory(k.bg_music_path), file)
 
 
-@background_music_bp.route("/bg_playlist", methods=["GET"])
+@background_music_bp.route("/api/bg_playlist", methods=["GET"])
+@public
 def bg_playlist():
     """Get a randomized background music playlist."""
     k = get_karaoke_instance()

@@ -3,14 +3,12 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
 from flask import Flask
 
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
-
+from pikaraoke.lib.auth import install_auth_gate
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.preferences import preferences_bp
+from tests.conftest import StubAdminAuth
 
 ROUTE_PREFIX = "pikaraoke.routes.preferences"
 
@@ -19,7 +17,9 @@ ROUTE_PREFIX = "pikaraoke.routes.preferences"
 def app():
     test_app = Flask(__name__)
     test_app.secret_key = "test"
+    test_app.config["ADMIN_AUTH"] = StubAdminAuth(admin=True)
     test_app.register_blueprint(preferences_bp)
+    install_auth_gate(test_app)
     return test_app
 
 
@@ -33,7 +33,6 @@ def route_mocks():
     """Patch all external dependencies used by preference routes."""
     with (
         patch(f"{ROUTE_PREFIX}.get_karaoke_instance") as mock_get_instance,
-        patch(f"{ROUTE_PREFIX}.is_admin", return_value=True),
         patch(f"{ROUTE_PREFIX}.broadcast_event") as mock_broadcast,
         patch(f"{ROUTE_PREFIX}._get_active_score_phrases") as mock_phrases,
     ):
@@ -52,7 +51,7 @@ class TestChangePreferencesBroadcast:
     def test_broadcasts_preferences_update_on_success(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
 
-        client.post("/change_preferences", data={"pref": "disable_bg_video", "val": "True"})
+        client.post("/api/change_preferences", data={"pref": "disable_bg_video", "val": "True"})
 
         route_mocks["broadcast"].assert_any_call(
             "preferences_update", {"key": "disable_bg_video", "value": "True"}
@@ -61,7 +60,7 @@ class TestChangePreferencesBroadcast:
     def test_does_not_broadcast_on_failure(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (False, "Error")
 
-        client.post("/change_preferences", data={"pref": "volume", "val": "0.5"})
+        client.post("/api/change_preferences", data={"pref": "volume", "val": "0.5"})
 
         route_mocks["broadcast"].assert_not_called()
 
@@ -69,7 +68,7 @@ class TestChangePreferencesBroadcast:
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
         route_mocks["phrases"].return_value = {"low": ["Bad"], "mid": ["OK"], "high": ["Great"]}
 
-        client.post("/change_preferences", data={"pref": "low_score_phrases", "val": "Bad"})
+        client.post("/api/change_preferences", data={"pref": "low_score_phrases", "val": "Bad"})
 
         assert route_mocks["broadcast"].call_count == 2
         route_mocks["broadcast"].assert_any_call(
@@ -82,7 +81,7 @@ class TestChangePreferencesBroadcast:
     def test_non_score_pref_does_not_broadcast_score_phrases(self, client, route_mocks):
         route_mocks["karaoke"].preferences.set.return_value = (True, "Success")
 
-        client.post("/change_preferences", data={"pref": "hide_overlay", "val": "True"})
+        client.post("/api/change_preferences", data={"pref": "hide_overlay", "val": "True"})
 
         assert route_mocks["broadcast"].call_count == 1
         route_mocks["broadcast"].assert_called_once_with(
@@ -97,8 +96,9 @@ class TestClearPreferencesBroadcast:
         route_mocks["karaoke"].preferences.reset_all.return_value = (True, "Success")
         route_mocks["phrases"].return_value = {"low": ["L"], "mid": ["M"], "high": ["H"]}
 
-        client.post("/clear_preferences", follow_redirects=False)
+        response = client.post("/api/clear_preferences")
 
+        assert response.get_json() == [True, "Success"]
         route_mocks["broadcast"].assert_any_call("preferences_reset", PreferenceManager.DEFAULTS)
         route_mocks["broadcast"].assert_any_call(
             "score_phrases_update", {"low": ["L"], "mid": ["M"], "high": ["H"]}
@@ -107,6 +107,7 @@ class TestClearPreferencesBroadcast:
     def test_does_not_broadcast_on_reset_failure(self, client, route_mocks):
         route_mocks["karaoke"].preferences.reset_all.return_value = (False, "Error")
 
-        client.post("/clear_preferences", follow_redirects=False)
+        response = client.post("/api/clear_preferences")
 
+        assert response.get_json() == [False, "Error"]
         route_mocks["broadcast"].assert_not_called()

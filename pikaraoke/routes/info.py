@@ -8,13 +8,19 @@ from flask_smorest import Blueprint
 from pikaraoke import VERSION
 from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
 from pikaraoke.lib import keep_awake
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import (
     get_admin_auth,
     get_karaoke_instance,
     get_site_name,
     is_admin,
 )
-from pikaraoke.lib.get_platform import get_platform, is_linux, is_running_in_docker
+from pikaraoke.lib.get_platform import (
+    get_installed_js_runtime,
+    get_platform,
+    is_linux,
+    is_running_in_docker,
+)
 
 _ = flask_babel.gettext
 
@@ -23,6 +29,7 @@ info_bp = Blueprint("info", __name__)
 
 
 @info_bp.route("/info")
+@public
 def info():
     """System information and settings page."""
     k = get_karaoke_instance()
@@ -49,6 +56,7 @@ def info():
         ffmpeg_version=k.ffmpeg_version,
         is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
+        js_runtime=get_installed_js_runtime(),
         pikaraoke_version=VERSION,
         cpu=None,
         memory=None,
@@ -98,16 +106,13 @@ def info():
     )
 
 
-@info_bp.route("/info/stats")
+@info_bp.route("/api/info/stats")
 def get_system_stats():
     """Get system statistics (CPU, Memory, Disk).
 
     Returns:
         JSON response with system stats.
     """
-    if not is_admin():
-        return jsonify({"error": "Unauthorized"}), 403
-
     # cpu
     try:
         # We can afford to block a bit here since it is async
