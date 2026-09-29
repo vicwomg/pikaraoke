@@ -1,6 +1,7 @@
 """Tests for admin authentication routes."""
 
 import datetime
+import logging
 import subprocess
 from unittest.mock import MagicMock, patch
 
@@ -182,7 +183,7 @@ def _halt(commands, *, refuse=(), missing=False):
         patch("pikaraoke.routes.admin.time.sleep"),
         patch("pikaraoke.routes.admin.subprocess.run", side_effect=run),
     ):
-        delayed_halt(k, commands, "refused")
+        delayed_halt(k, [("Halting", cmd) for cmd in commands], "refused")
     return k, ran
 
 
@@ -208,6 +209,25 @@ class TestDelayedHalt:
         k.stop.assert_not_called()
         k.reset_now_playing_notification.assert_called_once()
         k.send_notification.assert_called_once_with("refused", "danger")
+
+    def test_a_sudo_success_logs_what_ran_without_a_warning(self, caplog):
+        """Stock Pi OS always refuses the direct attempt; that is not a fault."""
+        caplog.set_level(logging.INFO)
+
+        _halt([POWEROFF], refuse=[POWEROFF])
+
+        [record] = caplog.records
+        assert record.levelno == logging.INFO
+        assert record.message == (
+            "Halting: ran sudo -n systemctl poweroff, after systemctl poweroff: denied"
+        )
+
+    def test_a_refusal_logs_both_reasons_and_the_rule_once(self, caplog):
+        _halt([POWEROFF], refuse=[POWEROFF, ["sudo", "-n", *POWEROFF]])
+
+        [record] = caplog.records
+        assert "systemctl poweroff: denied; sudo -n systemctl poweroff: denied" in record.message
+        assert "NOPASSWD:" in record.message
 
     def test_a_missing_binary_is_a_refusal(self):
         k, _ = _halt([POWEROFF], missing=True)
