@@ -2,12 +2,8 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
 from flask import Flask
-
-# Monkeypatch werkzeug.__version__ for Flask compatibility if missing
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
+from flask_babel import Babel
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
@@ -19,6 +15,7 @@ from pikaraoke.routes.queue import queue_bp
 def app():
     """Create a Flask app for testing."""
     test_app = Flask(__name__)
+    Babel(test_app)
     test_app.register_blueprint(queue_bp)
     return test_app
 
@@ -42,11 +39,37 @@ class TestQueueRoutes:
         expected_status = {"active": {"title": "Test Song", "progress": 50}, "pending": []}
         mock_karaoke.download_manager.get_downloads_status.return_value = expected_status
 
-        response = client.get("/queue/downloads")
+        response = client.get("/api/queue/downloads")
 
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data == expected_status
+
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_add_random_says_when_the_library_ran_dry(
+        self, mock_get_instance, mock_broadcast, client
+    ):
+        """The only outcome the queue redrawing does not already show."""
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.queue_add_random.return_value = False
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post("/api/queue/addrandom/3")
+
+        assert response.status_code == 200
+        assert response.get_json() == {"success": False, "message": "Ran out of songs!"}
+
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_add_random_stays_quiet_when_it_worked(self, mock_get_instance, mock_broadcast, client):
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.queue_add_random.return_value = True
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post("/api/queue/addrandom/3")
+
+        assert response.get_json() == {"success": True, "message": ""}
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     def test_delete_download_error(self, mock_get_instance, client):
@@ -56,13 +79,13 @@ class TestQueueRoutes:
 
         # Test successful deletion
         mock_karaoke.download_manager.remove_error.return_value = True
-        response = client.delete("/queue/downloads/errors/123")
+        response = client.delete("/api/queue/downloads/errors/123")
         assert response.status_code == 200
         assert json.loads(response.data)["success"] is True
 
         # Test not found
         mock_karaoke.download_manager.remove_error.return_value = False
-        response = client.delete("/queue/downloads/errors/999")
+        response = client.delete("/api/queue/downloads/errors/999")
         assert response.status_code == 404
         assert json.loads(response.data)["success"] is False
 
@@ -88,7 +111,7 @@ class TestQueueApiContract:
         ]
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/get_queue")
+        response = client.get("/api/get_queue")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -108,7 +131,7 @@ class TestQueueApiContract:
         mock_karaoke.queue_manager.queue = []
         mock_get_instance.return_value = mock_karaoke
 
-        response = client.get("/get_queue")
+        response = client.get("/api/get_queue")
 
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -181,10 +204,8 @@ class TestQueueEditSocketUpdates:
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_queue_edit_emits_events(
         self,
-        mock_gettext,
         mock_broadcast,
         mock_get_instance,
         mock_is_admin,
@@ -198,9 +219,10 @@ class TestQueueEditSocketUpdates:
         qm.queue = [_make_queue_item(1), _make_queue_item(2)]
         mock_get_instance.return_value = mock_karaoke
 
-        response = client_with_session.post(f"/queue/edit?action={action}{song_param}")
+        response = client_with_session.post(f"/api/queue/edit?action={action}{song_param}")
 
-        assert response.status_code == 302
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
         assert len(queue_updates) >= 1, "queue_update event should be emitted"
         assert len(now_playing_updates) >= 1, "now_playing_update event should be emitted"
 
@@ -213,10 +235,8 @@ class TestQueueEditSocketUpdates:
     )
     @patch("pikaraoke.routes.queue.is_admin", return_value=True)
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
     def test_queue_edit_top_bottom_emits_events(
         self,
-        mock_gettext,
         mock_get_instance,
         mock_is_admin,
         client_with_session,
@@ -230,9 +250,10 @@ class TestQueueEditSocketUpdates:
         qm.queue = [_make_queue_item(1), _make_queue_item(2), _make_queue_item(3)]
         mock_get_instance.return_value = mock_karaoke
 
-        response = client_with_session.post(f"/queue/edit?action={action}{song_param}")
+        response = client_with_session.post(f"/api/queue/edit?action={action}{song_param}")
 
-        assert response.status_code == 302
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
         assert qm.queue[expected_new_index]["file"] in song_param.split("=")[1]
         assert len(queue_updates) == 1, "queue_update event should be emitted once"
         assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"
@@ -248,7 +269,7 @@ class TestQueueEditSocketUpdates:
         mock_get_instance.return_value = mock_karaoke
 
         response = client_with_session.post(
-            "/queue/reorder", data={"old_index": "1", "new_index": "3"}
+            "/api/queue/reorder", data={"old_index": "1", "new_index": "3"}
         )
 
         assert response.status_code == 200

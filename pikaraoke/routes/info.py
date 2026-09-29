@@ -8,7 +8,7 @@ from flask_smorest import Blueprint
 from pikaraoke import VERSION
 from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
 from pikaraoke.lib import keep_awake
-from pikaraoke.lib.auth import answers_json, public
+from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import (
     get_admin_auth,
     get_karaoke_instance,
@@ -106,8 +106,7 @@ def info():
     )
 
 
-@info_bp.route("/info/stats")
-@answers_json
+@info_bp.route("/api/info/stats")
 def get_system_stats():
     """Get system statistics (CPU, Memory, Disk).
 

@@ -4,10 +4,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import werkzeug
-
-if not hasattr(werkzeug, "__version__"):
-    werkzeug.__version__ = "3.0.0"
 
 from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.metadata_parser import sanitize_filename
@@ -46,7 +42,7 @@ def _accept(client, k, old_name, new_name):
     """POST the accept button's form, as the page's jQuery does."""
     with patch("pikaraoke.routes.batch_song_renamer.get_karaoke_instance", return_value=k):
         response = client.post(
-            "/batch-song-renamer/rename-song",
+            "/api/batch-song-renamer/rename-song",
             data={"old_name": old_name, "new_name": new_name},
         )
     return response.get_json()
@@ -169,7 +165,7 @@ class TestNameOrderPreference:
                 return_value="Artist - Song",
             ) as mock_correct,
         ):
-            response = client.get("/batch-song-renamer/get-songs-to-rename")
+            response = client.get("/api/batch-song-renamer/get-songs-to-rename")
 
         assert response.status_code == 200
         assert mock_correct.call_args.kwargs["artist_first"] is artist_first
@@ -186,7 +182,7 @@ class TestNameOrderPreference:
             patch("pikaraoke.routes.batch_song_renamer.get_karaoke_instance", return_value=k),
             patch("pikaraoke.lib.metadata_parser._lastfm_track_search", return_value=[]),
         ):
-            html = client.get("/batch-song-renamer/get-songs-to-rename").get_json()["html"]
+            html = client.get("/api/batch-song-renamer/get-songs-to-rename").get_json()["html"]
 
         assert "ABBA - Waterloo - Karaoke Version from Zoom Karaoke" in html
         assert 'value="ABBA - Waterloo"' in html

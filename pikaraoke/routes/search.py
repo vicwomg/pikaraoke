@@ -67,7 +67,7 @@ def search():
     )
 
 
-@search_bp.route("/preview")
+@search_bp.route("/api/preview")
 @public
 @search_bp.arguments(PreviewQuery, location="query")
 def preview(query):
@@ -78,7 +78,7 @@ def preview(query):
     return jsonify({"stream_url": stream_url})
 
 
-@search_bp.route("/download", methods=["POST"])
+@search_bp.route("/api/download", methods=["POST"])
 @public
 @search_bp.arguments(DownloadBody, location="json")
 def download(form):
