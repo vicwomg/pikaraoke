@@ -157,7 +157,7 @@
 					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
 						'" data-uuid="' + escapedUuid + '">' +
 						'<td colspan="4"><div class="singers-panel is-flex is-flex-wrap-wrap is-align-items-baseline is-column-gap-1.5">' +
-							'<div class="singers-list tags mb-2"></div>' +
+							'<div class="singers-list tags mb-0"></div>' +
 							'<a class="is-size-7" href="' + historyUrl(session.uuid) + '">' +
 								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
 								"{{ _('Show these plays') | forceescape }}" +
@@ -509,10 +509,8 @@
 		color: var(--bulma-text-strong);
 	}
 	/* The active session gets a standing accent. Every row reserves the same 3px
-	   so names stay aligned, and the bar runs on down the panel: the pair is one
-	   block. */
-	.session-row > td:first-child,
-	.singers-row > td {
+	   so names stay aligned. */
+	.session-row > td:first-child {
 		border-left: 3px solid transparent;
 	}
 	.is-active-session > td:first-child {
@@ -533,11 +531,8 @@
 		font-style: italic;
 		color: var(--bulma-grey-light);
 	}
-	/* The panel belongs to the row above it: no separating border, an inset
-	   background, and an indent that lines it up under the session name. */
+	/* The panel belongs to the row above it, on an inset background. */
 	.singers-row > td {
-		padding: 0 12px 2px 22px;
-		border-top: none;
 		background-color: var(--bulma-dark);
 	}
 	/* Last of the washes, so the active session's panel takes the same tint as
