@@ -76,6 +76,11 @@
   /* Surfaces are told apart by their fill, not by Bulma's dark-theme glow. */
   --bulma-shadow: none;
 
+  /* One corner radius for every surface and control. */
+  --bulma-radius-small: var(--bulma-radius);
+  --bulma-radius-medium: var(--bulma-radius);
+  --bulma-radius-large: var(--bulma-radius);
+
   /* Bulma scopes the list-item hover to .panel; the option lists in the modals are
      panel-blocks too, and hover the same way. */
   --bulma-panel-block-hover-background-color: var(--bulma-background);
@@ -97,6 +102,7 @@
 /* Cards are inset panels. */
 .card {
   --bulma-card-background-color: var(--bulma-dark);
+  --bulma-card-radius: var(--bulma-radius);
 }
 
 /* Striped tables tell rows apart by the stripe; a rule under each row says it
@@ -189,7 +195,6 @@ input.checkbox {
      dropdown matches the top-level items. */
   --bulma-navbar-dropdown-item-background-l: var(--bulma-primary-l);
   --bulma-navbar-dropdown-item-color-l: var(--bulma-primary-invert-l);
-  --bulma-navbar-dropdown-radius: var(--bulma-radius);
   /* Lines sit the ramp's border step (+15%) lighter than their surface; the divider's
      surface is the bar's navy. Bulma's default is darker than the bar. */
   --bulma-navbar-divider-background-l: calc(var(--bulma-primary-l) + 15%);
@@ -429,7 +434,7 @@ td {
   align-items: center;
   justify-content: space-between;
   color: var(--bulma-text);
-  border-radius: var(--bulma-radius-small);
+  border-radius: var(--bulma-radius);
   padding: 0.5em 0.75em;
   margin-bottom: 2px;
   font-size: 0.85rem;
