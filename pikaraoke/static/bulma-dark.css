@@ -11,7 +11,6 @@
    =================================== */
 html {
 	background-color: var(--dark-bg-primary);
-	/* font-size: 15px; */
 }
 
 body {
@@ -34,11 +33,6 @@ h6,
 	color: var(--dark-text-secondary);
 }
 
-h6 {
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-}
-
 strong {
 	color: var(--dark-text-secondary);
 }
@@ -55,7 +49,6 @@ a:hover {
 code {
 	background-color: var(--dark-bg-secondary);
 	color: var(--dark-danger);
-	/* padding: 0.25em 0.5em; */
 }
 
 pre {
@@ -70,27 +63,6 @@ hr {
 /* ===================================
    BUTTONS
    =================================== */
-.button {
-	/* transition: all 200ms ease;
-	border-width: 2px;
-	color: var(--dark-text-primary);
-	background-color: var(--dark-bg-secondary);
-	border-color: var(--dark-border); */
-}
-
-.button:hover {
-	/* border-color: var(--dark-border-light);
-	color: var(--dark-text-secondary); */
-}
-
-.button:focus,
-.button.is-focused,
-.button:active,
-.button.is-active {
-	/* box-shadow: 0 0 0 2px rgba(140, 155, 157, 0.5);
-	border-color: var(--dark-border-light); */
-}
-
 /* Colored buttons */
 .button.is-primary {
 	background-color: var(--dark-primary);
@@ -132,21 +104,14 @@ hr {
 	color: rgba(0, 0, 0, 0.7);
 }
 
-.button.is-danger {
-	/* background-color: var(--dark-danger); */
-	/* border-color: transparent; */
-}
-
 /* ===================================
    FORMS
    =================================== */
 .input,
 .textarea,
 .select select {
-	/* transition: all 200ms ease; */
 	background-color: #fff;
 	border-color: var(--dark-border);
-	/* border-width: 2px; */
 	color: var(--dark-bg-secondary);
 }
 
@@ -298,7 +263,6 @@ hr {
 
 .table thead td,
 .table thead th {
-	border-width: 0 0 2px;
 	color: var(--dark-text-secondary);
 }
 
@@ -438,26 +402,6 @@ hr {
 }
 
 /* ===================================
-   MESSAGES
-   =================================== */
-.message {
-	/* background-color: var(--dark-bg-secondary);
-	border-radius: 0.4em; */
-}
-
-.message-header {
-	/* background-color: var(--dark-bg-tertiary);
-	color: var(--dark-text-primary);
-	font-weight: 700; */
-}
-
-.message-body {
-	/* border-width: 2px;
-	border-color: var(--dark-bg-tertiary);
-	color: var(--dark-text-primary); */
-}
-
-/* ===================================
    MODAL
    =================================== */
 .modal-background {
@@ -499,8 +443,6 @@ hr {
 
 .menu-label {
 	color: var(--dark-text-primary);
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
 }
 
 /* ===================================
@@ -644,7 +586,6 @@ hr {
    =================================== */
 .footer {
 	background-color: var(--dark-bg-secondary);
-	padding: 3rem 1.5rem 6rem;
 }
 
 /* ===================================
