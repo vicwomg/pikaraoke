@@ -14,7 +14,7 @@
 		padding: 0.75rem;
 	}
 	ul.search_result_items li:nth-child(odd) {
-		background-color: rgb(50, 55, 55);
+		background-color: var(--bulma-scheme-main-bis);
 	}
 	@media screen and (min-width: 768px) {
 		ul.search_result_items li {
@@ -97,7 +97,7 @@
 
 	#search-results .img-wrapper:hover img {
 		opacity: 0.7;
-		box-shadow: 0px 0px 3px 1px #878787;
+		box-shadow: 0px 0px 3px 1px var(--bulma-text-weak);
 	}
 
 	/* Semi-transparent circle behind the play icon */
@@ -109,7 +109,7 @@
 		transform: translate(-50%, -50%);
 		width: 80px;
 		height: 80px;
-		background-color: rgba(0, 0, 0, 0.6);
+		background-color: color-mix(in srgb, var(--bulma-black) 60%, transparent);
 		border-radius: 50%;
 		opacity: 0.7;
 		transition: opacity 0.3s ease;
@@ -126,10 +126,10 @@
 		left: 51%;
 		transform: translate(-50%, -50%);
 		font-size: 2rem;
-		color: white;
+		color: var(--bulma-white);
 		opacity: 0.9;
 		transition: all 0.3s ease;
-		text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+		text-shadow: 0 0 10px color-mix(in srgb, var(--bulma-black) 80%, transparent);
 		pointer-events: none;
 		z-index: 2;
 	}
@@ -166,8 +166,8 @@
 	.duration-badge,
 	.library-badge {
 		position: absolute;
-		background: rgba(0, 0, 0, 0.8);
-		color: #fff;
+		background: color-mix(in srgb, var(--bulma-black) 80%, transparent);
+		color: var(--bulma-white);
 		font-size: 0.75rem;
 		padding: 2px 4px;
 		border-radius: 3px;
@@ -181,7 +181,8 @@
 	.library-badge {
 		top: 4px;
 		left: 4px;
-		background: hsl(204, 71%, 39%);
+		background: var(--bulma-info);
+		color: var(--bulma-info-invert);
 		font-weight: 600;
 	}
 
@@ -195,7 +196,7 @@
 		content: "";
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
+		background: color-mix(in srgb, var(--bulma-black) 60%, transparent);
 		z-index: 10;
 	}
 	.modal-content.is-loading::after {
@@ -207,8 +208,8 @@
 		height: 2.5rem;
 		margin-top: -1.25rem;
 		margin-left: -1.25rem;
-		border: 3px solid rgba(255, 255, 255, 0.3);
-		border-top-color: #fff;
+		border: 3px solid color-mix(in srgb, var(--bulma-white) 30%, transparent);
+		border-top-color: var(--bulma-white);
 		border-radius: 50%;
 		animation: spinAround 0.6s linear infinite;
 		z-index: 11;
