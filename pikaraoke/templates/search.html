@@ -609,7 +609,7 @@
 		<ul id="search-results" class="search_result_items">
 			{% for result in search_results %}
 			{% set local_path = library_matches.get(result.video_id) %}
-			<li data-ytID="{{result.video_id}}" data-ytTitle="{{result.title}}" value="{{result.url}}" data-index="{{loop.index0}}">
+			<li class="mt-0" data-ytID="{{result.video_id}}" data-ytTitle="{{result.title}}" value="{{result.url}}" data-index="{{loop.index0}}">
 				<div class="img-wrapper" data-url="{{result.url}}">
 					<div class="img-frame">
 						<img src="https://img.youtube.com/vi/{{result.video_id}}/mqdefault.jpg" />

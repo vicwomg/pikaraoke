@@ -52,11 +52,6 @@
 
 {% block header %}
 <style>
-	/* The global `table` rule already fixes the layout, which is what lines the
-	   play counts up down the page across both tables. */
-	.rankings-table {
-		margin-bottom: 0;
-	}
 	/* Wide enough for the headers above them -- "Rank" and "Plays" are single
 	   words and cannot wrap -- and no wider, so the song column takes the rest. */
 	.rankings-table .col-rank {
@@ -100,7 +95,7 @@
 {# MSG: Heading for the list of songs that have been sung the most times. #}
 <h2>{% trans %}Top songs{% endtrans %}</h2>
 {% if top_songs %}
-<table class="table is-striped rankings-table">
+<table class="table is-striped rankings-table mb-0">
 	<colgroup>
 		<col class="col-rank" />
 		<col />
@@ -148,7 +143,7 @@
 {# MSG: Heading for the list of people who have sung the most songs. #}
 <h2>{% trans %}Top performers{% endtrans %}</h2>
 {% if top_performers %}
-<table class="table is-striped rankings-table">
+<table class="table is-striped rankings-table mb-0">
 	<colgroup>
 		<col class="col-rank" />
 		<col />
