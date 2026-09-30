@@ -23,7 +23,7 @@
    row count. These lists are top-N rather than paged, so this says how much of
    the chart to see -- it is not the page size the tables elsewhere use. #}
 {% macro limit_select(name, current) %}
-<div class="rankings-controls">
+<div class="is-flex is-align-items-center is-gap-1 mt-2 mb-5">
 	<span class="is-flex-grow-1"></span>
 	{# MSG: Label before the dropdown choosing how many ranked rows to show. #}
 	<label class="is-size-7" for="limit-{{ name }}">{% trans %}Show{% endtrans %}</label>
@@ -56,15 +56,6 @@
 	   play counts up down the page across both tables. */
 	.rankings-table {
 		margin-bottom: 0;
-	}
-	/* The row-count control sits just under its table and is pushed to the
-	   right. Its bottom margin is what separates one chart from the next. */
-	.rankings-controls {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-top: 8px;
-		margin-bottom: 25px;
 	}
 	/* Wide enough for the headers above them -- "Rank" and "Plays" are single
 	   words and cannot wrap -- and no wider, so the song column takes the rest. */

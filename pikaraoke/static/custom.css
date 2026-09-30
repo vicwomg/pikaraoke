@@ -316,16 +316,6 @@ td {
   margin-bottom: 10px;
 }
 
-/* Every paged table on the site (session list, play log, browse) carries the
-   same controls underneath: a prev/next pair and a "1-50 of 300" summary. */
-.pager-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 10px;
-}
-
 /* The row above a table holding what narrows it: which subset is on screen on
    the left, the controls that change it on the right. Wraps rather than
    squeezing, so a long performer name and a checkbox take a line each on a
@@ -362,15 +352,6 @@ td {
   .history-table th {
     font-size: 0.75rem;
   }
-}
-
-/* Which session a page reports on. Its own row on both pages that carry it: a
-   long session name sharing a line with a control wraps badly on a phone. */
-.session-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
 }
 
 /* The cog opening a row's actions. Fontello gives every glyph side margins that
@@ -426,32 +407,6 @@ td {
   vertical-align: middle;
   opacity: 0.6;
   flex-shrink: 0;
-}
-
-/* Suggestion results on edit page */
-.suggested_item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--bulma-text);
-  border-radius: var(--bulma-radius);
-  padding: 0.5em 0.75em;
-  margin-bottom: 2px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.suggest-text {
-  flex: 1;
-  min-width: 0;
-}
-.suggest-meta {
-  color: var(--bulma-grey-light);
-}
-.suggest-score {
-  flex-shrink: 0;
-  margin-left: 1em;
-  color: var(--bulma-grey-light);
-  font-size: 0.8rem;
 }
 
 /* A div, not <progress>, so the fill can transition; the duration matches the poll. */
