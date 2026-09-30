@@ -103,6 +103,7 @@ def splash():
         show_splash_clock=k.show_splash_clock,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
+        splash_scale=k.splash_scale,
         disable_bg_music=k.disable_bg_music,
         disable_bg_video=k.disable_bg_video,
         disable_score=k.disable_score,

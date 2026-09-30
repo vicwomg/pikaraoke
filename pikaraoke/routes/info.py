@@ -76,6 +76,7 @@ def info():
         hide_logo=k.hide_logo,
         hide_overlay=k.hide_overlay,
         screensaver_timeout=k.screensaver_timeout,
+        splash_scale=k.splash_scale,
         splash_delay=k.splash_delay,
         normalize_audio=k.normalize_audio,
         cdg_pixel_scaling=k.cdg_pixel_scaling,

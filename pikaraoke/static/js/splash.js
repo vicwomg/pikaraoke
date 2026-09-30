@@ -364,14 +364,7 @@ const handleNowPlayingUpdate = (np) => {
     };
     try {
       octopusInstance = new SubtitlesOctopus(options);
-      if (uiScale) {
-        // Find the canvas created by SubtitlesOctopus (sibling of the video)
-        const canvas = video.parentNode.querySelector('canvas');
-        if (canvas) {
-          canvas.style.transform = `scale(${uiScale})`;
-          canvas.style.transformOrigin = 'bottom center';
-        }
-      }
+      scaleSubtitleCanvas();
     } catch (e) { console.error(e); }
   }
 
@@ -597,6 +590,10 @@ const PREFERENCE_EFFECTS = {
     screensaverTimeoutSeconds = v;
     PikaraokeConfig.screensaverTimeout = v;
   },
+  splash_scale:        (v) => {
+    PikaraokeConfig.splashScale = v;
+    applyUIScale(effectiveUIScale());
+  },
 };
 
 const parsePreferenceValue = (value) => {
@@ -722,41 +719,55 @@ const handleSocketRecovery = () => {
   });
 }
 
-const setupUIScaling = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const rawScale = urlParams.get('scale');
-  if (!rawScale) return;
-  uiScale = parseFloat(rawScale) || 1;
+const UI_SCALE_TARGETS = [
+  // The logo and session name scale as one column: scaled apart, each grows
+  // about its own centre and the two overlap.
+  { selector: '#logo-container > div', origin: null },
+  { selector: '#top-container', origin: 'top right' },
+  { selector: '#ap-container', origin: 'top left' },
+  { selector: '#qr-code', origin: 'bottom left' },
+  { selector: '#up-next', origin: 'bottom right' },
+  { selector: '#dvd', origin: null },
+  { selector: '#your-score-text', origin: null },
+  { selector: '#score-number-text', origin: null },
+  { selector: '#score-review-text', origin: null },
+  { selector: '#splash-notification', origin: 'top left' },
+  { selector: '#clock', origin: 'top left' },
+];
 
-  const scaleTargets = [
-    { selector: '#logo-container img.logo', origin: null },
-    { selector: '#session-name', origin: null },
-    { selector: '#top-container', origin: 'top right' },
-    { selector: '#ap-container', origin: 'top left' },
-    { selector: '#qr-code', origin: 'bottom left' },
-    { selector: '#up-next', origin: 'bottom right' },
-    { selector: '#dvd', origin: null },
-    { selector: '#your-score-text', origin: null },
-    { selector: '#score-number-text', origin: null },
-    { selector: '#score-review-text', origin: null },
-    { selector: '#splash-notification', origin: 'top left' },
-    { selector: '#clock', origin: 'top left' },
-  ];
+// ?scale= overrides the stored preference for this screen only, so a second
+// display of a different size can differ from the TV.
+const urlUIScale = parseFloat(new URLSearchParams(window.location.search).get('scale'));
 
-  scaleTargets.forEach(({ selector, origin }) => {
+const effectiveUIScale = () => isNaN(urlUIScale) ? PikaraokeConfig.splashScale : urlUIScale;
+
+const setScaleTransform = (el, origin) => {
+  el.style.transform = uiScale ? `scale(${uiScale})` : '';
+  el.style.transformOrigin = uiScale && origin ? origin : '';
+}
+
+// The canvas SubtitlesOctopus creates beside the video, if a song has subtitles.
+const scaleSubtitleCanvas = () => {
+  const canvas = getVideoPlayer().parentNode.querySelector('canvas');
+  if (canvas) setScaleTransform(canvas, 'bottom center');
+}
+
+const applyUIScale = (scale) => {
+  // At 1 the transform is cleared, not set to scale(1): any transform starts a
+  // new stacking context, so an unscaled screen would not render as it did.
+  uiScale = scale > 0 && scale !== 1 ? scale : null;
+  UI_SCALE_TARGETS.forEach(({ selector, origin }) => {
     const el = document.querySelector(selector);
-    if (el) {
-      el.style.transform = `scale(${uiScale})`;
-      if (origin) el.style.transformOrigin = origin;
-    }
+    if (el) setScaleTransform(el, origin);
   });
+  scaleSubtitleCanvas();
 }
 
 // Document ready procedures
 
 $(function () {
   // Setup various features and listeners
-  setupUIScaling();
+  applyUIScale(effectiveUIScale());
   if (PikaraokeConfig.showSplashClock) startClock();
   setupScreensaver();
   setupOverlayMenus();

@@ -266,6 +266,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     splash.add_argument(
+        "--splash-scale",
+        help=f"Size multiplier for the splash screen overlays, such as 1.5 for a large TV viewed from across the room. A ?scale= parameter on the splash screen URL overrides it for that screen. (default: {_DEFAULTS['splash_scale']})",
+        default=None,
+        type=float,
+        required=False,
+    )
+    splash.add_argument(
         "--keep-awake",
         action="store_true",
         help="Prevent the host machine from sleeping while PiKaraoke is running. Especially useful when headless, where no local player window keeps the system awake.",

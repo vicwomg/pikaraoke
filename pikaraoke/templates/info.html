@@ -557,6 +557,13 @@
 					</div>
 
 					<div class="user-preference-container is-align-items-center">
+						<input id="pref-splash-scale" class="user-preference-input input" type="number" min="0.5" max="4" step="0.1" data-pref="splash_scale" data-start-value="{{ splash_scale }}" value="{{ splash_scale }}" />
+						<label class="label" for="pref-splash-scale">
+							{# MSG: Numberbox label for setting how large the text and overlays on the splash screen are drawn #} {% trans %}Size of the splash screen overlays, such as 1.5 for a large TV (1 is normal size){% endtrans %}
+						</label>
+					</div>
+
+					<div class="user-preference-container is-align-items-center">
 						<input id="pref-splash-delay" class="user-preference-input input" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}" />
 						<label class="label" for="pref-splash-delay">
 							{# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}The delay in seconds before starting the next song{% endtrans %}

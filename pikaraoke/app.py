@@ -252,6 +252,7 @@ def main() -> None:
         hide_overlay=args.hide_overlay,
         keep_awake=args.keep_awake,
         show_splash_clock=args.show_splash_clock,
+        splash_scale=args.splash_scale,
         url=args.url,
         prefer_hostname=args.prefer_hostname,
         disable_bg_music=args.disable_bg_music,
