@@ -245,7 +245,6 @@ a.navbar-item.is-active {
   font-size: 12px;
 }
 .pagination-list {
-  list-style: none !important;
   margin-top: 0px !important;
   margin-left: 0px !important;
   margin-bottom: 0px !important;
@@ -260,8 +259,6 @@ a.navbar-item.is-active {
 }
 .pagination-page-info b {
   color: var(--bulma-white);
-  background-color: transparent;
-  font-size: 100%;
 }
 
 input {
@@ -319,6 +316,12 @@ table {
   width: 100%;
 }
 
+/* A fixed layout holds each column to its share, so a word longer than the
+   column breaks rather than running into the next one. */
+td {
+  overflow-wrap: break-word;
+}
+
 .break-word {
   overflow-wrap: break-word; /* Renamed property in CSS3 draft spec */
   width: 100%;
@@ -328,13 +331,6 @@ table {
 .singer-field {
   max-width: 320px;
   margin-bottom: 10px;
-}
-
-/* A timestamp cell holds either a time or a date, never both (see whenLabel),
-   so it is short enough to keep whole. Only "31 Jul 2025" is long enough to
-   want a second line, and it has spaces to break at. */
-.when {
-  overflow-wrap: break-word;
 }
 
 /* Every paged table on the site (session list, play log, browse) carries the
@@ -373,15 +369,6 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-}
-
-/* The session list and the play log. Each declares its column widths in a
-   colgroup and keeps the global fixed layout, so the name columns hold their
-   share instead of being squeezed to one word per line by whichever cell
-   happens to hold the longest song title. Only the unsized column absorbs the
-   slack. */
-.history-table td {
-  word-wrap: break-word;
 }
 
 @media screen and (max-width: 600px) {
@@ -574,10 +561,6 @@ table {
   display: flex;
   gap: 8px;
   margin-right: auto;
-}
-
-.dl-phase {
-  color: var(--bulma-text);
 }
 
 /* Tabular figures and a floor on the width: without both, the percentage and the
