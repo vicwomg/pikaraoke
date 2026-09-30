@@ -376,7 +376,7 @@
        every other block on the page. */
     margin: 4px 0 0;
     padding: 4px 12px;
-    border-radius: 6px;
+    border-radius: var(--bulma-radius);
     background-color: var(--bulma-dark);
     color: var(--bulma-grey-light);
     font-size: 0.72rem;
@@ -430,7 +430,7 @@
   {% if not blank_page %}
   <div class="container" style="padding: 5px; max-width: 900px;">
     <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
-      <div class="navbar-brand" id="brand" style="padding-left: 10px">
+      <div class="navbar-brand ml-0" id="brand" style="padding-left: 10px">
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
           <i class="icon icon-home-2" title="Home"></i>
           {# MSG: Navigation link for the home page. #}
@@ -468,7 +468,7 @@
           <span aria-hidden="true"></span>
         </a>
       </div>
-      <div class="navbar-menu" id="menu">
+      <div class="navbar-menu mr-0" id="menu">
         <div class="navbar-end">
           <a id="current-user" class="navbar-item is-hidden" href="#">
             <i class="icon  icon-mic-1" title="Current user"></i>
@@ -545,9 +545,9 @@
     <div class="box" style="margin-top: 5px;">
       {# Written once here rather than per page: the heading is chrome, and its
          text is the same string the <title> tag uses. #}
-      <header class="page-header">
-        <div class="page-heading">
-          <h1 class="title">{% block heading %}{{ title }}{% endblock %}</h1>
+      <header class="block">
+        <div class="is-flex is-justify-content-space-between is-align-items-baseline is-gap-2">
+          <h1 class="title has-text-weight-normal mb-0">{% block heading %}{{ title }}{% endblock %}</h1>
           {% block heading_action %}{% endblock %}
         </div>
         {% block header %}{% endblock %}

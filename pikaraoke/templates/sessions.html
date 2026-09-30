@@ -146,7 +146,7 @@
 						"</td>" +
 						whenCell(session.started_at) +
 						'<td class="has-text-right">' + session.play_count + "</td>" +
-						'<td class="has-text-right options-cell">' +
+						'<td class="has-text-right is-vcentered">' +
 							'<a class="has-text-grey-light row-options-btn" data-uuid="' +
 								escapedUuid + '" data-label="' + escapeHtml(label) +
 								'" data-unnamed="' + (isUnnamed ? "1" : "") +
@@ -456,10 +456,6 @@
 		margin-bottom: 25px;
 		border-bottom: 1px solid var(--bulma-border);
 	}
-	.current-session-name {
-		flex-grow: 1;
-		font-weight: 600;
-	}
 	.session-buttons {
 		display: flex;
 		flex-wrap: nowrap;
@@ -623,7 +619,7 @@
 {# MSG: Heading for the section showing the session currently being recorded. #}
 <h2>{% trans %}Current Session{% endtrans %}</h2>
 <div class="current-session">
-	<span class="current-session-name">
+	<span class="is-flex-grow-1 has-text-weight-semibold">
 		<i class="icon icon-mic-1"></i>
 		<span id="current-session"></span>
 	</span>
@@ -696,12 +692,12 @@
 
 <div class="modal" id="session-options-modal">
 	<div class="modal-background"></div>
-	<div class="modal-card" style="width: 90%; max-width: 400px;">
-		<header class="modal-card-head" style="padding: 15px;">
-			<p class="modal-card-title is-size-6 mb-0" id="session-modal-title" style="max-width: 95%"></p>
+	<div class="modal-card">
+		<header class="modal-card-head">
+			<p class="modal-card-title is-size-6 mb-0" id="session-modal-title"></p>
 			<button class="delete modal-close-btn" aria-label="close"></button>
 		</header>
-		<section class="modal-card-body" style="padding: 0;">
+		<section class="modal-card-body">
 			<a id="opt-activate" class="panel-block py-3" href="#" data-action="activate">
 				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
 				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}

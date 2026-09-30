@@ -101,15 +101,28 @@
 
 /* Striped tables tell rows apart by the stripe; a rule under each row says it
    twice. Every table sits in base.html's .content, whose rule draws it. Heading
-   underlines are a separate variable and stay. */
+   underlines are a separate variable and stay. Bulma's 800 heading weight has no
+   loaded face. */
 .content {
   --bulma-content-table-cell-border-width: 0;
+  --bulma-content-heading-weight: var(--bulma-weight-bold);
 }
 
 /* Bulma sets a modal's header apart from its body only by the shadow turned off
    above; the page colour does it by fill, as the wells do. */
 .modal {
   --bulma-modal-card-head-background-color: var(--bulma-body-background-color);
+}
+
+/* Every modal card is a short option list. */
+.modal-card {
+  --bulma-modal-card-head-padding: 1rem;
+  --bulma-modal-card-body-padding: 0;
+  width: 90%;
+  max-width: 400px;
+}
+.modal-card-title {
+  max-width: 95%;
 }
 
 /* Bulma 1.0 defines a link hover colour but applies it to no plain link, only to its
@@ -219,12 +232,6 @@ a.navbar-item.is-active {
 #notification {
   margin-bottom: 0;
 }
-#brand {
-  margin-left: 0;
-}
-#menu {
-  margin-right: 0;
-}
 
 .control-box a {
   color: var(--bulma-text);
@@ -267,8 +274,7 @@ input {
 }
 
 /* Sections step down from the page heading rather than matching it: Bulma's
-   own scale starts an h2 at 1.75em. Bold, not Bulma's 800, which the theme
-   loads no face for. */
+   own scale starts an h2 at 1.75em. */
 .content h2 {
   font-size: 1.5em;
 }
@@ -281,34 +287,6 @@ input {
 .content h5,
 .content h6 {
   font-size: 1em;
-}
-.content h2,
-.content h3,
-.content h4,
-.content h5,
-.content h6 {
-  font-weight: 700;
-}
-
-/* The heading row: the page title, and optionally one action held against the
-   right edge. Baseline rather than centre, so that action sits on the title's
-   own text line instead of floating halfway up it. */
-.page-header {
-  /* What .title:not(:last-child) used to give the header it replaced. */
-  margin-bottom: var(--bulma-block-spacing);
-}
-.page-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-}
-/* Matched on .title, not h1: Bulma spaces a .title from what follows it, which
-   inside a row is height rather than space, and its selector outranks an h1
-   one. Regular weight because the sections below carry the emphasis. */
-.page-heading .title {
-  font-weight: 400;
-  margin-bottom: 0;
 }
 
 table {
@@ -390,16 +368,6 @@ td {
   margin-bottom: 20px;
 }
 
-/* Bulma top-aligns every table cell (`table td,table th{vertical-align:top}`,
-   unscoped). Text is fine with that -- it sits half a leading below the cell's
-   top edge -- but a cell holding one glyph has no baseline to sit on, so it
-   pins flush to the top and reads as floating above the words beside it.
-   Cells whose whole content is an icon centre against the row instead. */
-.history-table td.options-cell,
-.history-table td.status-cell {
-  vertical-align: middle;
-}
-
 /* The cog opening a row's actions. Fontello gives every glyph side margins that
    push it off the right edge the other cells sit flush against. */
 .row-options-btn {
@@ -461,7 +429,7 @@ td {
   align-items: center;
   justify-content: space-between;
   color: var(--bulma-text);
-  border-radius: 4px;
+  border-radius: var(--bulma-radius-small);
   padding: 0.5em 0.75em;
   margin-bottom: 2px;
   font-size: 0.85rem;
@@ -486,7 +454,7 @@ td {
   /* A lighter grey on the card's has-background-dark, so the empty track shows
      before the fill covers it. */
   background-color: var(--bulma-grey-dark);
-  border-radius: 999px;
+  border-radius: var(--bulma-radius-rounded);
   height: 8px;
   overflow: hidden;
   position: relative;
