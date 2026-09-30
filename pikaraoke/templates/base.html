@@ -14,7 +14,6 @@
   <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
@@ -433,7 +432,7 @@
 
   {% if not blank_page %}
   <div class="container" style="padding: 5px; max-width: 900px;">
-    <nav class="navbar" role="navigation" aria-label="main navigation">
+    <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
           <i class="icon icon-home-2" title="Home"></i>

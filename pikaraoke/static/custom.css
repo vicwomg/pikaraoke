@@ -1,5 +1,5 @@
-/* The app's palette. bulma-dark.css paints with it too; custom properties resolve
-   at computed-value time, so it is visible there although this sheet loads later. */
+/* The app's original palette, still read by a few rules below and in templates.
+   The Bulma variables that follow express the same colours. */
 :root {
   /* Background colors */
   --dark-bg-primary: #1f2424;
@@ -26,11 +26,211 @@
   --dark-danger: #e74c3c;
 }
 
-/* Bulma's own theme variables. Bulma applies the family to body and to every form
-   control, which a body font-family rule alone never reached. */
+/* ===================================
+   THEME
+   PiKaraoke's palette, said in Bulma's own variables. Bulma derives every
+   component's colours from these, so the rest of this block only configures
+   components; nothing below overrides a Bulma rule.
+   =================================== */
 :root {
+  /* Bulma applies the family to body and to every form control. */
   --bulma-family-primary: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
     sans-serif;
+
+  /* The neutral ramp: one hue and saturation, a lightness per step. Lighter at
+     every step than Bulma's own dark ramp, and wider apart - 13/17/22 against
+     9/11/13 - so a row still reads apart from the panel behind it on a phone in a
+     dark room. Bulma keeps text on its own hue and saturation, so both are set. */
+  --bulma-scheme-h: 182;
+  --bulma-scheme-s: 7%;
+  --bulma-text-h: 182deg;
+  --bulma-text-s: 7%;
+  --bulma-scheme-main-l: 13%;
+  --bulma-scheme-main-bis-l: 17%;
+  --bulma-scheme-main-ter-l: 22%;
+  --bulma-background-l: 17%;
+  --bulma-text-weak-l: 58%;
+  --bulma-text-l: 87%;
+  --bulma-text-strong-l: 95%;
+  --bulma-text-title-l: 100%;
+
+  --bulma-primary-h: 211deg;
+  --bulma-primary-s: 40%;
+  --bulma-primary-l: 36%;
+  --bulma-link-h: 168deg;
+  --bulma-link-s: 76%;
+  --bulma-link-l: 42%;
+  --bulma-info-h: 204deg;
+  --bulma-info-s: 71%;
+  --bulma-info-l: 53%;
+  --bulma-success-h: 145deg;
+  --bulma-success-s: 63%;
+  --bulma-success-l: 49%;
+  --bulma-warning-h: 45deg;
+  --bulma-warning-s: 89%;
+  --bulma-warning-l: 50%;
+  --bulma-danger-h: 6deg;
+  --bulma-danger-s: 78%;
+  --bulma-danger-l: 57%;
+
+  /* Bulma picks each accent's ink from a lightness ladder compiled for its own
+     accent, and does not recompute it when the accent changes. Its primary is a
+     luminous turquoise wanting near-black ink; this navy wants white, which is
+     7.2:1 where the baked ink is 2.7:1. The same mismatch runs the other way on
+     the teal, where dark ink replaces white at 2.4:1. */
+  --bulma-primary-invert-l: 100%;
+  --bulma-link-invert-l: var(--bulma-link-05-l);
+  /* Text in an accent colour is re-lit to stay readable on the page. The navy
+     needs lifting to 60% (5.2:1). Links keep the palette teal as it is, so the
+     hover, 5% lighter, lands on the palette's hover teal exactly. */
+  --bulma-primary-on-scheme-l: 60%;
+  --bulma-link-on-scheme-l: var(--bulma-link-l);
+
+  /* Bulma writes its greys as flat hexes on its own blue-grey, out of reach of the
+     ramp above, and the colour helpers read them directly. Same steps, the ramp's
+     hue - except grey itself, lifted to the muted text step, since Bulma's sits at
+     3.4:1 on the page. */
+  --bulma-grey-dark: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 29%);
+  --bulma-grey: var(--bulma-text-weak);
+  --bulma-grey-light: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 71%);
+  --bulma-black-bis: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 9%);
+  /* has-background-dark marks a well inside a box - the A-Z bar, the download card.
+     Bulma's sets it apart by its blue tint alone; on the ramp's hue it needs the step
+     below the box. */
+  --bulma-dark-h: var(--bulma-scheme-h);
+  --bulma-dark-s: var(--bulma-scheme-s);
+  --bulma-dark-l: var(--bulma-scheme-main-bis-l);
+
+  --bulma-hr-background-color: var(--bulma-scheme-main-ter);
+}
+
+/* Raised surfaces sit a ramp step above the page and carry no shadow, where
+   Bulma's sit on the page itself with a shadow for lift. */
+.box {
+  --bulma-box-background-color: var(--bulma-scheme-main-ter);
+  --bulma-box-shadow: none;
+  --bulma-box-radius: var(--bulma-radius-medium);
+}
+
+.table {
+  --bulma-table-background-color: var(--bulma-scheme-main-ter);
+}
+
+.notification {
+  --bulma-notification-background-l: var(--bulma-scheme-main-ter-l);
+}
+
+.card {
+  --bulma-card-background-color: var(--bulma-scheme-main-bis);
+  --bulma-card-shadow: none;
+  --bulma-card-radius: var(--bulma-radius);
+  --bulma-card-header-background-color: var(--bulma-scheme-main);
+  --bulma-card-header-shadow: none;
+  /* Bulma has no border variable for cards. */
+  border: 2px solid var(--bulma-scheme-main-ter);
+}
+
+.modal {
+  --bulma-modal-card-head-background-color: var(--bulma-scheme-main-bis);
+  --bulma-modal-card-body-background-color: var(--bulma-scheme-main-bis);
+}
+
+/* Form fields stay white on the dark page, so every colour Bulma derives for them
+   from the dark scheme is replaced here: its text, placeholder and icon are all
+   near-white, and would vanish. The placeholder and icon are ~4.9:1 on white and
+   clearly dimmer than the text typed above them. The ramp's own border is Bulma's
+   dark 24%, which every button and table line uses; on white a field needs more. */
+.control,
+.input,
+.select,
+.textarea {
+  --bulma-input-background-l: 100%;
+  --bulma-input-border-l: 40%;
+  --bulma-input-color-l: var(--bulma-scheme-main-bis-l);
+  --bulma-input-placeholder-color: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 43%);
+  --bulma-input-icon-color: var(--bulma-input-placeholder-color);
+  --bulma-input-icon-hover-color: var(--bulma-input-placeholder-color);
+}
+
+/* Firefox applies its own default placeholder opacity on top of the colour. */
+.input::placeholder,
+.textarea::placeholder {
+  opacity: 1;
+}
+
+/* A touch target, not a colour: Bulma leaves native checkboxes at the browser's
+   size, and exposes no variables for them. */
+.checkbox {
+  accent-color: var(--bulma-success);
+  margin-right: 8px;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+/* ===================================
+   NAVBAR
+   is-primary paints the bar, its items, the burger menu and the dropdown in the
+   primary navy; these configure the rest.
+   =================================== */
+.navbar {
+  border-radius: var(--bulma-radius);
+}
+
+.navbar.is-primary {
+  /* The burger reads --bulma-navbar-burger-color, which defaults to the link
+     colour; is-primary only sets a variable an overridden rule consumes. */
+  --bulma-navbar-burger-color: var(--bulma-navbar-item-color);
+  /* is-primary sets the arrow to a lightness, which is no colour at all.
+     currentColor makes it follow the link's text, hover included. */
+  --bulma-navbar-dropdown-arrow: currentColor;
+  /* Dropdown items and the panel behind them take the bar's navy, so the
+     dropdown matches the top-level items. */
+  --bulma-navbar-dropdown-item-background-l: var(--bulma-primary-l);
+  --bulma-navbar-dropdown-item-color-l: var(--bulma-primary-invert-l);
+  --bulma-navbar-dropdown-radius: var(--bulma-radius);
+  /* Hover holds the bar's background and tints the text instead, below. */
+  --bulma-navbar-item-hover-background-l-delta: 0%;
+  /* spa-navigation.js marks the current page with is-active, the app's only
+     "you are here". is-primary points the selected state at the bar's own navy,
+     which would hide it; teal text marks it instead. */
+  --bulma-navbar-item-selected-h: var(--bulma-link-h);
+  --bulma-navbar-item-selected-s: var(--bulma-link-s);
+  --bulma-navbar-item-selected-color-l: var(--bulma-link-l);
+}
+
+/* The selected state paints its hue as a background too; the teal belongs on the
+   text alone. a.navbar-item to match Bulma's own selector. */
+a.navbar-item.is-active {
+  --bulma-navbar-item-background-a: 0;
+}
+
+/* Bulma's navbar hover is a background shift and nothing else, and it declares
+   --bulma-navbar-item-hover-color without ever reading it. The text tint needs a
+   rule. The dropdown selector matches Bulma's, which sets the dropdown items'
+   colour at that specificity. */
+.navbar-item:hover,
+.navbar-link:hover,
+.navbar-dropdown .navbar-item:hover {
+  color: var(--bulma-link);
+}
+
+/* Bulma hides the divider below its desktop breakpoint, where the dropdown
+   flattens into the burger menu - which is exactly where a group separator is
+   needed most, the items having lost the panel that framed them. */
+.navbar-dropdown .navbar-divider {
+  display: block;
+}
+
+@media screen and (max-width: 1023px) {
+  /* The open burger menu hangs below the bar, so only its bottom corners round:
+     the same pair Bulma rounds on the desktop dropdown. */
+  .navbar-menu {
+    border-end-start-radius: var(--bulma-radius);
+    border-end-end-radius: var(--bulma-radius);
+    /* The dropdown flattens into this menu and is its last child, so without
+       clipping its square corners paint over the rounded ones. */
+    overflow: hidden;
+  }
 }
 
 .custom-combobox {
@@ -319,25 +519,6 @@ body.hide-cursor * {
   margin-left: 1em;
   color: var(--dark-text-muted);
   font-size: 0.8rem;
-}
-
-/* The two Bulma stylesheets disagree about how dark an input is: bulma-dark.css
-   gives .input a white background, while Bulma's own dark-theme variables still
-   supply near-white values for the placeholder (0.3 alpha of a 93%-lightness
-   text colour) and for the left icon. Both were being painted white on white.
-   Set explicit greys rather than adjusting the variables, since the theme chain
-   cannot be trusted to know the background here. */
-.input::placeholder,
-.textarea::placeholder {
-  /* ~4.9:1 on white, and clearly dimmer than the near-black text entered above it */
-  color: #6a7273;
-  /* Firefox applies its own default placeholder opacity on top of the colour */
-  opacity: 1;
-}
-
-.control.has-icons-left .icon,
-.control.has-icons-right .icon {
-  color: #6a7273;
 }
 
 .pager-controls {
