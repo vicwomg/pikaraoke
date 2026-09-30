@@ -174,7 +174,7 @@
 								{ song: play.song, youtube_id: play.youtube_id || "" },
 								historySong || historyYoutubeId
 							) +
-							'<td class="status-cell is-vcentered">' + playStatus(play) + "</td>" +
+							'<td class="has-text-centered is-vcentered">' + playStatus(play) + "</td>" +
 							'<td class="has-text-right is-vcentered">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
@@ -355,9 +355,6 @@
 	#play-log .col-options {
 		width: 3em;
 	}
-	#play-log td.status-cell {
-		text-align: center;
-	}
 	.status-playing {
 		width: 18px;
 		height: auto;
@@ -400,7 +397,7 @@
 
 {% include 'partials/session_filter.html' %}
 
-<div class="table-toggle-row">
+<div class="is-flex is-align-items-center is-flex-wrap-wrap is-row-gap-1 is-column-gap-1.5 mb-2">
 	{% if selected_performer %}
 	{# Reached from a name on the rankings or in a session's singer list:
 	   performers grow without bound, so unlike the session filter there is no
@@ -440,7 +437,7 @@
 	{% endif %}
 
 	{# Off by default, so the log shows every attempt. See hideSkippedPlays. #}
-	<label class="checkbox is-size-7 table-toggle">
+	<label class="checkbox is-size-7 is-inline-flex is-align-items-center is-gap-0.5 ml-auto has-text-grey-light">
 		<input type="checkbox" id="hide-skipped" />
 		{# MSG: Checkbox which hides songs that were skipped before they finished. #}
 		{% trans %}Hide skipped{% endtrans %}

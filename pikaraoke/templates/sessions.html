@@ -156,7 +156,7 @@
 					"</tr>" +
 					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
 						'" data-uuid="' + escapedUuid + '">' +
-						'<td colspan="4"><div class="singers-panel">' +
+						'<td colspan="4"><div class="singers-panel is-flex is-flex-wrap-wrap is-align-items-baseline is-column-gap-1.5">' +
 							'<div class="singers-list tags mb-2"></div>' +
 							'<a class="is-size-7" href="' + historyUrl(session.uuid) + '">' +
 								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
@@ -561,14 +561,6 @@
 	#session-list .col-options {
 		width: 3em;
 	}
-	/* The link sits beside the singers rather than out at the table edge, and
-	   drops to its own line only once the tags fill the width. */
-	.singers-panel {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0 12px;
-	}
 	@media screen and (max-width: 600px) {
 		/* A phone has no room to put the name box and its button side by side with
 		   the session it describes, so the controls take the full width under it:
@@ -652,9 +644,9 @@
 
 {# Above the table it filters. Nothing sits on the left here, but the row still
    holds the checkbox to the right edge. #}
-<div class="table-toggle-row">
+<div class="is-flex is-align-items-center is-flex-wrap-wrap is-row-gap-1 is-column-gap-1.5 mb-2">
 	{# Off by default, so the list shows every night on record. See hideAutoStarted. #}
-	<label class="checkbox is-size-7 table-toggle">
+	<label class="checkbox is-size-7 is-inline-flex is-align-items-center is-gap-0.5 ml-auto has-text-grey-light">
 		<input type="checkbox" id="hide-auto-started" />
 		{# MSG: Checkbox which hides the sessions PiKaraoke started on its own, which the host never named. #}
 		{% trans %}Hide auto-started{% endtrans %}

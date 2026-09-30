@@ -48,23 +48,6 @@
 		transition: opacity 0.3s ease;
 	}
 
-	/* Options row: one setting on the left, the two text actions on the right */
-	#search-options {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem 1.5rem;
-		margin-bottom: 0.75rem;
-	}
-	.search-options-links {
-		display: inline-flex;
-		align-items: center;
-		gap: 1.25rem;
-		/* Auto margin rather than space-between on the row: once the links wrap
-		   onto their own line on mobile, space-between would leave them flush
-		   left. This keeps them right-aligned at every width. */
-		margin-left: auto;
-	}
 	/* Neither has an href -- they are JS actions, so the cursor needs saying */
 	#clear-search,
 	#show-advanced {
@@ -537,13 +520,13 @@
 		{# Only one setting left: each result row carries its own queue-or-not
 		   buttons, so no global toggle is needed. Advanced reveals the direct-URL
 		   form -- a disclosure rather than a setting, so it is a link, not a tickbox. #}
-		<div id="search-options">
+		<div id="search-options" class="is-flex is-flex-wrap-wrap is-align-items-center is-row-gap-1 is-column-gap-3 mb-3">
 			<label class="checkbox">
 				<input type="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
 				{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
 				have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
 			</label>
-			<span class="search-options-links">
+			<span class="is-inline-flex is-align-items-center is-gap-2.5 ml-auto">
 				{# MSG: Link which clears the text from the search box. #}
 				<a id="clear-search" class="has-text-danger">{% trans %}Clear{% endtrans %}</a>
 				{# MSG: Link which reveals the direct-URL download form. #}
