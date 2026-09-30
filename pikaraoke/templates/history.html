@@ -69,7 +69,7 @@
 		if (!wasSkipped(play)) {
 			return statusIcon("icon-ok", "has-text-success", historyText.played);
 		}
-		return statusIcon("icon-to-end", "has-text-grey", historyText.skipped);
+		return statusIcon("icon-to-end", "has-text-grey-light", historyText.skipped);
 	}
 
 	// The labels are translator-controlled rather than user input, but they land
@@ -334,7 +334,7 @@
 	   Bulma's colour helpers are !important -- which is right: the actions on a
 	   skipped row are as available as on any other. */
 	#play-log tr.is-skipped td {
-		color: var(--bulma-grey);
+		color: var(--bulma-grey-light);
 	}
 	/* Widths are declared here rather than left to the contents: the song column
 	   is the only one without one, so it absorbs the slack and the three columns
@@ -390,7 +390,7 @@
 			width: 2em;
 		}
 		#play-log td.when {
-			color: var(--bulma-text-weak);
+			color: var(--bulma-grey-light);
 		}
 	}
 </style>
@@ -494,7 +494,7 @@
 				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
 				{% trans %}Add to queue{% endtrans %}
 			</a>
-			<span id="opt-song-gone" class="panel-block py-3 has-text-grey">
+			<span id="opt-song-gone" class="panel-block py-3 has-text-grey-light">
 				<span class="icon mr-2"><i class="icon-info-circled"></i></span>
 				{# MSG: Shown in place of "add to queue" when the song has since been removed from the library. #}
 				{% trans %}This song is no longer in the library{% endtrans %}
