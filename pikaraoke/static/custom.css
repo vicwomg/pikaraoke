@@ -114,6 +114,15 @@
   --bulma-content-heading-weight: var(--bulma-weight-bold);
 }
 
+/* Bulma's stripe, a step stronger. Any hovered row takes the app's hover step. */
+.table {
+  --bulma-table-striped-row-even-background-color: var(--bulma-scheme-main-ter);
+  --bulma-table-row-hover-background-color:
+    hsl(var(--bulma-scheme-h), var(--bulma-scheme-s),
+      calc(var(--bulma-scheme-main-l) + var(--bulma-hover-background-l-delta)));
+  --bulma-table-striped-row-even-hover-background-color: var(--bulma-table-row-hover-background-color);
+}
+
 /* Bulma sets a modal's header apart from its body only by the shadow turned off
    above; the page colour does it by fill, as the wells do. */
 .modal {
