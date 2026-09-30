@@ -112,7 +112,7 @@
 .select,
 .textarea {
   --bulma-input-background-l: var(--bulma-white-l);
-  --bulma-input-color-l: var(--bulma-scheme-main-bis-l);
+  --bulma-input-color-l: var(--bulma-dark-l);
   --bulma-input-placeholder-color:
     hsla(var(--bulma-input-h), var(--bulma-input-s), var(--bulma-input-color-l), 0.7);
   --bulma-input-icon-color: var(--bulma-input-placeholder-color);
