@@ -8,10 +8,8 @@
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
 	<tr value="{{ song }}">
-		{# Bulma pads every cell 0.5em vertically and top-aligns it, so the vertical
-		   half has to match or the number floats above the title it numbers. #}
-		<td style="padding: 0.5em 0">{{loop.index + skip}}</td>
-		<td id="{{display_name[0].lower()}}" style="padding-right: 0">
+		<td class="px-0">{{loop.index + skip}}</td>
+		<td id="{{display_name[0].lower()}}" class="pr-0">
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
 				title="Add '{{display_name}}' to queue"
@@ -20,9 +18,9 @@
 				><i class="icon icon-list-add"></i>
 			</a>
 		</td>
-		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
+		<td class="break-word pr-0">{{display_name}}</td>
 		{% if admin %}
-		<td style="padding-right: 0">
+		<td class="pr-0">
 			<a
 				class="edit-button"
 				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"

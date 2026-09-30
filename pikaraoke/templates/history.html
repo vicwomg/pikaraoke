@@ -174,8 +174,8 @@
 								{ song: play.song, youtube_id: play.youtube_id || "" },
 								historySong || historyYoutubeId
 							) +
-							'<td class="status-cell">' + playStatus(play) + "</td>" +
-							'<td class="has-text-right options-cell">' +
+							'<td class="status-cell is-vcentered">' + playStatus(play) + "</td>" +
+							'<td class="has-text-right is-vcentered">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +
@@ -483,12 +483,12 @@
 
 <div class="modal" id="play-options-modal">
 	<div class="modal-background"></div>
-	<div class="modal-card" style="width: 90%; max-width: 400px;">
-		<header class="modal-card-head" style="padding: 15px;">
-			<p class="modal-card-title is-size-6 mb-0" id="play-modal-title" style="max-width: 95%"></p>
+	<div class="modal-card">
+		<header class="modal-card-head">
+			<p class="modal-card-title is-size-6 mb-0" id="play-modal-title"></p>
 			<button class="delete modal-close-btn" aria-label="close"></button>
 		</header>
-		<section class="modal-card-body" style="padding: 0;">
+		<section class="modal-card-body">
 			<a id="opt-add-queue" class="panel-block py-3" href="#" data-action="queue">
 				<span class="icon has-text-success mr-2"><i class="icon-list-add"></i></span>
 				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
