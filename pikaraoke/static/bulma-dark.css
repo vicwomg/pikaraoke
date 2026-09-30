@@ -7,35 +7,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;700&display=swap");
 
 /* ===================================
-   COLOR VARIABLES
-   =================================== */
-:root {
-	/* Background colors */
-	--dark-bg-primary: #1f2424;
-	--dark-bg-secondary: #282f2f;
-	--dark-bg-tertiary: #343c3d;
-
-	/* Text colors */
-	--dark-text-primary: #ffffff;
-	--dark-text-secondary: #f2f2f2;
-	--dark-text-muted: #8c9b9d;
-	--dark-text-light: #dbdee0;
-
-	/* Border colors */
-	--dark-border: #5e6d6f;
-	--dark-border-light: #8c9b9d;
-
-	/* Accent colors */
-	--dark-primary: #375a7f;
-	--dark-link: #1abc9c;
-	--dark-link-hover: #1dd2af;
-	--dark-info: #3298dc;
-	--dark-success: #2ecc71;
-	--dark-warning: #f1b70e;
-	--dark-danger: #e74c3c;
-}
-
-/* ===================================
    BASE STYLES
    =================================== */
 html {
