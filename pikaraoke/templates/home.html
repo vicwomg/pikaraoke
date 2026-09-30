@@ -285,23 +285,21 @@
 			<a id="semitones-info"> <i class="icon icon-info-circled-1" title="Info"></i></a>
 		</div>
 	</div>
-	<div style="width: 100%">
-		<div class="is-flex">
-			<input
-				type="range"
-				min="-12"
-				max="12"
-				value="0"
-				width="300px"
-				class="transpose-slider"
-				id="transpose"
-				style="width: 100%"
-			/>
-			<button id="submit-transpose" class="button is-small" style="margin-left: 10px">
-				{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{%
-				endtrans %}
-			</button>
-		</div>
+	<div class="is-flex">
+		<input
+			type="range"
+			min="-12"
+			max="12"
+			value="0"
+			width="300px"
+			class="transpose-slider"
+			id="transpose"
+			style="width: 100%"
+		/>
+		<button id="submit-transpose" class="button is-small" style="margin-left: 10px">
+			{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{%
+			endtrans %}
+		</button>
 	</div>
 	{% endif %}
 
