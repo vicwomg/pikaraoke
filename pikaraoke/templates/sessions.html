@@ -454,7 +454,7 @@
 		align-items: center;
 		padding-bottom: 12px;
 		margin-bottom: 25px;
-		border-bottom: 1px solid rgba(128, 128, 128, 0.35);
+		border-bottom: 1px solid var(--bulma-border);
 	}
 	.current-session-name {
 		flex-grow: 1;
@@ -490,7 +490,7 @@
 		cursor: pointer;
 	}
 	.session-row:hover > td {
-		background-color: rgba(128, 128, 128, 0.15);
+		background-color: var(--bulma-background);
 	}
 	/* One triangle rotated rather than two icons swapped, turning on the row's
 	   aria-expanded so open/shut is held in one place. */
@@ -520,7 +520,7 @@
 		border-left: 3px solid transparent;
 	}
 	.is-active-session > td:first-child {
-		border-left-color: var(--dark-success);
+		border-left-color: var(--bulma-success);
 	}
 	.is-active-session .session-name {
 		font-weight: 600;
@@ -530,28 +530,28 @@
 	   success one, so the list never implies the room can see a name that is not
 	   there. Naming it turns it green. */
 	.is-active-session.is-unnamed-session > td:first-child {
-		border-left-color: var(--dark-warning);
+		border-left-color: var(--bulma-warning);
 	}
 	/* The row label is a number PiKaraoke assigned, not a name anyone chose. */
 	.is-unnamed-session .session-name {
 		font-style: italic;
-		color: #a7a7a7;
+		color: var(--bulma-text-weak);
 	}
 	/* The panel belongs to the row above it: no separating border, an inset
 	   background, and an indent that lines it up under the session name. */
 	.singers-row > td {
 		padding: 0 12px 2px 22px;
 		border-top: none;
-		background-color: rgba(0, 0, 0, 0.15);
+		background-color: var(--bulma-scheme-main-bis);
 	}
 	/* Last of the washes, so the active session's panel takes the same tint as
 	   its row rather than the inset grey. */
 	.is-active-session > td {
-		background-color: rgba(46, 204, 113, 0.07);
+		background-color: color-mix(in srgb, var(--bulma-success) 7%, transparent);
 	}
 	/* Matching the warning accent above, so the wash and the bar agree. */
 	.is-active-session.is-unnamed-session > td {
-		background-color: rgba(241, 183, 14, 0.07);
+		background-color: color-mix(in srgb, var(--bulma-warning) 7%, transparent);
 	}
 	/* The name column is deliberately unsized, so it takes whatever the three
 	   beside it do not need: it is the column worth reading, and a timestamp
@@ -612,7 +612,7 @@
 			width: 2em;
 		}
 		#session-list td.when {
-			color: #a7a7a7;
+			color: var(--bulma-text-weak);
 		}
 	}
 </style>

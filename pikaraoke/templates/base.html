@@ -377,8 +377,8 @@
     margin: 4px 0 0;
     padding: 4px 12px;
     border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.04);
-    color: hsl(0, 0%, 71%);
+    background-color: var(--bulma-scheme-main-bis);
+    color: var(--bulma-grey-light);
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -394,12 +394,12 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background-color: hsl(141, 53%, 53%);
+    background-color: var(--bulma-success);
     animation: session-ribbon-pulse 2s ease-in-out infinite;
   }
   @keyframes session-ribbon-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(72, 199, 116, 0.5); }
-    50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(72, 199, 116, 0); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--bulma-success) 50%, transparent); }
+    50% { opacity: 0.55; box-shadow: 0 0 0 4px transparent; }
   }
   @media (prefers-reduced-motion: reduce) {
     .session-ribbon-dot { animation: none; }
