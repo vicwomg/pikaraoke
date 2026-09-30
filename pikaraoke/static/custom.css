@@ -1,3 +1,31 @@
+/* The app's palette. bulma-dark.css paints with it too; custom properties resolve
+   at computed-value time, so it is visible there although this sheet loads later. */
+:root {
+  /* Background colors */
+  --dark-bg-primary: #1f2424;
+  --dark-bg-secondary: #282f2f;
+  --dark-bg-tertiary: #343c3d;
+
+  /* Text colors */
+  --dark-text-primary: #ffffff;
+  --dark-text-secondary: #f2f2f2;
+  --dark-text-muted: #8c9b9d;
+  --dark-text-light: #dbdee0;
+
+  /* Border colors */
+  --dark-border: #5e6d6f;
+  --dark-border-light: #8c9b9d;
+
+  /* Accent colors */
+  --dark-primary: #375a7f;
+  --dark-link: #1abc9c;
+  --dark-link-hover: #1dd2af;
+  --dark-info: #3298dc;
+  --dark-success: #2ecc71;
+  --dark-warning: #f1b70e;
+  --dark-danger: #e74c3c;
+}
+
 .custom-combobox {
   position: relative;
   display: inline-block;
