@@ -72,9 +72,11 @@
 }
 
 /* Plain buttons are wells of page colour cut into the box. Bulma fills them with
-   the surface they sit on, where they are lost; modifiers set their own fill. */
+   the surface they sit on and outlines them to compensate; filled, they need no
+   outline, like the coloured buttons. is-outlined sets its own width. */
 .button {
   --bulma-button-background-l: calc(var(--bulma-scheme-main-l) - 9%);
+  --bulma-button-border-width: 0px;
 }
 
 /* Cards sit one of Bulma's 5% steps below the box, between it and the page. */
@@ -154,6 +156,9 @@ input.checkbox {
   --bulma-navbar-dropdown-item-background-l: var(--bulma-primary-l);
   --bulma-navbar-dropdown-item-color-l: var(--bulma-primary-invert-l);
   --bulma-navbar-dropdown-radius: var(--bulma-radius);
+  /* A text control: hover tints the text and holds the background, as every other
+     text control in the app does. */
+  --bulma-navbar-item-hover-background-l-delta: 0%;
   /* spa-navigation.js marks the current page with is-active, the app's only
      "you are here". is-primary points the selected state at the bar's own navy,
      which would hide it; teal text marks it instead. */
@@ -166,6 +171,16 @@ input.checkbox {
    text alone. a.navbar-item to match Bulma's own selector. */
 a.navbar-item.is-active {
   --bulma-navbar-item-background-a: 0;
+}
+
+/* White text cannot brighten, so it takes the interactive teal. Bulma declares
+   --bulma-navbar-item-hover-color without reading it, so this needs a rule. The
+   dropdown selector matches Bulma's desktop one, a.navbar-item included, which
+   sets the dropdown items' colour at that specificity. */
+.navbar-item:hover,
+.navbar-link:hover,
+.navbar-dropdown a.navbar-item:hover {
+  color: var(--bulma-link);
 }
 
 /* Bulma hides the divider below its desktop breakpoint, where the dropdown
