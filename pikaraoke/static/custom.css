@@ -319,6 +319,13 @@ td {
   width: 100%;
 }
 
+/* Bulma has no truncation helper. */
+.is-truncated {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Admin-only field naming who is about to sing. */
 .singer-field {
   max-width: 320px;
