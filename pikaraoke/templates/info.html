@@ -206,7 +206,7 @@
 							'<input type="checkbox" class="mic-toggle mr-2" ' +
 								'data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
 								(dev.enabled ? 'checked' : '') + ' />' +
-							'<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
+							'<span class="is-truncated">' + escaped + '</span>' +
 						'</label>' +
 						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
 							'class="mic-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +

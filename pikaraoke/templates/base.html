@@ -384,11 +384,6 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
-  .session-ribbon-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .session-ribbon-dot {
     flex: none;
     width: 7px;
@@ -520,7 +515,7 @@
       aria-label="{{ _('Current session: {name}').replace('{name}', session_name) }}"
       title="{{ session_name }}">
       <span class="session-ribbon-dot" aria-hidden="true"></span>
-      <span class="session-ribbon-text">{{ session_name }}</span>
+      <span class="session-ribbon-text is-truncated">{{ session_name }}</span>
     </div>
 
     {% if get_flashed_messages() %}

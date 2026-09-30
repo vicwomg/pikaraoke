@@ -290,8 +290,8 @@
                       <div class="box mb-2 p-3 is-flex is-align-items-center" style="border-left: 4px solid var(--bulma-danger);">
                           <span class="icon has-text-danger mr-2"><i class="icon-cancel"></i></span>
                           <div class="is-flex-grow-1" style="min-width: 0;">
-                              <p class="has-text-grey-light mb-0 is-truncated" title="${d.title || d.url}">${d.title || d.url}</p>
-                              <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
+                              <p class="has-text-grey-light mb-0" title="${d.title || d.url}">${d.title || d.url}</p>
+                              <p class="help is-danger mb-0" title="${d.error}">${d.error}</p>
                           </div>
                           <span class="tag is-danger is-light ml-2">{{ _('Failed') | forceescape }}</span>
                           <button class="button is-small is-info ml-2" onclick="retryDownloadError('${d.id}')">{{ _('Retry') | forceescape }}</button>
