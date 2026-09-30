@@ -82,6 +82,12 @@
   --bulma-card-background-color: var(--bulma-body-background-color);
 }
 
+/* Bulma sets a modal's header apart from its body only by the shadow turned off
+   above; the page colour does it by fill, as the wells do. */
+.modal {
+  --bulma-modal-card-head-background-color: var(--bulma-body-background-color);
+}
+
 /* Form fields stay white on the dark page, so the colours Bulma derives for them
    from the dark scheme - text, placeholder and icon, all near-white - are taken
    from the field instead. The placeholder is the field's own text at partial
