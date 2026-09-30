@@ -8,7 +8,7 @@
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
 	<tr value="{{ song }}">
-		<td class="px-0">{{loop.index + skip}}</td>
+		<td class="pl-2 pr-0">{{loop.index + skip}}</td>
 		<td id="{{display_name[0].lower()}}" class="pr-0">
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
