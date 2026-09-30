@@ -63,6 +63,12 @@
   --bulma-primary-on-scheme-l: var(--bulma-primary-60-l);
   --bulma-link-on-scheme-l: var(--bulma-link-l);
 
+  /* Inset panels - has-background-dark, cards, the now-playing row - sit one of
+     Bulma's 5% steps below the box, on the ramp's hue rather than Bulma's blue. */
+  --bulma-dark-h: var(--bulma-scheme-h);
+  --bulma-dark-s: var(--bulma-scheme-s);
+  --bulma-dark-l: calc(var(--bulma-scheme-main-l) - 5%);
+
   /* Surfaces are told apart by their fill, not by Bulma's dark-theme glow. */
   --bulma-shadow: none;
 
@@ -79,10 +85,9 @@
   --bulma-button-border-width: 0px;
 }
 
-/* Cards sit one of Bulma's 5% steps below the box, between it and the page. */
+/* Cards are inset panels. */
 .card {
-  --bulma-card-background-color:
-    hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), calc(var(--bulma-scheme-main-l) - 5%));
+  --bulma-card-background-color: var(--bulma-dark);
 }
 
 /* Striped tables tell rows apart by the stripe; a rule under each row says it

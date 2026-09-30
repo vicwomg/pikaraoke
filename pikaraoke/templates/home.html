@@ -240,12 +240,10 @@
 
 {% block content %}
 
-<p class="is-size-4 has-text-warning" id="now-playing">&nbsp;</p>
+<p class="is-size-4 has-text-warning mb-6" id="now-playing">&nbsp;</p>
 
-<hr />
 <h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next Song{% endtrans %}</h3>
-<p id="up-next" class="has-text-warning"></p>
-<hr />
+<p id="up-next" class="has-text-warning mb-6"></p>
 
 {% if admin %}
 <div class="has-background-dark box control-box" style="max-width: 500px; display: none">
