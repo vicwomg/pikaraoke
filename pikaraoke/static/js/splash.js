@@ -628,6 +628,8 @@ const setupSocketEvents = () => {
   });
   socket.on('splash_role', (role) => {
     isMaster = (role === "master");
+    // A screen caught mid-catch-up must not set the pace for the others.
+    if (isMaster) getVideoPlayer().playbackRate = 1;
     console.log("Splash role assigned:", role, isMaster ? "(Master active)" : "(Slave active - read-only)");
   });
   socket.on('connect_error', (error) => {
@@ -704,9 +706,15 @@ const setupSocketEvents = () => {
     if (!isMaster) {
       const video = getVideoPlayer();
       if (isMediaPlaying(video)) {
-        if (Math.abs(video.currentTime - position) > 2) {
+        // Positive when this screen is behind the master.
+        const drift = position - video.currentTime;
+        if (Math.abs(drift) > 2) {
           console.log("Slave drifting, syncing position to:", position);
           video.currentTime = position;
+        } else {
+          // A seek lands a few tenths short, which is an audible echo beside the
+          // master, so close a small gap by playing up to 10% fast or slow.
+          video.playbackRate = Math.abs(drift) < 0.05 ? 1 : 1 + Math.max(-0.1, Math.min(0.1, drift / 2));
         }
       }
     }
