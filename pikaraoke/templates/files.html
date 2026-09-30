@@ -285,23 +285,10 @@
 		justify-content: space-between;
 		flex-wrap: wrap;
 	}
-	/* Bulma gives a non-last .buttons a full block of spacing; these controls belong
-	   close to the table they act on. */
-	#browse-controls .buttons {
-		margin-bottom: 0.5rem;
-	}
 
 	.folder-item {
 		/* Pushes the chevron to the right edge; panel-block is flex already. */
 		justify-content: space-between;
-	}
-
-	/* Bulma ships the breadcrumb list as align-items: flex-start, which only shows
-	   when the items are unequal heights -- here the root crumb carries a folder
-	   icon and the rest are plain text, so they hang from the top instead of
-	   sharing a centre line. */
-	.breadcrumb ul {
-		align-items: center;
 	}
 
 	@media screen and (max-width: 500px) {
@@ -359,7 +346,7 @@
 			</a>
 		</li>
 		{% for crumb in breadcrumbs %}
-		<li{% if loop.last %} class="is-active"{% endif %}>
+		<li class="mt-0{% if loop.last %} is-active{% endif %}">
 			<a href="{{ url_for('files.browse', view='folders', folder=crumb.folder) }}">{{ crumb.name }}</a>
 		</li>
 		{% endfor %}
@@ -442,7 +429,7 @@
    sentence. Sorting and the view are orthogonal to filtering, so both carry the
    active query through -- the alpha bar above is the one control that clears it. #}
 <div id="browse-controls">
-	<div class="buttons has-addons are-small">
+	<div class="buttons has-addons are-small mb-2">
 		{% if has_subfolders %}
 		<a class="button {% if not view %}is-info is-selected{% endif %}"
 			href="{{ url_for('files.browse', q=q or None, sort=sort_param) }}">
@@ -456,7 +443,7 @@
 		</a>
 		{% endif %}
 	</div>
-	<div class="buttons has-addons are-small">
+	<div class="buttons has-addons are-small mb-2">
 		{% if not folder_landing %}
 		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
 		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}

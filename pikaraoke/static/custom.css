@@ -1,7 +1,7 @@
 /* ===================================
    THEME
    PiKaraoke's palette, said in Bulma's own variables. Bulma derives every
-   component's colours from these; nothing below overrides a Bulma rule.
+   component's colours from these.
    =================================== */
 :root {
   /* Bulma applies the family to body and to every form control. */
@@ -241,10 +241,6 @@ a.navbar-item.is-active {
        clipping its square corners paint over the rounded ones. */
     overflow: hidden;
   }
-}
-
-#notification {
-  margin-bottom: 0;
 }
 
 .control-box a {
