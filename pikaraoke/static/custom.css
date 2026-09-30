@@ -113,6 +113,13 @@
   --bulma-modal-card-head-background-color: var(--bulma-body-background-color);
 }
 
+/* Bulma 1.0 defines a link hover colour but applies it to no plain link, only to its
+   own components, which hover their own way. This is the rule bulma-dark.css used
+   to carry, for text links only. */
+a:not(.button, .navbar-item, .navbar-link, .navbar-burger, .panel-block, .delete):hover {
+  color: var(--bulma-link-text-hover);
+}
+
 /* Form fields stay white on the dark page, so the colours Bulma derives for them
    from the dark scheme - text, placeholder and icon, all near-white - are taken
    from the field instead. The placeholder is the field's own text at partial
