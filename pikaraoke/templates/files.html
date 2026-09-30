@@ -276,20 +276,6 @@
 		white-space: nowrap;
 	}
 
-	/* The view toggle sits left, the sort toggle right. The left slot is rendered
-	   even when empty so that space-between keeps sort against the right edge on a
-	   library with no subfolders. */
-	#browse-controls {
-		display: flex;
-		justify-content: space-between;
-		flex-wrap: wrap;
-	}
-
-	.folder-item {
-		/* Pushes the chevron to the right edge; panel-block is flex already. */
-		justify-content: space-between;
-	}
-
 	@media screen and (max-width: 500px) {
 		#alpha-bar {
 			font-size: 13px;
@@ -414,7 +400,7 @@
    listing, not a filtered continuation of the one being left. #}
 <div class="panel">
 	{% for name in subfolders %}
-	<a class="panel-block py-3 folder-item"
+	<a class="panel-block py-3 is-justify-content-space-between"
 		href="{{ url_for('files.browse', view='folders', folder=(folder ~ '/' ~ name) if folder else name) }}">
 		<span><span class="icon mr-2"><i class="icon-folder-open-empty"></i></span>{{ name }}</span>
 		<span class="icon"><i class="icon-right-big"></i></span>
@@ -427,7 +413,7 @@
    and each shows its options at once so the active one is visible without reading a
    sentence. Sorting and the view are orthogonal to filtering, so both carry the
    active query through -- the alpha bar above is the one control that clears it. #}
-<div id="browse-controls">
+<div id="browse-controls" class="is-flex is-justify-content-space-between is-flex-wrap-wrap">
 	<div class="buttons has-addons are-small mb-2">
 		{% if has_subfolders %}
 		<a class="button {% if not view %}is-info is-selected{% endif %}"
