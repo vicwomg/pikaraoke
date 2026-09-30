@@ -79,10 +79,13 @@
 
 /* Plain buttons are wells of page colour cut into the box. Bulma fills them with
    the surface they sit on and outlines them to compensate; filled, they need no
-   outline, like the coloured buttons. is-outlined sets its own width. */
+   outline, like the coloured buttons. is-outlined sets its own width. Disabled,
+   they keep the well and Bulma's opacity fades it; Bulma's own disabled fill is
+   scheme-main, the box itself, where a faded button vanishes. */
 .button {
   --bulma-button-background-l: calc(var(--bulma-scheme-main-l) - 9%);
   --bulma-button-border-width: 0px;
+  --bulma-button-disabled-background-color: var(--bulma-body-background-color);
 }
 
 /* Cards are inset panels. */
