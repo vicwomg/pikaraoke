@@ -178,30 +178,23 @@ input.checkbox {
   --bulma-navbar-dropdown-item-background-l: var(--bulma-primary-l);
   --bulma-navbar-dropdown-item-color-l: var(--bulma-primary-invert-l);
   --bulma-navbar-dropdown-radius: var(--bulma-radius);
+  /* Lines sit the ramp's border step (+15%) lighter than their surface; the divider's
+     surface is the bar's navy. Bulma's default is darker than the bar. */
+  --bulma-navbar-divider-background-l: calc(var(--bulma-primary-l) + 15%);
   /* A text control: hover tints the text and holds the background, as every other
      text control in the app does. */
   --bulma-navbar-item-hover-background-l-delta: 0%;
-  /* spa-navigation.js marks the current page with is-active, the app's only
-     "you are here". is-primary points the selected state at the bar's own navy,
-     which would hide it; teal text marks it instead. */
-  --bulma-navbar-item-selected-h: var(--bulma-link-h);
-  --bulma-navbar-item-selected-s: var(--bulma-link-s);
-  --bulma-navbar-item-selected-color-l: var(--bulma-link-l);
 }
 
-/* The selected state paints its hue as a background too; the teal belongs on the
-   text alone. a.navbar-item to match Bulma's own selector. */
-a.navbar-item.is-active {
-  --bulma-navbar-item-background-a: 0;
-}
-
-/* White text cannot brighten, so it takes the interactive teal. Bulma declares
-   --bulma-navbar-item-hover-color without reading it, so this needs a rule. The
-   dropdown selector matches Bulma's desktop one, a.navbar-item included, which
-   sets the dropdown items' colour at that specificity. */
+/* White text cannot brighten, so hover takes the interactive teal, as does the
+   current page, which spa-navigation.js marks with is-active - the app's only
+   "you are here". Bulma's selected state cannot do it: it changes the item's hue
+   variables, but the text colour is composed on .navbar and inherited finished.
+   The dropdown selector matches Bulma's desktop one, a.navbar-item included. */
 .navbar-item:hover,
 .navbar-link:hover,
-.navbar-dropdown a.navbar-item:hover {
+.navbar-dropdown a.navbar-item:hover,
+a.navbar-item.is-active {
   color: var(--bulma-link);
 }
 
