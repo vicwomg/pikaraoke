@@ -29,7 +29,6 @@
   --bulma-text-weak-l: 58%;
   --bulma-text-l: 87%;
   --bulma-text-strong-l: 95%;
-  --bulma-text-title-l: 100%;
 
   --bulma-primary-h: 211deg;
   --bulma-primary-s: 40%;
@@ -217,22 +216,6 @@ a.navbar-item.is-active {
   }
 }
 
-.custom-combobox {
-  position: relative;
-  display: inline-block;
-  width: 90%;
-}
-.custom-combobox-toggle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  margin-left: -1px;
-  padding: 0;
-}
-.custom-combobox-input {
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-}
 #notification {
   margin-bottom: 0;
 }
@@ -461,10 +444,6 @@ table {
   ) !important;
 }
 
-body.hide-cursor * {
-  cursor: none !important;
-}
-
 /* Drag and drop highlight */
 .drag-chosen {
   background-color: var(--bulma-info) !important;
@@ -513,14 +492,6 @@ body.hide-cursor * {
   margin-left: 1em;
   color: var(--bulma-grey-light);
   font-size: 0.8rem;
-}
-
-.pager-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 10px;
 }
 
 /* A div, not <progress>, so the fill can transition; the duration matches the poll. */
