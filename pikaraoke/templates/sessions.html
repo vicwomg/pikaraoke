@@ -157,7 +157,7 @@
 					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
 						'" data-uuid="' + escapedUuid + '">' +
 						'<td colspan="4"><div class="singers-panel">' +
-							'<div class="singers-list"></div>' +
+							'<div class="singers-list tags mb-2"></div>' +
 							'<a class="is-size-7" href="' + historyUrl(session.uuid) + '">' +
 								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
 								"{{ _('Show these plays') | forceescape }}" +
@@ -183,7 +183,7 @@
 		$list.append(
 			singers.map(function (singer) {
 				return $("<a>")
-					.addClass("tag singer-tag")
+					.addClass("tag")
 					.attr("href", historySingerUrl(uuid, singer.performer))
 					.text(singer.performer + " (" + singer.play_count + ")")[0];
 			})
@@ -568,10 +568,6 @@
 		flex-wrap: wrap;
 		align-items: baseline;
 		gap: 0 12px;
-	}
-	.singer-tag {
-		margin-right: 6px;
-		margin-bottom: 6px;
 	}
 	@media screen and (max-width: 600px) {
 		/* A phone has no room to put the name box and its button side by side with

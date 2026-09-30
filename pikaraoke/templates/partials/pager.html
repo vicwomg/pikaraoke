@@ -1,7 +1,7 @@
 {# The one pager every paged table uses: prev and next either side of a
    "1-100 of 2000" summary. Two forms, because pages differ in where their paging
-   state lives, not in how paging looks -- both emit .pager-controls with the same
-   classes and icons, so the two render identically.
+   state lives, not in how paging looks -- both emit the same classes and icons,
+   so the two render identically.
 
    Use `pager()` when the state is in the URL, so a page is a link and Back works.
    Use `pager_controls()` with `pager_scripts()` when the state is an offset held
@@ -27,7 +27,7 @@
 {% macro pager(page, per_page, total, page_href, size_options=None) %}
 {% set start = ((page - 1) * per_page) + 1 if total else 0 %}
 {% set end = [page * per_page, total] | min %}
-<div class="pager-controls">
+<div class="is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
 	{# MSG: Tooltip on the button showing the previous page of a table. #}
 	{{ _end(_('Previous page'), 'left-big', page_href | replace('PAGENUMBER', page - 1), page > 1) }}
 	{# MSG: Tooltip on the button showing the next page of a table. #}
@@ -58,7 +58,7 @@
    element ids; wirePager() binds them by the same prefix, so one page can carry
    several of these. #}
 {% macro pager_controls(prefix) %}
-<div class="pager-controls">
+<div class="is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
 	{# MSG: Tooltip on the button showing the previous page of a table. #}
 	<button id="{{ prefix }}-prev" class="button is-small" title="{{ _('Previous page') | forceescape }}">
 		<i class="icon icon-left-big"></i>
