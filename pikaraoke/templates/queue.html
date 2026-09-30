@@ -294,7 +294,7 @@
                               <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
                           </div>
                           <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') | forceescape }}</span>
-                          <button class="button is-small is-info is-light ml-2" onclick="retryDownloadError('${d.id}')">{{ _('Retry') | forceescape }}</button>
+                          <button class="button is-small is-info ml-2" onclick="retryDownloadError('${d.id}')">{{ _('Retry') | forceescape }}</button>
                           <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') | forceescape }}"></button>
                       </div>
                   `;

@@ -372,7 +372,7 @@
 							</div>
 							<div class="control">
 								{# MSG: Text on submit button for the admin login form. #}
-								<button class="button is-rounded is-primary">{% trans %}Login{% endtrans %}</button>
+								<button class="button is-primary">{% trans %}Login{% endtrans %}</button>
 							</div>
 						</div>
 					</form>
@@ -399,7 +399,7 @@
 						{# MSG: Song count display in the library card. #}
 						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
 					</p>
-					<button id="sync-library-btn" class="button is-primary is-inverted">
+					<button id="sync-library-btn" class="button is-primary">
 						{# MSG: Button to trigger a background library scan. #}
 						{% trans %}Sync Now{% endtrans %}
 					</button>
@@ -614,7 +614,7 @@
 					{% endif %}
 					</div>
 
-					<button id="mic-refresh" class="button is-small is-primary is-outlined mt-3">{% trans %}Refresh{% endtrans %}</button>
+					<button id="mic-refresh" class="button is-small is-primary mt-3">{% trans %}Refresh{% endtrans %}</button>
 					{% else %}
 					<p class="has-text-warning">
 						{% trans %}Microphone support is unavailable. Required audio tools are not installed.{% endtrans %}
@@ -802,7 +802,7 @@
 					{# MSG: Header of the information section about the computer running Pikaraoke. #}
 					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
 					{# MSG: Button that copies the system info below it, for pasting into a bug report. #}
-					<button id="copy-system-info" class="button is-small is-primary is-inverted ml-auto">{% trans %}Copy{% endtrans %}</button>
+					<button id="copy-system-info" class="button is-small is-primary ml-auto">{% trans %}Copy{% endtrans %}</button>
 			</header>
 			<div class="card-content">
 				<div class="content">
@@ -855,7 +855,7 @@
 						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
 						The current installed version is: "{{ youtubedl_version }}".
 					{% endtrans %}</p>
-					<a id="update-ytdl-link" class="button is-primary is-inverted" href="{{ url_for('admin.update_ytdl') }}"
+					<a id="update-ytdl-link" class="button is-primary" href="{{ url_for('admin.update_ytdl') }}"
 						{# MSG: Text for the link which will try and update yt-dlp on the machine running Pikaraoke. #}
 							>{% trans %}Update yt-dlp{% endtrans %}</a
 						>
@@ -889,7 +889,7 @@
 							you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
 							This will reboot the system.
 						{%- endtrans %}</p>
-						<a id="expand-link"  class="button is-primary is-inverted" href="{{ url_for('admin.expand_fs') }}">
+						<a id="expand-link" class="button is-primary" href="{{ url_for('admin.expand_fs') }}">
 							{# MSG: Text for button#}
 							{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</a>
 					</div>
@@ -918,7 +918,7 @@
 							</div>
 							<div class="control">
 								{# MSG: Button which saves a new administrator password. #}
-								<button class="button is-rounded is-primary">{% trans %}Save password{% endtrans %}</button>
+								<button class="button is-primary">{% trans %}Save password{% endtrans %}</button>
 							</div>
 						</div>
 					</form>
