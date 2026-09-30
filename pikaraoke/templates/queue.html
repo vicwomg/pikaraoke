@@ -161,7 +161,7 @@
 
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right;">';
-      html += '<a class="has-text-grey-light is-small is-text now-playing-options-btn" title="{{ _("Options") | forceescape }}">';
+      html += '<a class="has-text-grey-light row-options-btn now-playing-options-btn" title="{{ _("Options") | forceescape }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
@@ -382,7 +382,7 @@
 
     if (isAdmin) {
       html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
-      html += '<a class="has-text-grey-light is-small is-text queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") | forceescape }}">';
+      html += '<a class="has-text-grey-light row-options-btn queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") | forceescape }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
     }
