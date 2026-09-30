@@ -27,7 +27,7 @@
 {% macro pager(page, per_page, total, page_href, size_options=None) %}
 {% set start = ((page - 1) * per_page) + 1 if total else 0 %}
 {% set end = [page * per_page, total] | min %}
-<div class="is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
+<div class="pager-controls is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
 	{# MSG: Tooltip on the button showing the previous page of a table. #}
 	{{ _end(_('Previous page'), 'left-big', page_href | replace('PAGENUMBER', page - 1), page > 1) }}
 	{# MSG: Tooltip on the button showing the next page of a table. #}
@@ -58,7 +58,7 @@
    element ids; wirePager() binds them by the same prefix, so one page can carry
    several of these. #}
 {% macro pager_controls(prefix) %}
-<div class="is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
+<div class="pager-controls is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
 	{# MSG: Tooltip on the button showing the previous page of a table. #}
 	<button id="{{ prefix }}-prev" class="button is-small" title="{{ _('Previous page') | forceescape }}">
 		<i class="icon icon-left-big"></i>
