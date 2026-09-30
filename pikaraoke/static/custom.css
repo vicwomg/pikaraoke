@@ -78,28 +78,13 @@
      luminous turquoise wanting near-black ink; this navy wants white, which is
      7.2:1 where the baked ink is 2.7:1. The same mismatch runs the other way on
      the teal, where dark ink replaces white at 2.4:1. */
-  --bulma-primary-invert-l: 100%;
+  --bulma-primary-invert-l: var(--bulma-primary-100-l);
   --bulma-link-invert-l: var(--bulma-link-05-l);
   /* Text in an accent colour is re-lit to stay readable on the page. The navy
-     needs lifting to 60% (5.2:1). Links keep the palette teal as it is, so the
-     hover, 5% lighter, lands on the palette's hover teal exactly. */
-  --bulma-primary-on-scheme-l: 60%;
+     needs lifting (5.2:1). Links keep the palette teal as it is, so the hover, 5%
+     lighter, lands on the palette's hover teal exactly. */
+  --bulma-primary-on-scheme-l: var(--bulma-primary-60-l);
   --bulma-link-on-scheme-l: var(--bulma-link-l);
-
-  /* Bulma writes its greys as flat hexes on its own blue-grey, out of reach of the
-     ramp above, and the colour helpers read them directly. Same steps, the ramp's
-     hue - except grey itself, lifted to the muted text step, since Bulma's sits at
-     3.4:1 on the page. */
-  --bulma-grey-dark: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 29%);
-  --bulma-grey: var(--bulma-text-weak);
-  --bulma-grey-light: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 71%);
-  --bulma-black-bis: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 9%);
-  /* has-background-dark marks a well inside a box - the A-Z bar, the download card.
-     Bulma's sets it apart by its blue tint alone; on the ramp's hue it needs the step
-     below the box. */
-  --bulma-dark-h: var(--bulma-scheme-h);
-  --bulma-dark-s: var(--bulma-scheme-s);
-  --bulma-dark-l: var(--bulma-scheme-main-bis-l);
 
   --bulma-hr-background-color: var(--bulma-scheme-main-ter);
 }
@@ -114,6 +99,9 @@
 
 .table {
   --bulma-table-background-color: var(--bulma-scheme-main-ter);
+  /* A faint stripe just under the table: Bulma's own is the ramp step below,
+     heavy against a long list of songs. */
+  --bulma-table-striped-row-even-background-color: var(--bulma-border-weak);
 }
 
 .notification {
@@ -135,19 +123,18 @@
   --bulma-modal-card-body-background-color: var(--bulma-scheme-main-bis);
 }
 
-/* Form fields stay white on the dark page, so every colour Bulma derives for them
-   from the dark scheme is replaced here: its text, placeholder and icon are all
-   near-white, and would vanish. The placeholder and icon are ~4.9:1 on white and
-   clearly dimmer than the text typed above them. The ramp's own border is Bulma's
-   dark 24%, which every button and table line uses; on white a field needs more. */
+/* Form fields stay white on the dark page, so the colours Bulma derives for them
+   from the dark scheme - text, placeholder and icon, all near-white - are taken
+   from the field instead. The placeholder is the field's own text at partial
+   alpha, the same pattern Bulma uses for it. */
 .control,
 .input,
 .select,
 .textarea {
-  --bulma-input-background-l: 100%;
-  --bulma-input-border-l: 40%;
+  --bulma-input-background-l: var(--bulma-white-l);
   --bulma-input-color-l: var(--bulma-scheme-main-bis-l);
-  --bulma-input-placeholder-color: hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), 43%);
+  --bulma-input-placeholder-color:
+    hsla(var(--bulma-input-h), var(--bulma-input-s), var(--bulma-input-color-l), 0.7);
   --bulma-input-icon-color: var(--bulma-input-placeholder-color);
   --bulma-input-icon-hover-color: var(--bulma-input-placeholder-color);
 }

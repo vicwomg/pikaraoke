@@ -4,7 +4,7 @@
    changes the count and the number of pages. #}
 {% import 'partials/pager.html' as pager %}
 {{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
-<table>
+<table class="table is-striped">
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
 	<tr value="{{ song }}">
