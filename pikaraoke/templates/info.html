@@ -193,7 +193,7 @@
 			var list = $("#mic-list");
 			list.empty();
 			if (devices.length === 0) {
-				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
+				list.html('<p class="has-text-grey-light">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
 				$("#mic-settings-panel").hide();
 				return;
 			}
@@ -377,7 +377,7 @@
 						</div>
 					</form>
 					{# MSG: Tells a locked-out host how to reset a forgotten admin password. #}
-					<p class="is-size-7 has-text-grey">{% trans %}Forgotten it? Restart PiKaraoke with --admin-password to set a new one.{% endtrans %}</p>
+					<p class="is-size-7 has-text-grey-light">{% trans %}Forgotten it? Restart PiKaraoke with --admin-password to set a new one.{% endtrans %}</p>
 				</div>
 			</div>
 		</div>
@@ -589,11 +589,11 @@
 				<div class="content">
 					{% if mic_available %}
 					<h5 class="mb-2">{% trans %}Microphones{% endtrans %}</h5>
-					<p class="is-size-7 has-text-grey mb-2">
+					<p class="is-size-7 has-text-grey-light mb-2">
 						{% trans %}Microphones detected on the server. Audio is routed directly to speakers.{% endtrans %}
 					</p>
 					<div id="mic-list">
-						<p class="has-text-grey">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
+						<p class="has-text-grey-light">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
 					</div>
 
 					<div id="mic-settings-panel" style="display: none;">
@@ -608,8 +608,8 @@
 							<input type="checkbox" id="mic-echo-cancel" class="mr-1" />
 							{% trans %}Echo cancellation{% endtrans %}
 						</label>
-						<span class="tag is-warning is-light ml-2" style="font-size: 0.7rem;">{% trans %}Experimental{% endtrans %}</span>
-						<span class="is-size-7 has-text-grey ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
+						<span class="tag is-warning is-light ml-2">{% trans %}Experimental{% endtrans %}</span>
+						<span class="is-size-7 has-text-grey-light ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
 					</div>
 					{% endif %}
 					</div>
@@ -619,7 +619,7 @@
 					<p class="has-text-warning">
 						{% trans %}Microphone support is unavailable. Required audio tools are not installed.{% endtrans %}
 					</p>
-					<p class="is-size-7 has-text-grey">
+					<p class="is-size-7 has-text-grey-light">
 						{% trans %}On Linux / Raspberry Pi, install it with:{% endtrans %}
 						<code>sudo apt install pulseaudio-utils</code>
 						{% trans %}and restart PiKaraoke.{% endtrans %}
@@ -641,7 +641,7 @@
 		<div class="card-content collapsible-content">
 			<div class="content">
 					{# MSG: Help text explaining how to add phrases #}
-					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
+					<p class="is-size-7 has-text-grey-light mt-1">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
 					{# MSG: Title for LOW Score Phrases #}
 					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
 					{# MSG: Placeholder for the low score phrases textarea #}
@@ -768,7 +768,7 @@
 					</div>
 
 					{% if keep_awake_unsupported %}
-					<p class="is-size-7 has-text-grey">
+					<p class="is-size-7 has-text-grey-light">
 						{% if keep_awake_unsupported == "container" %}
 						{# MSG: Shown instead of the keep-awake checkbox when running in a container. #} {% trans %}Keep the server awake: unavailable in a container. Disable sleep on the host.{% endtrans %}
 						{% elif keep_awake_unsupported == "missing_tool" %}

@@ -71,15 +71,23 @@
   --bulma-panel-block-hover-background-color: var(--bulma-background);
 }
 
-/* Plain buttons and cards are wells of page colour cut into the box. Bulma fills
-   them with the surface they sit on, where they are lost; button modifiers set
-   their own fill. */
+/* Plain buttons are wells of page colour cut into the box. Bulma fills them with
+   the surface they sit on, where they are lost; modifiers set their own fill. */
 .button {
   --bulma-button-background-l: calc(var(--bulma-scheme-main-l) - 9%);
 }
 
+/* Cards sit one of Bulma's 5% steps below the box, between it and the page. */
 .card {
-  --bulma-card-background-color: var(--bulma-body-background-color);
+  --bulma-card-background-color:
+    hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), calc(var(--bulma-scheme-main-l) - 5%));
+}
+
+/* Striped tables tell rows apart by the stripe; a rule under each row says it
+   twice. Every table sits in base.html's .content, whose rule draws it. Heading
+   underlines are a separate variable and stay. */
+.content {
+  --bulma-content-table-cell-border-width: 0;
 }
 
 /* Bulma sets a modal's header apart from its body only by the shadow turned off
@@ -338,7 +346,7 @@ table {
    reader came for. */
 .table-toggle {
   margin-left: auto;
-  color: var(--bulma-text-weak);
+  color: var(--bulma-grey-light);
   /* A box and its label, centred on each other. Left inline the box sits on the
      text baseline, which puts it a couple of pixels low against type this
      small. The gap replaces the whitespace between them, which a flex
@@ -462,12 +470,12 @@ body.hide-cursor * {
   min-width: 0;
 }
 .suggest-meta {
-  color: var(--bulma-text-weak);
+  color: var(--bulma-grey-light);
 }
 .suggest-score {
   flex-shrink: 0;
   margin-left: 1em;
-  color: var(--bulma-text-weak);
+  color: var(--bulma-grey-light);
   font-size: 0.8rem;
 }
 
@@ -481,8 +489,8 @@ body.hide-cursor * {
 
 /* A div, not <progress>, so the fill can transition; the duration matches the poll. */
 .dl-bar {
-  /* On the card's has-background-dark, the grey a step lighter on the same hue,
-     so the empty track shows before the fill covers it. */
+  /* A lighter grey on the card's has-background-dark, so the empty track shows
+     before the fill covers it. */
   background-color: var(--bulma-grey-dark);
   border-radius: 999px;
   height: 8px;
@@ -576,7 +584,7 @@ body.hide-cursor * {
 }
 
 .dl-meta-rate {
-  color: var(--bulma-text-weak);
+  color: var(--bulma-grey-light);
   display: flex;
   font-variant-numeric: tabular-nums;
   gap: 12px;
