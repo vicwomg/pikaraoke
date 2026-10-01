@@ -213,6 +213,17 @@
 <script src="{{  url_for('static', filename='score.js') }}"></script>
 
 <style>
+  /* The TV screen keeps master's colours: Bulma's own green and amber, on pure black.
+     The theme retunes these for the phone pages. */
+  :root {
+    --bulma-success-h: 153deg;
+    --bulma-success-s: 53%;
+    --bulma-success-l: 53%;
+    --bulma-warning-h: 42deg;
+    --bulma-warning-s: 100%;
+    --bulma-warning-l: 53%;
+    --bulma-black-l: 0%;
+  }
   html {
     overflow-y: hidden;
   }
