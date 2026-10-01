@@ -120,9 +120,11 @@
   color: var(--bulma-link-text-hover);
 }
 
-/* Cards are inset panels. */
+/* Cards are inset panels. A card's header is set apart from its body by fill, the
+   page colour, as a modal's is below. */
 .card {
   --bulma-card-background-color: var(--bulma-dark);
+  --bulma-card-header-background-color: var(--bulma-body-background-color);
   --bulma-card-radius: var(--bulma-radius);
 }
 
