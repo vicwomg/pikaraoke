@@ -74,3 +74,18 @@ def test_no_page_sits_under_api(real_app):
         if path.startswith("/api/") and _ANSWERS_A_BROWSER.search(source)
     )
     assert stray == []
+
+
+def test_the_published_api_holds_no_pages(real_app):
+    """A blueprint is documented whole, so one page in a published blueprint
+    puts an HTML route in /apidocs as though a program could call it.
+    """
+    from pikaraoke.routes import API_BLUEPRINTS
+
+    published = {bp.name for bp in API_BLUEPRINTS}
+    stray = sorted(
+        f"{rule.endpoint} at {rule.rule}"
+        for rule in real_app.url_map.iter_rules()
+        if rule.endpoint.split(".")[0] in published and not rule.rule.startswith("/api/")
+    )
+    assert stray == []

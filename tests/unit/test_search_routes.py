@@ -28,6 +28,8 @@ def app():
             ("/queue", "queue.queue"),
             ("/browse", "files.browse"),
             ("/info", "info.info"),
+            ("/api/download", "search_api.download"),
+            ("/api/preview", "search_api.preview"),
         ],
     )
 

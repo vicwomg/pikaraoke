@@ -322,7 +322,7 @@
 		// comes back later on the song_downloaded socket event.
 		function requestDownload(songUrl, songTitle, addToQueue, onSettled) {
 			$.ajax({
-				url: "{{ url_for('search.download') }}",
+				url: "{{ url_for('search_api.download') }}",
 				type: "POST",
 				contentType: "application/json",
 				data: JSON.stringify({
@@ -444,7 +444,7 @@
 
 		const requestPreview = function (videoUrl, requestId) {
 			$.ajax({
-				url: "{{ url_for('search.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
+				url: "{{ url_for('search_api.preview') }}" + "?url=" + encodeURIComponent(videoUrl),
 				type: "get",
 				success: function (data) {
 					if (requestId !== previewRequestId) return;

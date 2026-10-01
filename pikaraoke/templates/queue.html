@@ -33,7 +33,7 @@
 
     // Fetch both queue and now_playing data
     $.when(
-      $.get('{{ url_for("queue.get_queue") }}'),
+      $.get('{{ url_for("queue_api.get_queue") }}'),
       $.get('{{ url_for("now_playing.now_playing") }}')
     ).done(function(queueResp, nowPlayingResp) {
       var newQueue = queueResp[0];
@@ -116,7 +116,7 @@
              });
 
              // Send queue indices to backend
-             $.post("{{ url_for('queue.reorder') }}", {
+             $.post("{{ url_for('queue_api.reorder') }}", {
                  old_index: oldQueueIndex,
                  new_index: newQueueIndex
              }).done(function() {
@@ -263,7 +263,7 @@
           return;
       }
 
-      $.get('{{ url_for("queue.get_current_downloads") }}', function(status) {
+      $.get('{{ url_for("queue_api.get_current_downloads") }}', function(status) {
           var html = "";
 
           if (status.pending && status.pending.length > 0) {
@@ -323,7 +323,7 @@
   };
 
   window.retryDownloadError = function(errorId) {
-      $.post('{{ url_for("queue.retry_download_error", error_id="ERROR_ID") }}'.replace("ERROR_ID", errorId), function() {
+      $.post('{{ url_for("queue_api.retry_download_error", error_id="ERROR_ID") }}'.replace("ERROR_ID", errorId), function() {
           // Polling is stopped while only errors are on screen, so restart it here
           window.queuePage_getDownloads();
       });
@@ -331,7 +331,7 @@
 
   window.dismissDownloadError = function(errorId) {
       $.ajax({
-          url: '{{ url_for("queue.delete_download_error", error_id="ERROR_ID") }}'.replace("ERROR_ID", errorId),
+          url: '{{ url_for("queue_api.delete_download_error", error_id="ERROR_ID") }}'.replace("ERROR_ID", errorId),
           type: 'DELETE',
           success: function(result) {
               // Refresh immediately since polling might be stopped

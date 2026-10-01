@@ -8,7 +8,7 @@ from flask_babel import Babel
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
-from pikaraoke.routes.queue import queue_bp
+from pikaraoke.routes.queue_api import queue_api_bp
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def app():
     """Create a Flask app for testing."""
     test_app = Flask(__name__)
     Babel(test_app)
-    test_app.register_blueprint(queue_bp)
+    test_app.register_blueprint(queue_api_bp)
     return test_app
 
 
@@ -29,7 +29,7 @@ def client(app):
 class TestQueueRoutes:
     """Tests for queue routes."""
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_get_current_downloads(self, mock_get_instance, client):
         """Test the get_current_downloads route."""
         mock_karaoke = MagicMock()
@@ -45,8 +45,8 @@ class TestQueueRoutes:
         data = json.loads(response.data)
         assert data == expected_status
 
-    @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_add_random_says_when_the_library_ran_dry(
         self, mock_get_instance, mock_broadcast, client
     ):
@@ -60,8 +60,8 @@ class TestQueueRoutes:
         assert response.status_code == 200
         assert response.get_json() == {"success": False, "message": "Ran out of songs!"}
 
-    @patch("pikaraoke.routes.queue.broadcast_event")
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_add_random_stays_quiet_when_it_worked(self, mock_get_instance, mock_broadcast, client):
         mock_karaoke = MagicMock()
         mock_karaoke.queue_manager.queue_add_random.return_value = True
@@ -71,7 +71,7 @@ class TestQueueRoutes:
 
         assert response.get_json() == {"success": True, "message": ""}
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_delete_download_error(self, mock_get_instance, client):
         """Test the delete_download_error route."""
         mock_karaoke = MagicMock()
@@ -97,7 +97,7 @@ class TestQueueApiContract:
     The queue and home pages depend on these endpoints returning specific fields.
     """
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_get_queue_returns_required_fields(self, mock_get_instance, client):
         """GET /get_queue must return all fields the frontend expects."""
         mock_karaoke = MagicMock()
@@ -124,7 +124,7 @@ class TestQueueApiContract:
         assert "title" in item
         assert "semitones" in item
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):
         """GET /get_queue must return empty array when queue is empty."""
         mock_karaoke = MagicMock()
@@ -156,7 +156,7 @@ class TestQueueEditSocketUpdates:
         """Create a Flask app with secret key for session support."""
         app = Flask(__name__)
         app.secret_key = "test"
-        app.register_blueprint(queue_bp)
+        app.register_blueprint(queue_api_bp)
         app.extensions["babel"] = MagicMock()
         return app
 
@@ -201,14 +201,12 @@ class TestQueueEditSocketUpdates:
             ("clear", ""),
         ],
     )
-    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
     def test_queue_edit_emits_events(
         self,
         mock_broadcast,
         mock_get_instance,
-        mock_is_admin,
         client_with_session,
         action,
         song_param,
@@ -233,12 +231,10 @@ class TestQueueEditSocketUpdates:
             ("bottom", "&song=/songs/song1.mp4", 2),
         ],
     )
-    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_queue_edit_top_bottom_emits_events(
         self,
         mock_get_instance,
-        mock_is_admin,
         client_with_session,
         action,
         song_param,
@@ -258,10 +254,9 @@ class TestQueueEditSocketUpdates:
         assert len(queue_updates) == 1, "queue_update event should be emitted once"
         assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"
 
-    @patch("pikaraoke.routes.queue.is_admin", return_value=True)
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_queue_reorder_drag_drop_emits_events(
-        self, mock_get_instance, mock_is_admin, client_with_session, queue_env
+        self, mock_get_instance, client_with_session, queue_env
     ):
         """Drag-and-drop reorder uses QueueManager.reorder() which emits events."""
         qm, mock_karaoke, queue_updates, now_playing_updates = queue_env
