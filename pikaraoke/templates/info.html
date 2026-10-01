@@ -79,7 +79,11 @@
 					"val": val
 				})
 				.done(function(data) {
-					if (data[0]) showNotification(data[1], "is-success");
+					// The language is chosen on every request, and it is in the navbar
+					// and the strings base.html hands to scripts as well as this page,
+					// so a full reload is what shows it.
+					if (data[0] && pref == "preferred_language") window.location.reload();
+					else if (data[0]) showNotification(data[1], "is-success");
 					else showNotification(data[1], "is-danger")
 				});
 			}
@@ -385,7 +389,7 @@
 		<div class="card mt-5">
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				{# MSG: Header of the settings section for the screen the videos play on, usually a TV, and what it shows between songs. #}
-				<h3 class="m-0">{% trans %}Video screen{% endtrans %}</h3>
+				<h3 class="m-0">{% trans %}Splash screen{% endtrans %}</h3>
 			</header>
 			<div class="collapsible-content panel is-shadowless mb-0">
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
@@ -683,10 +687,7 @@
 			</header>
 			<div class="collapsible-content panel is-shadowless mb-0">
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
-					<label for="pref-language">
-						{# MSG: Label for language selection dropdown #} {% trans %}Language{% endtrans %}
-						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Takes effect after a restart.{% endtrans %}</span>
-					</label>
+					<label for="pref-language">{# MSG: Label for language selection dropdown #} {% trans %}Language{% endtrans %}</label>
 					<div class="select is-flex-shrink-0 ml-4">
 						<select id="pref-language" class="user-preference-input" data-pref="preferred_language" data-start-value="{{ preferred_language }}">
 							{% for lang_code, lang_name in languages.items() %}
