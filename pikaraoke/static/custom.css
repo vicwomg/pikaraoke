@@ -86,9 +86,8 @@
   --bulma-panel-block-hover-background-color: var(--bulma-background);
 }
 
-/* Plain buttons are dark wells, below the page as on master, so their hover lifts
-   them clear of the well without reaching the box. Bulma fills them with the
-   surface they sit on and outlines them to compensate; filled, they need no
+/* Plain buttons are dark wells, below the page as on master. Bulma fills them with
+   the surface they sit on and outlines them to compensate; filled, they need no
    outline, like the coloured buttons. is-outlined sets its own width. Disabled,
    they keep their fill and Bulma's opacity fades it; Bulma's own disabled fill is
    scheme-main, the box itself, where a faded button vanishes. */
@@ -97,6 +96,27 @@
   --bulma-button-border-width: 0px;
   --bulma-button-disabled-background-color:
     hsl(var(--bulma-scheme-h), var(--bulma-scheme-s), var(--bulma-button-background-l));
+}
+
+/* Hovering lights the label; the fill lifts only as far as master's, short of
+   fading into the box. Coloured buttons keep Bulma's hover. */
+.button:hover:not(
+    [disabled],
+    .is-white,
+    .is-black,
+    .is-light,
+    .is-dark,
+    .is-primary,
+    .is-link,
+    .is-info,
+    .is-success,
+    .is-warning,
+    .is-danger,
+    .is-text,
+    .is-ghost
+  ) {
+  --bulma-button-background-l-delta: 5%;
+  color: var(--bulma-link-text-hover);
 }
 
 /* Cards are inset panels. */
