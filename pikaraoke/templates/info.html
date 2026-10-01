@@ -636,15 +636,16 @@
 					<textarea id="low-score-phrases" class="textarea" placeholder="{% trans %}Could be better...{% endtrans %}">{{ score_phrases.low | replace('|', '\n') }}</textarea>
 					<hr>
 					{# MSG: Title for MID Score Phrases #}
-					<h5>{% trans %}MID Score Phrases (30 > score < 60){% endtrans %}</h5>
+					<h5>{% trans %}MID Score Phrases (30 <= score < 60){% endtrans %}</h5>
 					{# MSG: Placeholder for the MID score phrases textarea #}
 					<textarea id="mid-score-phrases" class="textarea" placeholder="{% trans %}That was ok...{% endtrans %}">{{ score_phrases.mid | replace('|', '\n') }}</textarea>
 					<hr>
 					{# MSG: Title for HIGH Score Phrases #}
-					<h5>{% trans %}HIGH Score Phrases (60 < score){% endtrans %}</h5>
+					<h5>{% trans %}HIGH Score Phrases (60 <= score){% endtrans %}</h5>
 					{# MSG: Placeholder for the HIGH score phrases textarea #}
-					<textarea id="high-score-phrases" class="textarea" placeholder="{% trans %}Wonderfull...{% endtrans %}">{{ score_phrases.high | replace('|', '\n') }}</textarea>
-					<a id="save-phrases" class="button is-fullwidth is-primary mt-5">Save phrases</a>
+					<textarea id="high-score-phrases" class="textarea" placeholder="{% trans %}Wonderful...{% endtrans %}">{{ score_phrases.high | replace('|', '\n') }}</textarea>
+					{# MSG: Button which saves the score phrases entered in the three boxes above it. #}
+					<a id="save-phrases" class="button is-fullwidth is-primary mt-5">{% trans %}Save phrases{% endtrans %}</a>
 				</div>
 			</div>
 
@@ -860,7 +861,7 @@
 		{# A Pi container still reports as a Pi, but has no raspi-config. #}
 		{% if is_pi and not is_container %}
 
-			{# MSG: Title of the updates section. #}
+			{# MSG: Title of the section holding options that only apply to a Raspberry Pi. #}
 			<h2>{% trans %}Other{% endtrans %}</h2>
 
 			<div class="card">
