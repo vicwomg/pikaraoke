@@ -153,10 +153,10 @@
 
     html += '<td class="is-vcentered" style="padding: 8px 10px;">';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span class="has-text-success">' + np.now_playing_user + '</span>';
+    html += '<span>' + np.now_playing_user + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + np.now_playing + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
+    html += '<span class="has-text-weight-bold has-text-white is-hidden-mobile">' + np.now_playing + '</span>';
+    html += '<span class="is-size-7 has-text-weight-bold has-text-white is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
     html += '</div></td>';
 
     if (isAdmin) {
@@ -374,10 +374,10 @@
 
     html += '<td class="is-vcentered" style="padding: 8px 10px;">';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span class="has-text-success">' + e.user + '</span>';
+    html += '<span>' + e.user + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold is-hidden-mobile">' + e.title + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
+    html += '<span class="is-hidden-mobile">' + e.title + '</span>';
+    html += '<span class="is-size-7 is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
     html += '</div></td>';
 
     if (isAdmin) {
