@@ -26,7 +26,7 @@
       // Empty on the chromeless splash page, which has no singer field.
       singersUrl: "{% if not blank_page %}{{ url_for('sessions_api.get_singers') }}{% endif %}",
       // Likewise: the splash page renders no add links.
-      enqueueUrl: "{% if not blank_page %}{{ url_for('queue.enqueue_form') }}{% endif %}"
+      enqueueUrl: "{% if not blank_page %}{{ url_for('queue_api.enqueue_form') }}{% endif %}"
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a

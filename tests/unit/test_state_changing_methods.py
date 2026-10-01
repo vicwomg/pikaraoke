@@ -15,7 +15,7 @@ from pikaraoke.routes.controller import controller_bp
 from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.library_api import library_bp
 from pikaraoke.routes.preferences import preferences_bp
-from pikaraoke.routes.queue import queue_bp
+from pikaraoke.routes.queue_api import queue_api_bp
 
 STATE_CHANGING_ENDPOINTS = {
     "admin.update_ytdl",
@@ -29,9 +29,9 @@ STATE_CHANGING_ENDPOINTS = {
     "preferences.change_preferences",
     "preferences.clear_preferences",
     "files.delete_file",
-    "queue.add_random",
-    "queue.enqueue_form",
-    "queue.queue_edit",
+    "queue_api.add_random",
+    "queue_api.enqueue_form",
+    "queue_api.queue_edit",
     "controller.skip",
     "controller.pause",
     "controller.restart",
@@ -45,7 +45,7 @@ STATE_CHANGING_ENDPOINTS = {
 @pytest.fixture
 def url_map():
     app = Flask(__name__)
-    for blueprint in (admin_bp, controller_bp, files_bp, library_bp, preferences_bp, queue_bp):
+    for blueprint in (admin_bp, controller_bp, files_bp, library_bp, preferences_bp, queue_api_bp):
         app.register_blueprint(blueprint)
     return app.url_map
 
