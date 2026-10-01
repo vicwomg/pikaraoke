@@ -39,9 +39,10 @@
   --bulma-info-h: 204deg;
   --bulma-info-s: 71%;
   --bulma-info-l: 53%;
-  --bulma-success-h: 145deg;
-  --bulma-success-s: 63%;
-  --bulma-success-l: 49%;
+  /* Add-to-queue's colour on every page, so a true green, clear of the link teal. */
+  --bulma-success-h: 120deg;
+  --bulma-success-s: 52%;
+  --bulma-success-l: 48%;
   --bulma-warning-h: 45deg;
   --bulma-warning-s: 89%;
   --bulma-warning-l: 50%;

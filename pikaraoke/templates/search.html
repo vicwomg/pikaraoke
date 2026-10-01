@@ -344,7 +344,7 @@
 		// add-song-link clicks from the document and reads the path from data-song.
 		function showInLibrary($row, path) {
 			$row.find(".search_result_items_actions").html(
-				'<a class="button is-info add-song-link" href="#" data-song="' + encodeURIComponent(path) + '">' +
+				'<a class="button is-success add-song-link" href="#" data-song="' + encodeURIComponent(path) + '">' +
 					'<span class="icon"><i class="icon-list-add"></i></span>' +
 					// {# MSG: Button which adds an already-downloaded song to the queue. #}
 					'<span>{{ _("Add to queue") | forceescape }}</span>' +
@@ -551,7 +551,7 @@
 					/>
 					<div class="has-text-right mt-2">
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
-						<button class="button is-info direct-download" disabled data-queue="1">
+						<button class="button is-success direct-download" disabled data-queue="1">
 							<span class="icon"><i class="icon-list-add"></i></span>
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</button>
@@ -615,7 +615,7 @@
 						{% if local_path %}
 						{# Already downloaded, so queue it rather than fetching a second copy. #}
 						<a
-							class="button is-info add-song-link"
+							class="button is-success add-song-link"
 							href="#"
 							data-song="{{url_escape(local_path.encode('utf-8','surrogateescape'))}}"
 						>
@@ -629,7 +629,7 @@
 						   only element child, and Bulma's icon-only-button rule then applies
 						   negative margins that pull the text over the glyph. #}
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
-						<button class="button is-info search_result_items_download" data-queue="1">
+						<button class="button is-success search_result_items_download" data-queue="1">
 							<span class="icon"><i class="icon-list-add"></i></span>
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</button>
