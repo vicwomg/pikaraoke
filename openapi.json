@@ -45,20 +45,6 @@
         "security": []
       }
     },
-    "/queue": {
-      "get": {
-        "responses": {
-          "default": {
-            "$ref": "#/components/responses/DEFAULT_ERROR"
-          }
-        },
-        "summary": "Queue management page.",
-        "tags": [
-          "queue"
-        ],
-        "security": []
-      }
-    },
     "/api/get_queue": {
       "get": {
         "responses": {
@@ -68,7 +54,7 @@
         },
         "summary": "Get the current song queue.",
         "tags": [
-          "queue"
+          "queue_api"
         ],
         "security": []
       }
@@ -83,7 +69,7 @@
         "summary": "Add random songs to the queue.",
         "description": "The queue redraws itself off `queue_update`, so only the empty-handed case\nneeds saying.",
         "tags": [
-          "queue"
+          "queue_api"
         ]
       },
       "parameters": [
@@ -120,7 +106,7 @@
         },
         "summary": "Handle drag-and-drop reordering of the queue.",
         "tags": [
-          "queue"
+          "queue_api"
         ]
       }
     },
@@ -156,7 +142,7 @@
         },
         "summary": "Edit queue items (admin only).",
         "tags": [
-          "queue"
+          "queue_api"
         ]
       }
     },
@@ -182,7 +168,7 @@
         },
         "summary": "Add a song to the queue.",
         "tags": [
-          "queue"
+          "queue_api"
         ],
         "security": []
       }
@@ -196,7 +182,7 @@
         },
         "summary": "Get the status of current and pending downloads.",
         "tags": [
-          "queue"
+          "queue_api"
         ],
         "security": []
       }
@@ -210,7 +196,7 @@
         },
         "summary": "Remove a download error from the list.",
         "tags": [
-          "queue"
+          "queue_api"
         ],
         "security": []
       },
@@ -235,7 +221,7 @@
         },
         "summary": "Re-queue a failed download.",
         "tags": [
-          "queue"
+          "queue_api"
         ],
         "security": []
       },
@@ -250,20 +236,6 @@
           }
         }
       ]
-    },
-    "/search": {
-      "get": {
-        "responses": {
-          "default": {
-            "$ref": "#/components/responses/DEFAULT_ERROR"
-          }
-        },
-        "summary": "YouTube search page.",
-        "tags": [
-          "search"
-        ],
-        "security": []
-      }
     },
     "/api/preview": {
       "get": {
@@ -288,7 +260,7 @@
         },
         "summary": "Get a direct stream URL for previewing a YouTube video.",
         "tags": [
-          "search"
+          "search_api"
         ],
         "security": []
       }
@@ -315,7 +287,7 @@
         },
         "summary": "Download a video from YouTube.",
         "tags": [
-          "search"
+          "search_api"
         ],
         "security": []
       }
@@ -993,11 +965,11 @@
       "description": ""
     },
     {
-      "name": "queue",
+      "name": "queue_api",
       "description": ""
     },
     {
-      "name": "search",
+      "name": "search_api",
       "description": ""
     },
     {
