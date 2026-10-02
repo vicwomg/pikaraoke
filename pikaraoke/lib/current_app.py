@@ -1,10 +1,6 @@
 """Flask application context utilities for PiKaraoke."""
 
 import logging
-import os
-import subprocess
-import sys
-import time
 from typing import Any
 
 from flask import current_app, request, session
@@ -56,31 +52,3 @@ def broadcast_event(event: str, data: Any = None) -> None:
     """
     logging.debug("Broadcasting event: " + event)
     emit(event, data, namespace="/", broadcast=True)
-
-
-def delayed_halt(cmd: int) -> None:
-    """Execute a delayed system halt command.
-
-    Clears the queue, stops the karaoke instance, then executes the command.
-
-    Args:
-        cmd: Command to execute:
-            0 = exit application
-            1 = shutdown system
-            2 = reboot system
-            3 = expand rootfs and reboot (Raspberry Pi)
-    """
-    time.sleep(1.5)
-    k = get_karaoke_instance()
-    k.queue_manager.queue_clear()
-    k.stop()
-    if cmd == 0:
-        sys.exit()
-    if cmd == 1:
-        os.system("shutdown now")
-    if cmd == 2:
-        os.system("reboot")
-    if cmd == 3:
-        process = subprocess.Popen(["raspi-config", "--expand-rootfs"])
-        process.wait()
-        os.system("reboot")
