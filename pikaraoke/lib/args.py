@@ -250,6 +250,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     splash.add_argument(
+        "--disable-score",
+        action="store_true",
+        help="Disable the score screen shown after each song.",
+        required=False,
+    )
+    splash.add_argument(
         "-s",
         "--splash-delay",
         help=f"Delay during splash screen between songs (in secs). (default: {_DEFAULTS['splash_delay']})",
@@ -370,9 +376,9 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     queue.add_argument(
-        "--disable-score",
-        help="Disable the score screen after each song",
+        "--enable-fair-queue",
         action="store_true",
+        help="Order the queue round-robin, so that singers take turns rather than the queue running first-come-first-served. Singers are ranked by the turns they have already had tonight.",
         required=False,
     )
 
