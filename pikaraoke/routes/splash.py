@@ -87,7 +87,7 @@ def splash():
             )
             if "Mode:Master" in status:
                 # handle raspiwifi connection mode
-                text = get_raspi_wifi_text(k.url)
+                text = get_raspi_wifi_text(k.display_url)
 
     bg_videos = video_choices(k.bg_video_path)
 
@@ -95,7 +95,7 @@ def splash():
         "splash.html",
         site_title=site_name,
         blank_page=True,
-        url=k.url,
+        url=k.display_url,
         hostap_info=text,
         hide_url=k.hide_url,
         hide_session_name=k.hide_session_name,

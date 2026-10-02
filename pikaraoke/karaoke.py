@@ -1,5 +1,6 @@
 """Core karaoke engine for managing songs, queue, and playback."""
 
+import ipaddress
 import logging
 import os
 import socket
@@ -446,6 +447,19 @@ class Karaoke:
         if split_url.path not in ("", "/"):
             return url
         return append_base_path_to_url(url, self.url_base_path)
+
+    @property
+    def display_url(self) -> str:
+        """The URL as shown on screen, shorter to type than the one in the QR code.
+
+        Only an http IP address loses its scheme: a browser reads `1.2.3.4:5555` as
+        an address, but may read a bare hostname as a search.
+        """
+        try:
+            ipaddress.ip_address(urlsplit(self.url).hostname or "")
+        except ValueError:
+            return self.url
+        return self.url.removeprefix("http://")
 
     def log_settings_to_debug(self) -> None:
         """Log all current settings at debug level."""

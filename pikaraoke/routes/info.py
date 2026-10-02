@@ -34,7 +34,7 @@ def info():
     """System information and settings page."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    url = k.url
+    url = k.display_url
     is_linux_platform = is_linux()
 
     preferred_language = k.preferences.get("preferred_language", "en")
