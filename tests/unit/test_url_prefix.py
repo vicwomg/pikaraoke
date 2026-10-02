@@ -3,8 +3,15 @@ from flask import Flask, jsonify, request, url_for
 from pikaraoke.lib.url_prefix import (
     BasePathMiddleware,
     append_base_path_to_url,
+    normalize_public_url,
     normalize_url_base_path,
 )
+
+
+def test_normalize_public_url_assumes_http_only_when_no_scheme_is_given():
+    assert normalize_public_url("192.168.1.5:5555") == "http://192.168.1.5:5555"
+    assert normalize_public_url("mypc:5555") == "http://mypc:5555"
+    assert normalize_public_url("https://example.com") == "https://example.com"
 
 
 def test_normalize_url_base_path_handles_root_and_missing_slashes():

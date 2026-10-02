@@ -21,6 +21,11 @@ def normalize_url_base_path(path: str | None) -> str:
     return f"/{normalized}"
 
 
+def normalize_public_url(url: str) -> str:
+    """Assume http for a --url typed without a scheme, as a browser would."""
+    return url if "://" in url else f"http://{url}"
+
+
 def append_base_path_to_url(url: str, base_path: str) -> str:
     """Append a configured base path to a public URL when appropriate."""
     if not base_path:

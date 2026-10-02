@@ -1,5 +1,6 @@
 """Core karaoke engine for managing songs, queue, and playback."""
 
+import ipaddress
 import logging
 import os
 import socket
@@ -449,12 +450,14 @@ class Karaoke:
     def display_url(self) -> str:
         """The URL as shown on screen, shorter to type than the one in the QR code.
 
-        Only a detected IP loses its scheme: a browser reads `1.2.3.4:5555` as an
-        address, but may read a bare hostname as a search, and --url may be https.
+        Only an http IP address loses its scheme: a browser reads `1.2.3.4:5555` as
+        an address, but may read a bare hostname as a search.
         """
-        if self.url_override is None and not self.prefer_hostname:
-            return self.url.removeprefix("http://")
-        return self.url
+        try:
+            ipaddress.ip_address(urlsplit(self.url).hostname or "")
+        except ValueError:
+            return self.url
+        return self.url.removeprefix("http://")
 
     def log_settings_to_debug(self) -> None:
         """Log all current settings at debug level."""
