@@ -98,6 +98,7 @@ def splash():
         url=k.url,
         hostap_info=text,
         hide_url=k.hide_url,
+        hide_qr_code=k.hide_qr_code,
         hide_session_name=k.hide_session_name,
         hide_logo=k.hide_logo,
         show_splash_clock=k.show_splash_clock,

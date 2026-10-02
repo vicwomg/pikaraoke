@@ -216,7 +216,13 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     splash.add_argument(
         "--hide-url",
         action="store_true",
-        help="Hide URL and QR code from the splash screen.",
+        help="Hide the URL from the splash screen.",
+        required=False,
+    )
+    splash.add_argument(
+        "--hide-qr-code",
+        action="store_true",
+        help="Hide the QR code from the splash screen.",
         required=False,
     )
     splash.add_argument(
