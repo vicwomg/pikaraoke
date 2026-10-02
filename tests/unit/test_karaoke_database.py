@@ -39,6 +39,9 @@ _NEW_IN_V2 = {
     "suggested_score",
     "metadata_country",
     "musical_key",
+    "audio_track",
+    "audio_channel",
+    "loudness_lufs",
 }
 
 
@@ -187,10 +190,11 @@ class TestSchemaV2Migration:
         db = KaraokeDatabase(legacy_db_path)
         row = db._conn.execute(
             "SELECT file_path, youtube_id, artist, title, suggested_genre, "
-            "suggested_year, suggested_score, metadata_country, musical_key FROM songs"
+            "suggested_year, suggested_score, metadata_country, musical_key, "
+            "audio_track, audio_channel, loudness_lufs FROM songs"
         ).fetchone()
         db.close()
-        assert tuple(row) == ("/songs/existing.mp4", "dQw4w9WgXcQ", "Beyonce", "Halo", *[None] * 5)
+        assert tuple(row) == ("/songs/existing.mp4", "dQw4w9WgXcQ", "Beyonce", "Halo", *[None] * 8)
 
     def test_reopening_does_not_re_run_the_migration(self, legacy_db_path):
         # Catches a literal PRAGMA user_version = 1: the second open would

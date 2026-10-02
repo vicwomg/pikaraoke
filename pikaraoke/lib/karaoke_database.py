@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS songs (
     genre TEXT,
     -- Detected from the audio in a future update: "A", "F#m".
     musical_key TEXT,
+    -- Which track of a multi-track file is the backing track; NULL for the
+    -- file's default.
+    audio_track INTEGER,
+    -- "left" or "right" when the other side carries the vocals; NULL for stereo.
+    audio_channel TEXT,
+    -- Measured once, so playback can be levelled without analysing it live.
+    loudness_lufs REAL,
     metadata_status TEXT DEFAULT 'pending',
     enrichment_attempts INTEGER DEFAULT 0,
     last_enrichment_attempt TEXT,
@@ -176,6 +183,9 @@ class KaraokeDatabase:
                     ("songs", "suggested_score", "INTEGER"),
                     ("songs", "metadata_country", "TEXT"),
                     ("songs", "musical_key", "TEXT"),
+                    ("songs", "audio_track", "INTEGER"),
+                    ("songs", "audio_channel", "TEXT"),
+                    ("songs", "loudness_lufs", "REAL"),
                     ("plays", "semitones", "INTEGER DEFAULT 0"),
                     # singers is created after this; the reference resolves on write.
                     ("plays", "singer_id", "INTEGER REFERENCES singers(id)"),
