@@ -264,6 +264,39 @@ class TestSchemaV2PlaysMigration:
             db = KaraokeDatabase(legacy_db_with_play_history)
             db.close()
 
+    def test_existing_play_rows_gain_an_unset_singer(self, legacy_db_with_play_history):
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        row = db._conn.execute("SELECT performer, singer_id FROM plays").fetchone()
+        db.close()
+        assert tuple(row) == ("Beyonce", None)
+
+    def test_migrated_singer_column_is_a_foreign_key(self, legacy_db_with_play_history):
+        # The column is added before the singers table exists.
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        singer_id = db.execute("INSERT INTO singers (name) VALUES ('Beyonce')").lastrowid
+        db.execute("UPDATE plays SET singer_id = ?", (singer_id,))
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("UPDATE plays SET singer_id = 999")
+        db.close()
+
+
+class TestSingers:
+    def test_a_name_is_one_singer_whatever_its_casing(self, db):
+        db.execute("INSERT INTO singers (name) VALUES ('Mike')")
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("INSERT INTO singers (name) VALUES ('mike')")
+
+    def test_a_singer_with_plays_cannot_be_deleted(self, db):
+        singer_id = db.execute("INSERT INTO singers (name) VALUES ('Mike')").lastrowid
+        session_id = db.execute("INSERT INTO sessions (uuid) VALUES ('s1')").lastrowid
+        db.execute(
+            "INSERT INTO plays (session_id, song_title, performer, singer_id) "
+            "VALUES (?, 'A Song', 'Mike', ?)",
+            (session_id, singer_id),
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("DELETE FROM singers WHERE id = ?", (singer_id,))
+
 
 class TestGetSongIdentity:
     def test_returns_nones_when_missing(self, db):

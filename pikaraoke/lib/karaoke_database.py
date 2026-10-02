@@ -60,6 +60,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     ended_at TEXT
 );
 
+-- NOCASE so "Mike" and "mike" are one singer.
+CREATE TABLE IF NOT EXISTS singers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Three ways of saying "which song", each for a different job:
 --   song_id     the live link, for joining to current metadata. Goes NULL when
 --               the song is deleted, and a re-added copy gets a fresh id, so
@@ -84,6 +91,8 @@ CREATE TABLE IF NOT EXISTS plays (
     youtube_id TEXT,
     song_title TEXT NOT NULL,
     performer TEXT NOT NULL,
+    -- NULL until play history writes it; queries still read performer.
+    singer_id INTEGER,
     -- The shift the singer settled on, not the key the song is in: that is
     -- songs.musical_key. Written when the play ends, because it can change
     -- while the song runs.
@@ -92,7 +101,9 @@ CREATE TABLE IF NOT EXISTS plays (
     ended_at TEXT,
     completed INTEGER DEFAULT 0,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
-    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
+    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL,
+    -- No ON DELETE: a singer with plays cannot be deleted.
+    FOREIGN KEY (singer_id) REFERENCES singers(id)
 );
 
 -- Composite rather than session_id alone: the play log filters by session and
@@ -107,6 +118,8 @@ CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer COLLATE NOCASE
 -- song delete. Without this, a library sync that drops songs scans the whole
 -- plays table once per deleted row.
 CREATE INDEX IF NOT EXISTS idx_plays_song ON plays(song_id);
+-- Likewise for a singer delete.
+CREATE INDEX IF NOT EXISTS idx_plays_singer ON plays(singer_id);
 """
 
 
@@ -164,6 +177,8 @@ class KaraokeDatabase:
                     ("songs", "metadata_country", "TEXT"),
                     ("songs", "musical_key", "TEXT"),
                     ("plays", "semitones", "INTEGER DEFAULT 0"),
+                    # singers is created after this; the reference resolves on write.
+                    ("plays", "singer_id", "INTEGER REFERENCES singers(id)"),
                 ):
                     # 1.20.0 stamped version 1 before `plays` existed, so a
                     # database can report 1 and not have the table. _SCHEMA
