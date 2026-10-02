@@ -134,6 +134,7 @@ class Karaoke:
         screensaver_timeout: int | None = None,
         show_splash_clock: bool | None = None,
         splash_delay: int | None = None,
+        splash_scale: float | None = None,
         volume: float | None = None,
         enable_title_tidy: bool | None = None,
         enable_folder_browsing: bool | None = None,
@@ -160,6 +161,7 @@ class Karaoke:
             hide_overlay: Hide video overlay.
             keep_awake: Prevent the host machine from sleeping.
             screensaver_timeout: Screensaver activation delay in seconds.
+            splash_scale: Size multiplier for the splash screen overlays.
             url: Override auto-detected URL.
             prefer_hostname: Use hostname instead of IP in URL.
             disable_bg_music: Disable background music.

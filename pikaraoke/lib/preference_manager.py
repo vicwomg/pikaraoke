@@ -48,6 +48,7 @@ class PreferenceManager:
         "show_splash_clock": False,
         "hide_session_name": False,
         "hide_logo": False,
+        "splash_scale": 1.0,
         "mic_settings": "{}",
         "enable_title_tidy": False,
         "enable_folder_browsing": False,

@@ -18,6 +18,7 @@
     disableBgVideo: "{{ disable_bg_video }}" == 'True',
     showSplashClock: "{{ show_splash_clock }}" == 'True',
     screensaverTimeout: parseInt('{{ screensaver_timeout }}') || 0,
+    splashScale: parseFloat('{{ splash_scale }}') || 1,
     hideOverlay: "{{ hide_overlay }}" == 'True',
     hideSessionName: "{{ hide_session_name }}" == 'True',
     translations: {

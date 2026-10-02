@@ -287,6 +287,7 @@ def test_preference_manager_defaults_exist():
         "show_splash_clock",
         "hide_session_name",
         "hide_logo",
+        "splash_scale",
         "mic_settings",
         "enable_title_tidy",
         "enable_folder_browsing",
@@ -325,6 +326,7 @@ def test_preference_manager_defaults_types():
     # Float preferences
     assert isinstance(defaults["volume"], float)
     assert isinstance(defaults["bg_music_volume"], float)
+    assert isinstance(defaults["splash_scale"], float)
 
     # String preferences
     assert isinstance(defaults["low_score_phrases"], str)
