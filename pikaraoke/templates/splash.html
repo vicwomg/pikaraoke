@@ -74,14 +74,15 @@
 </div>
 
 <div id="bottom-container" class="overlay">
-  <div id="qr-code"{% if hide_url %} style="display: none"{% endif %}>
+  <div id="qr-code">
     <img
+      class="splash-qr-image"
       src="{{ url_for('images.qrcode') }}"
       width="100px"
-      style="image-rendering: pixelated"
+      style="image-rendering: pixelated{% if hide_qr_code %}; display: none{% endif %}"
       alt="qrcode"
     />
-    <div class="is-size-6 stroke">
+    <div class="splash-url is-size-6 stroke"{% if hide_url %} style="display: none"{% endif %}>
       <div>&nbsp;{{ url }}</div>
     </div>
   </div>
@@ -182,11 +183,11 @@
 <div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden; --pikaraoke-logo-url: url('{{ url_for("images.logo") }}');">
     <div id="dvd">
-      <div id="screensaver-qr"{% if hide_url %} style="display: none"{% endif %}>
-        <div style="text-align: right">
-          <img src="{{ url_for('images.qrcode') }}" width="30%" height="30%" />
+      <div id="screensaver-qr">
+        <div class="splash-qr-image" style="text-align: right{% if hide_qr_code %}; display: none{% endif %}">
+          <img src="{{ url_for('images.qrcode') }}" width="60px" />
         </div>
-        <div>{{ hostap_info[0] }}<br />{{ url }}</div>
+        <div class="splash-url"{% if hide_url %} style="display: none"{% endif %}>{{ hostap_info[0] }}<br />{{ url }}</div>
       </div>
     </div>
   </div>

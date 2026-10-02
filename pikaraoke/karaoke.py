@@ -125,6 +125,7 @@ class Karaoke:
         hide_notifications: bool | None = None,
         hide_overlay: bool | None = None,
         hide_logo: bool | None = None,
+        hide_qr_code: bool | None = None,
         hide_session_name: bool | None = None,
         hide_url: bool | None = None,
         high_quality: bool | None = None,
@@ -144,7 +145,8 @@ class Karaoke:
         Args:
             port: HTTP server port number.
             download_path: Directory path for downloaded songs.
-            hide_url: Hide URL and QR code on splash screen.
+            hide_url: Hide the URL on the splash screen.
+            hide_qr_code: Hide the QR code on the splash screen.
             hide_session_name: Hide the session name under the splash screen logo.
             hide_logo: Hide the logo in the centre of the splash screen.
             hide_notifications: Disable notification popups.

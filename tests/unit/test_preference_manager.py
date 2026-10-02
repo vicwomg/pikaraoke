@@ -262,6 +262,7 @@ def test_preference_manager_defaults_exist():
     """Test that DEFAULTS dictionary contains all expected preferences."""
     expected_keys = {
         "hide_url",
+        "hide_qr_code",
         "hide_notifications",
         "high_quality",
         "splash_delay",

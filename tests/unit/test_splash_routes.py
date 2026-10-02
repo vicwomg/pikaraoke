@@ -1,5 +1,6 @@
 """Tests for splash routes — score phrase helpers and endpoint."""
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from pikaraoke.routes.splash import (
     _get_active_score_phrases,
     splash_bp,
 )
+from tests.conftest import make_route_app
 
 
 @pytest.fixture
@@ -98,3 +100,31 @@ class TestScorePhrasesEndpoint:
         data = response.get_json()
         assert set(data.keys()) == {"low", "mid", "high"}
         assert data["low"] == ["Bad", "Terrible"]
+
+
+class TestHidingTheUrlAndQrCode:
+    """The URL and the QR code hide separately, in the corner and the screensaver."""
+
+    @pytest.fixture
+    def app(self):
+        return make_route_app(splash_bp, [("/logo", "images.logo"), ("/qrcode", "images.qrcode")])
+
+    def _hidden(self, client, css_class, **hidden):
+        """Whether each element carrying `css_class` is rendered hidden."""
+        k = MagicMock(is_raspberry_pi=False, bg_video_path=None, hide_url=False, hide_qr_code=False)
+        k.configure_mock(**hidden)
+        with (
+            patch("pikaraoke.routes.splash.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.splash.get_site_name", return_value="PiKaraoke"),
+        ):
+            page = client.get("/splash").get_data(as_text=True)
+        tags = re.findall(rf'<[^<]*class="{css_class}[^<]*>', page)
+        return ["display: none" in tag for tag in tags]
+
+    def test_hiding_the_url_leaves_the_qr_code(self, client):
+        assert self._hidden(client, "splash-url", hide_url=True) == [True, True]
+        assert self._hidden(client, "splash-qr-image", hide_url=True) == [False, False]
+
+    def test_hiding_the_qr_code_leaves_the_url(self, client):
+        assert self._hidden(client, "splash-qr-image", hide_qr_code=True) == [True, True]
+        assert self._hidden(client, "splash-url", hide_qr_code=True) == [False, False]

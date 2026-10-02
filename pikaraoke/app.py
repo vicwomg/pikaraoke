@@ -243,6 +243,7 @@ def main() -> None:
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
         hide_url=args.hide_url,
+        hide_qr_code=args.hide_qr_code,
         hide_session_name=args.hide_session_name,
         hide_logo=args.hide_logo,
         hide_notifications=args.hide_notifications,

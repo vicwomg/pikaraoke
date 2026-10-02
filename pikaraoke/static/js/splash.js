@@ -575,7 +575,8 @@ const PREFERENCE_EFFECTS = {
     PikaraokeConfig.hideOverlay = v;
     $("#bottom-container, #top-container").toggle(!v);
   },
-  hide_url:            (v) => { $("#qr-code, #screensaver-qr").toggle(!v); },
+  hide_url:            (v) => { $(".splash-url").toggle(!v); },
+  hide_qr_code:        (v) => { $(".splash-qr-image").toggle(!v); },
   hide_logo:           (v) => { $("#logo-container img.logo").toggle(!v); },
   hide_session_name:   (v) => {
     PikaraokeConfig.hideSessionName = v;

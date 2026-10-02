@@ -514,8 +514,13 @@
 						</label>
 					</div>
 					<div class="user-preference-container">
-						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
-						<label class="label" for="pref-qr-code">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL and QR code{% endtrans %}
+						<input id="pref-url" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
+						<label class="label" for="pref-url">{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL{% endtrans %}
+						</label>
+					</div>
+					<div class="user-preference-container">
+						<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox" data-pref="hide_qr_code" {% if hide_qr_code == True %}checked{% endif %}>
+						<label class="label" for="pref-qr-code">{# MSG: Checkbox label which enable/disables the QR code display #} {% trans %}Hide the QR code{% endtrans %}
 						</label>
 					</div>
 

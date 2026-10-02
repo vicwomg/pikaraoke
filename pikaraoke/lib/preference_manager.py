@@ -23,6 +23,7 @@ class PreferenceManager:
     # Default values for all user preferences (single source of truth)
     DEFAULTS = {
         "hide_url": False,
+        "hide_qr_code": False,
         "hide_notifications": False,
         "high_quality": False,
         "splash_delay": 2,
