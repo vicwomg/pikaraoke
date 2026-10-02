@@ -602,7 +602,7 @@ class Karaoke:
         if self.playback_controller.is_playing:
             now_playing = self.playback_controller.now_playing
             logging.info("Restarting: " + (now_playing or "unknown song"))
-            self.playback_controller.is_paused = False
+            self.playback_controller.restart()
             self.update_now_playing_socket()
             return True
         else:
@@ -737,6 +737,7 @@ class Karaoke:
                     elif result.error:
                         self.log_and_send(result.error, "danger")
 
+                self.playback_controller.end_if_overran()
                 self.playback_controller.log_output()
                 self.handle_run_loop()
             except KeyboardInterrupt:

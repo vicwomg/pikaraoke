@@ -15,6 +15,11 @@ from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager
 if TYPE_CHECKING:
     import subprocess
 
+# How long past its duration a song may run before the server ends it. Covers the
+# score screen, which holds the player's end report for about 15s, and a slow
+# start; late is harmless, early cuts a song.
+OVERRUN_MARGIN_S = 30
+
 
 class PlaybackController:
     """Controller for managing playback state and stream coordination.
@@ -48,6 +53,8 @@ class PlaybackController:
     playback_id: str | None = None
     is_paused: bool = True
     is_playing: bool = False
+    _deadline: float | None = None
+    _paused_at: float | None = None
 
     def __init__(
         self,
@@ -167,6 +174,33 @@ class PlaybackController:
         if not self.is_playing:
             logging.info(f"Song starting: {self.now_playing}")
             self.is_playing = True
+            self._arm_deadline()
+
+    def _arm_deadline(self) -> None:
+        """Start the clock the server ends the song by if no player reports it.
+
+        The player's end report is the only other way out of a song, and the
+        player is a browser tab the OS may suspend, so the server keeps its own.
+        """
+        self._paused_at = None
+        if not self.now_playing_duration:
+            logging.warning(f"No duration for {self.now_playing}, so no deadline to end it by")
+            self._deadline = None
+            return
+        self._deadline = time.monotonic() + self.now_playing_duration + OVERRUN_MARGIN_S
+
+    def end_if_overran(self) -> None:
+        """End the song if it has outlived its deadline with no player ending it."""
+        if self._deadline is None or self._paused_at is not None:
+            return
+        if time.monotonic() > self._deadline:
+            logging.warning(f"No end reported for {self.now_playing}, ending it")
+            self.end_song("no end reported", self.playback_id)
+
+    def restart(self) -> None:
+        """Play the current song again from the top, so its deadline starts over."""
+        self.is_paused = False
+        self._arm_deadline()
 
     def end_song(self, reason: str | None, playback_id: str | None) -> None:
         """End the current song and clean up resources.
@@ -239,11 +273,22 @@ class PlaybackController:
                 # MSG: Message shown after the song is paused, will be followed by song name
                 self.events.emit("notification", _("Pause: %s") % self.now_playing, "info")
             self.is_paused = not self.is_paused
+            self._hold_deadline_while_paused()
             self.events.emit("now_playing_update")
             return True
         else:
             logging.warning("Tried to pause, but no file is playing!")
             return False
+
+    def _hold_deadline_while_paused(self) -> None:
+        """Push the deadline back by however long the song sat paused."""
+        now = time.monotonic()
+        if self.is_paused:
+            self._paused_at = now
+        elif self._paused_at is not None:
+            if self._deadline is not None:
+                self._deadline += now - self._paused_at
+            self._paused_at = None
 
     def get_now_playing(self) -> dict[str, str | int | float | bool | None]:
         """Get the current playback state.
@@ -276,6 +321,8 @@ class PlaybackController:
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None
+        self._deadline = None
+        self._paused_at = None
 
     def log_output(self) -> None:
         """Log any pending FFmpeg output."""
