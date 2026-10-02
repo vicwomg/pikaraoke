@@ -452,3 +452,29 @@ class TestRegisterDownloadedSong:
             {"youtube_id": "abc12345678", "path": "/songs/Song---abc12345678.mp4"},
             namespace="/",
         )
+
+
+class TestDisplayUrl:
+    """Tests for the display_url property."""
+
+    def _display_url(self, url, url_override=None, prefer_hostname=False):
+        from types import SimpleNamespace
+
+        from pikaraoke.karaoke import Karaoke
+
+        k = SimpleNamespace(url=url, url_override=url_override, prefer_hostname=prefer_hostname)
+        return Karaoke.display_url.fget(k)
+
+    def test_a_detected_ip_is_shown_without_its_scheme(self):
+        assert self._display_url("http://192.168.1.5:5555") == "192.168.1.5:5555"
+
+    def test_a_hostname_keeps_its_scheme(self):
+        """A bare `mypc:5555` is not reliably read as an address when typed."""
+        url = "http://mypc:5555"
+
+        assert self._display_url(url, prefer_hostname=True) == url
+
+    def test_an_override_is_shown_as_given(self):
+        url = "https://karaoke.example.com"
+
+        assert self._display_url(url, url_override=url) == url

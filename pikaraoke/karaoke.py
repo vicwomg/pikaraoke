@@ -445,6 +445,17 @@ class Karaoke:
             return url
         return append_base_path_to_url(url, self.url_base_path)
 
+    @property
+    def display_url(self) -> str:
+        """The URL as shown on screen, shorter to type than the one in the QR code.
+
+        Only a detected IP loses its scheme: a browser reads `1.2.3.4:5555` as an
+        address, but may read a bare hostname as a search, and --url may be https.
+        """
+        if self.url_override is None and not self.prefer_hostname:
+            return self.url.removeprefix("http://")
+        return self.url
+
     def log_settings_to_debug(self) -> None:
         """Log all current settings at debug level."""
         output = ""
