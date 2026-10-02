@@ -262,6 +262,7 @@ def main() -> None:
         disable_score=args.disable_score,
         enable_mic_passthrough=args.enable_mic_passthrough,
         limit_user_songs_by=args.limit_user_songs_by,
+        enable_fair_queue=args.enable_fair_queue,
         avsync=float(args.avsync) if args.avsync is not None else None,
         config_file_path=args.config_file_path,
         cdg_pixel_scaling=args.cdg_pixel_scaling,

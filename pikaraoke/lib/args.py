@@ -370,6 +370,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     queue.add_argument(
+        "--enable-fair-queue",
+        action="store_true",
+        help="Order the queue round-robin, so that singers take turns rather than the queue running first-come-first-served. Singers are ranked by the turns they have already had tonight.",
+        required=False,
+    )
+    queue.add_argument(
         "--disable-score",
         help="Disable the score screen after each song",
         action="store_true",

@@ -120,6 +120,7 @@ class Karaoke:
         disable_bg_music: bool | None = None,
         disable_bg_video: bool | None = None,
         disable_score: bool | None = None,
+        enable_fair_queue: bool | None = None,
         enable_mic_passthrough: bool | None = None,
         hide_notifications: bool | None = None,
         hide_overlay: bool | None = None,
@@ -168,6 +169,7 @@ class Karaoke:
             disable_bg_video: Disable background video.
             disable_score: Disable score screen.
             limit_user_songs_by: Max songs per user in queue (0 = unlimited).
+            enable_fair_queue: Order the queue round-robin so singers take turns.
             avsync: Audio/video sync adjustment in seconds.
             config_file_path: Path to config.ini file.
             cdg_pixel_scaling: Enable CDG pixel scaling.
