@@ -1,5 +1,5 @@
 const withBasePath = (path) => `${window.pikaraokeConfig.basePath}${path}`;
-let socket = io({ path: window.pikaraokeConfig.socketioPath });
+const socket = io({ path: window.pikaraokeConfig.socketioPath });
 let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
@@ -619,10 +619,21 @@ const applyPreferencesReset = (defaults) => {
   Object.entries(defaults).forEach(([key, value]) => applyPreferenceUpdate({ key, value }));
 };
 
+// Survives a socket reconnect (and a page reload) so the server can recognise
+// this screen and hand back the master role instead of demoting it to slave.
+const getSplashScreenId = () => {
+  let id = sessionStorage.getItem("pikaraokeSplashId");
+  if (!id) {
+    id = `splash-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem("pikaraokeSplashId", id);
+  }
+  return id;
+}
+
 const setupSocketEvents = () => {
   socket.on('connect', () => {
     console.log('Socket connected');
-    socket.emit("register_splash");
+    socket.emit("register_splash", getSplashScreenId());
   });
   socket.on('splash_role', (role) => {
     isMaster = (role === "master");
@@ -720,15 +731,14 @@ const setupSocketEvents = () => {
 }
 
 const handleSocketRecovery = () => {
-  // A socket may disconnect if the tab is backgrounded for a while
-  // Reconnect and configure event listeners when tab becomes visible again
+  // A socket may disconnect if the tab is backgrounded for a while.
+  // Reconnect when the tab becomes visible again, but do not set the listeners
+  // up again: io() multiplexes, so it hands back this same socket, and a second
+  // setupSocketEvents() would leave every event handled twice over.
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === 'visible') {
       autoplayConfirmed && loadNowPlaying();
-      if (!socket.connected) {
-        socket = io({ path: window.pikaraokeConfig.socketioPath });
-        setupSocketEvents();
-      }
+      if (!socket.connected) socket.connect();
     }
   });
 }
@@ -801,5 +811,5 @@ handleSocketRecovery();
 // Fallback: if socket connected before listeners were attached, register now
 if (socket.connected) {
   console.log('Socket already connected, registering splash...');
-  socket.emit("register_splash");
+  socket.emit("register_splash", getSplashScreenId());
 }
