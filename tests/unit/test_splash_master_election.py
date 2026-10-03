@@ -129,8 +129,9 @@ class TestSplashMasterElection:
         assert "sid-a" not in socket_events.splash_connections
 
     def test_re_registering_does_not_demote_the_master(self, sio):
-        """One socket can register several times over: the splash screen attaches its
-        connect handler more than once. Demoting it leaves nobody reporting playback."""
+        """A socket may send register_splash more than once over its life. Re-registering
+        the screen that is already master must leave it in place, or nobody is left
+        reporting playback."""
         register(sio, "sid-a", "screen-1")
 
         for _ in range(3):

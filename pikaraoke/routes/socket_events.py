@@ -125,6 +125,12 @@ def setup_socket_events(socketio):
         shares the id outright. Either way the earlier socket no longer speaks for
         the screen, so it is dropped and told it is a slave. Electing a new master
         if the ghost held the role is left to elect_master.
+
+        A live duplicate tab is forgotten here rather than kept in reserve: if the
+        tab that supersedes it then leaves, the forgotten one is not promoted and
+        reclaims its place only on a reload. The server cannot tell a lingering
+        ghost from a live duplicate, so keeping the newest and forgetting the rest
+        is the price of retiring the ghost.
         """
         stale = [s for s, screen in splash_connections.items() if screen == screen_id and s != sid]
         for stale_sid in stale:
