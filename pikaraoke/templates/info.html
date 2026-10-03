@@ -47,7 +47,7 @@
 	<div class="card">
 		<div class="card-content is-flex is-align-items-center join-card">
 			<figure class="image is-128x128 is-flex-shrink-0 m-0">
-				<img src="{{ url_for('images.qrcode') }}" alt="{{ url }}" style="image-rendering: pixelated" />
+				<img id="qr-img" src="{{ url_for('images.qrcode') }}" alt="{{ url }}" style="image-rendering: pixelated" />
 			</figure>
 			<div class="ml-5">
 				{# MSG: Explains the QR code and web address beside it, which let another person open Pikaraoke on their own phone. #}
