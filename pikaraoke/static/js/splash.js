@@ -375,16 +375,28 @@ const handleNowPlayingUpdate = (np) => {
     video.load();
     $("#video-source").attr("src", streamUrl);
 
+    // A screen loading mid-song - a second screen, or this one reloaded - picks the
+    // song up where it is. hls.js starts there; a plain <video> seeks once it can.
+    const resumeAt = np.now_playing_position || 0;
+    const seekOnceLoaded = () => {
+      if (resumeAt) {
+        video.addEventListener("loadedmetadata", () => { video.currentTime = resumeAt; }, { once: true });
+      }
+    };
+
     if (streamUrl.endsWith('.m3u8')) {
       const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
       if (useNativeHLS) {
         video.src = streamUrl;
+        seekOnceLoaded();
       } else {
         if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        hlsInstance = new Hls({ startPosition: 0 });
+        hlsInstance = new Hls({ startPosition: resumeAt });
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(video);
       }
+    } else {
+      seekOnceLoaded();
     }
 
     video.load();
@@ -408,13 +420,6 @@ const handleNowPlayingUpdate = (np) => {
       // Retry once if it was an autoplay block
       setTimeout(() => video.play(), 1000);
     });
-
-    if (np.now_playing_position && isMediaPlaying(video)) {
-      if (Math.abs(video.currentTime - np.now_playing_position) > 2) {
-        console.log("Syncing to server position:", np.now_playing_position);
-        video.currentTime = np.now_playing_position;
-      }
-    }
 
     const loadedPlaybackId = currentPlaybackId;
     setTimeout(() => {
@@ -621,6 +626,8 @@ const setupSocketEvents = () => {
   });
   socket.on('splash_role', (role) => {
     isMaster = (role === "master");
+    // A screen caught mid-catch-up must not set the pace for the others.
+    if (isMaster) getVideoPlayer().playbackRate = 1;
     console.log("Splash role assigned:", role, isMaster ? "(Master active)" : "(Slave active - read-only)");
   });
   socket.on('connect_error', (error) => {
@@ -697,9 +704,15 @@ const setupSocketEvents = () => {
     if (!isMaster) {
       const video = getVideoPlayer();
       if (isMediaPlaying(video)) {
-        if (Math.abs(video.currentTime - position) > 2) {
+        // Positive when this screen is behind the master.
+        const drift = position - video.currentTime;
+        if (Math.abs(drift) > 2) {
           console.log("Slave drifting, syncing position to:", position);
           video.currentTime = position;
+        } else {
+          // A seek lands a few tenths short, which is an audible echo beside the
+          // master, so close a small gap by playing up to 10% fast or slow.
+          video.playbackRate = Math.abs(drift) < 0.05 ? 1 : 1 + Math.max(-0.1, Math.min(0.1, drift / 2));
         }
       }
     }
