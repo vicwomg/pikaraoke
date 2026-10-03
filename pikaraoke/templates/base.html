@@ -445,6 +445,15 @@
           {# MSG: Navigation link for the page used to get new songs into the library. #}
           <span>{% trans %}Add New{% endtrans %}</span>
         </a>
+        {# The singer's name, in the bar just left of the hamburger. Hidden until a
+           name is set (JS clears is-hidden); custom.css then gives it the auto-margin
+           that carries it right, with the burger tucked in beside it. Its home is
+           settled here so join-in, which will label and open a modal on it, need
+           not move it. #}
+        <a id="current-user" class="navbar-item is-hidden" href="#">
+          <i class="icon icon-mic-1" title="Current user"></i>
+          <span class="is-truncated"></span>
+        </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           {# Bulma 1.x's burger needs four bars: the first two stack in the centre
              and rotate into the close (X), the third and fourth are the top and
@@ -462,13 +471,6 @@
          on come first, then a divider and Info last as the "about this box" page. #}
       <div class="navbar-menu mr-0" id="menu">
         <div class="navbar-end">
-          <a id="current-user" class="navbar-item is-hidden" href="#">
-            <i class="icon  icon-mic-1" title="Current user"></i>
-            <span></span>
-          </a>
-          {# Separates the name from the pages. Hidden with the name itself (see
-             custom.css) so an unnamed device gets no stray divider at the top. #}
-          <hr class="navbar-divider">
           <a id="rankings" class="navbar-item" href="{{ url_for('sessions.rankings') }}">
             <i class="icon icon-th-list-outline"></i>
             {# MSG: Menu link to the most-played songs and most active singers. #}

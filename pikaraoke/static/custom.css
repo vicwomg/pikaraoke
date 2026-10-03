@@ -302,11 +302,19 @@ a.navbar-item.is-active {
   overflow: hidden;
 }
 
-/* The name sits above a divider from the pages. An unnamed device hides the name
-   (JS clears is-hidden once a name is set), so the divider hides with it rather
-   than stranding a line at the top of the panel. */
-#current-user.is-hidden + .navbar-divider {
-  display: none;
+/* The singer's name rides to the right of the bar, just left of the hamburger: its
+   auto-margin takes the free space and the burger tucks in beside it. With no name
+   the item is hidden and takes no space, so the burger keeps its own auto-margin
+   and stays at the far right. A long name is truncated so it cannot push the burger
+   off the bar. */
+#current-user:not(.is-hidden) {
+  margin-inline-start: auto;
+}
+#current-user:not(.is-hidden) ~ .navbar-burger {
+  margin-inline-start: 0;
+}
+#current-user .is-truncated {
+  max-width: 8rem;
 }
 
 .control-box a {
