@@ -462,6 +462,10 @@
           <span>{% trans %}Add New{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+          {# Bulma 1.x's burger needs four bars: the first two stack in the centre
+             and rotate into the close (X), the third and fourth are the top and
+             bottom lines. With three spans it renders only two visible bars. #}
+          <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>
