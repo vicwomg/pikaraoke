@@ -57,6 +57,23 @@
 		</div>
 	</div>
 
+	{# Open to everyone: the version running here and a link to the project, so a
+	   guest who enjoys it can find and install their own. #}
+	<div class="card mt-5">
+		<header class="card-header py-3 px-5">
+			{# MSG: Header of the About section, which names the software and links to it. #}
+			<h3 class="m-0">{% trans %}About{% endtrans %}</h3>
+		</header>
+		<div class="card-content">
+			<div class="content">
+				{# MSG: Version line on the About card. {version} is the release number, e.g. 1.23.0. #}
+				<p class="mb-2">{{ _('PiKaraoke version {version}').replace('{version}', pikaraoke_version) }}</p>
+				{# MSG: Link to the PiKaraoke project on GitHub, where anyone can find and install it. #}
+				<p class="mb-0"><a href="https://github.com/vicwomg/pikaraoke" target="_blank" rel="noopener">{% trans %}Find PiKaraoke on GitHub{% endtrans %}</a></p>
+			</div>
+		</div>
+	</div>
+
 	{% if admin %}
 		<div class="card mt-5">
 			<header class="card-header py-3 px-5">
