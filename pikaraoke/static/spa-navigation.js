@@ -105,6 +105,15 @@
             $('.navbar-burger').toggleClass('is-active');
             $('.navbar-menu').toggleClass('is-active');
         });
+
+        // Close the open menu on a click outside it or the burger.
+        $(document).off('click.navbarOutside');
+        $(document).on('click.navbarOutside', function(e) {
+            if (!$('.navbar-menu').hasClass('is-active')) return;
+            if ($(e.target).closest('.navbar-menu, .navbar-burger').length) return;
+            $('.navbar-burger').removeClass('is-active');
+            $('.navbar-menu').removeClass('is-active');
+        });
     }
 
     /**
