@@ -69,7 +69,7 @@
 		if (!wasSkipped(play)) {
 			return statusIcon("icon-ok", "has-text-success", historyText.played);
 		}
-		return statusIcon("icon-to-end", "has-text-grey", historyText.skipped);
+		return statusIcon("icon-to-end", "has-text-grey-light", historyText.skipped);
 	}
 
 	// The labels are translator-controlled rather than user input, but they land
@@ -174,8 +174,8 @@
 								{ song: play.song, youtube_id: play.youtube_id || "" },
 								historySong || historyYoutubeId
 							) +
-							'<td class="status-cell">' + playStatus(play) + "</td>" +
-							'<td class="has-text-right options-cell">' +
+							'<td class="has-text-centered is-vcentered">' + playStatus(play) + "</td>" +
+							'<td class="has-text-right is-vcentered">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +
@@ -308,7 +308,7 @@
 		white-space: nowrap;
 	}
 	.history-table th.sortable:hover {
-		color: var(--dark-link);
+		color: var(--bulma-text-strong);
 	}
 	/* The arrow is a bare fontello glyph, never a Bulma .icon: that is a 1.5rem
 	   inline-flex box which centres its glyph on its own axis instead of the
@@ -334,7 +334,7 @@
 	   Bulma's colour helpers are !important -- which is right: the actions on a
 	   skipped row are as available as on any other. */
 	#play-log tr.is-skipped td {
-		color: var(--bulma-grey);
+		color: var(--bulma-grey-light);
 	}
 	/* Widths are declared here rather than left to the contents: the song column
 	   is the only one without one, so it absorbs the slack and the three columns
@@ -354,9 +354,6 @@
 	}
 	#play-log .col-options {
 		width: 3em;
-	}
-	#play-log td.status-cell {
-		text-align: center;
 	}
 	.status-playing {
 		width: 18px;
@@ -390,7 +387,7 @@
 			width: 2em;
 		}
 		#play-log td.when {
-			color: #a7a7a7;
+			color: var(--bulma-grey-light);
 		}
 	}
 </style>
@@ -400,7 +397,7 @@
 
 {% include 'partials/session_filter.html' %}
 
-<div class="table-toggle-row">
+<div class="is-flex is-align-items-center is-flex-wrap-wrap is-row-gap-1 is-column-gap-1.5 mb-2">
 	{% if selected_performer %}
 	{# Reached from a name on the rankings or in a session's singer list:
 	   performers grow without bound, so unlike the session filter there is no
@@ -440,14 +437,14 @@
 	{% endif %}
 
 	{# Off by default, so the log shows every attempt. See hideSkippedPlays. #}
-	<label class="checkbox is-size-7 table-toggle">
+	<label class="checkbox is-size-7 is-inline-flex is-align-items-center is-gap-0.5 ml-auto has-text-grey-light">
 		<input type="checkbox" id="hide-skipped" />
 		{# MSG: Checkbox which hides songs that were skipped before they finished. #}
 		{% trans %}Hide skipped{% endtrans %}
 	</label>
 </div>
 
-<table class="history-table" id="play-log">
+<table class="table is-striped history-table" id="play-log">
 	{# The song column is deliberately unsized: it takes whatever the others do
 	   not need, on a phone as much as on a desktop. #}
 	<colgroup>
@@ -483,18 +480,18 @@
 
 <div class="modal" id="play-options-modal">
 	<div class="modal-background"></div>
-	<div class="modal-card" style="width: 90%; max-width: 400px;">
-		<header class="modal-card-head" style="padding: 15px;">
-			<p class="modal-card-title is-size-6" id="play-modal-title" style="max-width: 95%"></p>
+	<div class="modal-card">
+		<header class="modal-card-head">
+			<p class="modal-card-title is-size-6 mb-0" id="play-modal-title"></p>
 			<button class="delete modal-close-btn" aria-label="close"></button>
 		</header>
-		<section class="modal-card-body" style="padding: 0;">
+		<section class="modal-card-body">
 			<a id="opt-add-queue" class="panel-block py-3" href="#" data-action="queue">
 				<span class="icon has-text-success mr-2"><i class="icon-list-add"></i></span>
 				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
 				{% trans %}Add to queue{% endtrans %}
 			</a>
-			<span id="opt-song-gone" class="panel-block py-3 has-text-grey">
+			<span id="opt-song-gone" class="panel-block py-3 has-text-grey-light">
 				<span class="icon mr-2"><i class="icon-info-circled"></i></span>
 				{# MSG: Shown in place of "add to queue" when the song has since been removed from the library. #}
 				{% trans %}This song is no longer in the library{% endtrans %}

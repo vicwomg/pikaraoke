@@ -210,11 +210,22 @@
 <script src="{{  url_for('static', filename='score.js') }}"></script>
 
 <style>
+  /* The TV screen keeps master's colours: Bulma's own green and amber, on pure black.
+     The theme retunes these for the phone pages. */
+  :root {
+    --bulma-success-h: 153deg;
+    --bulma-success-s: 53%;
+    --bulma-success-l: 53%;
+    --bulma-warning-h: 42deg;
+    --bulma-warning-s: 100%;
+    --bulma-warning-l: 53%;
+    --bulma-black-l: 0%;
+  }
   html {
     overflow-y: hidden;
   }
   body {
-    background-color: black;
+    background-color: var(--bulma-black);
   }
   #top-container,
   #ap-container,
@@ -256,7 +267,7 @@
     top: 0;
     width: 100vw;
     height: 100vh;
-    background-color: black;
+    background-color: var(--bulma-black);
     display: flex;
     align-items: center;
   }
@@ -269,9 +280,6 @@
     height: 100%;
     width: 100%;
     object-fit: contain;
-  }
-  body {
-    background-color: black;
   }
   .fw-fh-container {
     height: 100vh;
@@ -297,7 +305,7 @@
   /* Reads as the event title under the logo, so it carries no label. */
   #session-name {
     margin-top: 18px;
-    color: white;
+    color: var(--bulma-white);
     font-size: 2rem;
     font-weight: 300;
     letter-spacing: 0.18em;

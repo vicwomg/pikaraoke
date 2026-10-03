@@ -12,8 +12,8 @@
   <script src="{{  url_for('static', filename='js.cookie-3.0.5.min.js') }}"></script>
   <script src="{{  url_for('static', filename='socket.io-4.8.3.min.js') }}"></script>
   <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='bulma-dark.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
@@ -352,19 +352,15 @@
   .navbar-link > i::before {
     margin-right: 0;
   }
+  /* Padded to level the first line with Bulma's close button, 1rem from the top. */
   .base-notification {
+    --bulma-notification-padding: 0.875em 1.5em;
     position: fixed;
     width: 500px;
     bottom: 5px;
     left: 50%;
     margin-left: -250px;
     z-index: 20;
-  }
-  .current-user {
-    position: fixed;
-    padding: 3px;
-    bottom: 5px;
-    right: 10px;
   }
   .session-ribbon {
     display: flex;
@@ -376,36 +372,28 @@
        every other block on the page. */
     margin: 4px 0 0;
     padding: 4px 12px;
-    border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.04);
-    color: hsl(0, 0%, 71%);
+    border-radius: var(--bulma-radius);
+    background-color: var(--bulma-dark);
+    color: var(--bulma-grey-light);
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-  }
-  .session-ribbon-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .session-ribbon-dot {
     flex: none;
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background-color: hsl(141, 53%, 53%);
+    background-color: var(--bulma-success);
     animation: session-ribbon-pulse 2s ease-in-out infinite;
   }
   @keyframes session-ribbon-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(72, 199, 116, 0.5); }
-    50% { opacity: 0.55; box-shadow: 0 0 0 4px rgba(72, 199, 116, 0); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--bulma-success) 50%, transparent); }
+    50% { opacity: 0.55; box-shadow: 0 0 0 4px transparent; }
   }
   @media (prefers-reduced-motion: reduce) {
     .session-ribbon-dot { animation: none; }
-  }
-  tr:nth-child(even) {
-    background-color: rgb(50, 55, 55);
   }
   @media screen and (max-width: 1088px) {
     .navbar-brand > .navbar-item > span {
@@ -432,8 +420,8 @@
 
   {% if not blank_page %}
   <div class="container" style="padding: 5px; max-width: 900px;">
-    <nav class="navbar" role="navigation" aria-label="main navigation">
-      <div class="navbar-brand" id="brand" style="padding-left: 10px">
+    <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand ml-0" id="brand" style="padding-left: 10px">
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
           <i class="icon icon-home-2" title="Home"></i>
           {# MSG: Navigation link for the home page. #}
@@ -467,7 +455,7 @@
           <span aria-hidden="true"></span>
         </a>
       </div>
-      <div class="navbar-menu" id="menu">
+      <div class="navbar-menu mr-0" id="menu">
         <div class="navbar-end">
           <a id="current-user" class="navbar-item is-hidden" href="#">
             <i class="icon  icon-mic-1" title="Current user"></i>
@@ -523,12 +511,12 @@
       aria-label="{{ _('Current session: {name}').replace('{name}', session_name) }}"
       title="{{ session_name }}">
       <span class="session-ribbon-dot" aria-hidden="true"></span>
-      <span class="session-ribbon-text">{{ session_name }}</span>
+      <span class="session-ribbon-text is-truncated">{{ session_name }}</span>
     </div>
 
     {% if get_flashed_messages() %}
     {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification base-notification {{category}}">
+    <div id="notification" class="notification base-notification mb-0 {{category}}">
       <button id="notification-close" class="delete"></button>
       <div class="flash">{{ message }}</div>
     </div>
@@ -544,9 +532,9 @@
     <div class="box" style="margin-top: 5px;">
       {# Written once here rather than per page: the heading is chrome, and its
          text is the same string the <title> tag uses. #}
-      <header class="page-header">
-        <div class="page-heading">
-          <h1 class="title">{% block heading %}{{ title }}{% endblock %}</h1>
+      <header class="block">
+        <div class="is-flex is-justify-content-space-between is-align-items-baseline is-gap-2">
+          <h1 class="title has-text-weight-normal mb-0">{% block heading %}{{ title }}{% endblock %}</h1>
           {% block heading_action %}{% endblock %}
         </div>
         {% block header %}{% endblock %}

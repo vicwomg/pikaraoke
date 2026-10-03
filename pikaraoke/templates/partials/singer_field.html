@@ -27,7 +27,7 @@
 	   so it reads as a route to the fix rather than an error. #}
 	<a
 		id="singer-no-session"
-		class="button is-small is-fullwidth is-warning is-outlined {% if has_active_session() %}is-hidden{% endif %}"
+		class="button is-small is-fullwidth is-warning {% if has_active_session() %}is-hidden{% endif %}"
 		href="{{ url_for('sessions.sessions') }}"
 	>
 		<i class="icon icon-list-alt"></i>

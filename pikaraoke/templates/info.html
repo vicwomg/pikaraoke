@@ -193,7 +193,7 @@
 			var list = $("#mic-list");
 			list.empty();
 			if (devices.length === 0) {
-				list.html('<p class="has-text-grey">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
+				list.html('<p class="has-text-grey-light">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
 				$("#mic-settings-panel").hide();
 				return;
 			}
@@ -201,16 +201,16 @@
 			devices.forEach(function(dev) {
 				var escaped = $('<span>').text(dev.label).html();
 				list.append(
-					'<div class="is-flex mb-2" style="align-items: center;">' +
+					'<div class="is-flex is-align-items-center mb-2">' +
 						'<label class="checkbox" style="flex: 1; display: flex; align-items: center; min-width: 0;">' +
 							'<input type="checkbox" class="mic-toggle mr-2" ' +
 								'data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
 								(dev.enabled ? 'checked' : '') + ' />' +
-							'<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + escaped + '</span>' +
+							'<span class="is-truncated">' + escaped + '</span>' +
 						'</label>' +
 						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
 							'class="mic-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
-							'style="width: 100px; margin-left: 8px;" ' + (!dev.enabled ? 'disabled' : '') + ' />' +
+							'class="ml-2" style="width: 100px;" ' + (!dev.enabled ? 'disabled' : '') + ' />' +
 					'</div>'
 				);
 			});
@@ -372,12 +372,12 @@
 							</div>
 							<div class="control">
 								{# MSG: Text on submit button for the admin login form. #}
-								<button class="button is-rounded is-primary">{% trans %}Login{% endtrans %}</button>
+								<button class="button is-primary">{% trans %}Login{% endtrans %}</button>
 							</div>
 						</div>
 					</form>
 					{# MSG: Tells a locked-out host how to reset a forgotten admin password. #}
-					<p class="is-size-7 has-text-grey">{% trans %}Forgotten it? Restart PiKaraoke with --admin-password to set a new one.{% endtrans %}</p>
+					<p class="is-size-7 has-text-grey-light">{% trans %}Forgotten it? Restart PiKaraoke with --admin-password to set a new one.{% endtrans %}</p>
 				</div>
 			</div>
 		</div>
@@ -399,7 +399,7 @@
 						{# MSG: Song count display in the library card. #}
 						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
 					</p>
-					<button id="sync-library-btn" class="button is-primary is-inverted">
+					<button id="sync-library-btn" class="button is-primary">
 						{# MSG: Button to trigger a background library scan. #}
 						{% trans %}Sync Now{% endtrans %}
 					</button>
@@ -589,37 +589,37 @@
 				<div class="content">
 					{% if mic_available %}
 					<h5 class="mb-2">{% trans %}Microphones{% endtrans %}</h5>
-					<p class="is-size-7 has-text-grey mb-2">
+					<p class="is-size-7 has-text-grey-light mb-2">
 						{% trans %}Microphones detected on the server. Audio is routed directly to speakers.{% endtrans %}
 					</p>
 					<div id="mic-list">
-						<p class="has-text-grey">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
+						<p class="has-text-grey-light">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
 					</div>
 
 					<div id="mic-settings-panel" style="display: none;">
-					<div class="is-flex mt-3 mb-2" style="align-items: center;">
+					<div class="is-flex is-align-items-center mt-3 mb-2">
 						<label class="label mr-2 mb-0" style="white-space: nowrap; font-size: 0.85rem;">{% trans %}Latency{% endtrans %}</label>
 						<input type="range" id="mic-latency" min="10" max="200" step="10" value="10" style="flex: 1;" />
 						<span id="mic-latency-value" class="ml-2 is-size-7" style="min-width: 45px;">10ms</span>
 					</div>
 					{% if is_linux %}
-					<div class="is-flex mb-2" style="align-items: center;">
+					<div class="is-flex is-align-items-center mb-2">
 						<label class="checkbox" style="font-size: 0.85rem;">
 							<input type="checkbox" id="mic-echo-cancel" class="mr-1" />
 							{% trans %}Echo cancellation{% endtrans %}
 						</label>
-						<span class="tag is-warning is-light ml-2" style="font-size: 0.7rem;">{% trans %}Experimental{% endtrans %}</span>
-						<span class="is-size-7 has-text-grey ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
+						<span class="tag is-warning is-light ml-2">{% trans %}Experimental{% endtrans %}</span>
+						<span class="is-size-7 has-text-grey-light ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
 					</div>
 					{% endif %}
 					</div>
 
-					<button id="mic-refresh" class="button is-small is-primary is-outlined mt-3">{% trans %}Refresh{% endtrans %}</button>
+					<button id="mic-refresh" class="button is-small is-primary mt-3">{% trans %}Refresh{% endtrans %}</button>
 					{% else %}
 					<p class="has-text-warning">
 						{% trans %}Microphone support is unavailable. Required audio tools are not installed.{% endtrans %}
 					</p>
-					<p class="is-size-7 has-text-grey">
+					<p class="is-size-7 has-text-grey-light">
 						{% trans %}On Linux / Raspberry Pi, install it with:{% endtrans %}
 						<code>sudo apt install pulseaudio-utils</code>
 						{% trans %}and restart PiKaraoke.{% endtrans %}
@@ -641,7 +641,7 @@
 		<div class="card-content collapsible-content">
 			<div class="content">
 					{# MSG: Help text explaining how to add phrases #}
-					<p class="subtitle has-text-warning mt-1 is-size-6">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
+					<p class="is-size-7 has-text-grey-light mt-1">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
 					{# MSG: Title for LOW Score Phrases #}
 					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
 					{# MSG: Placeholder for the low score phrases textarea #}
@@ -768,7 +768,7 @@
 					</div>
 
 					{% if keep_awake_unsupported %}
-					<p class="is-size-7 has-text-grey">
+					<p class="is-size-7 has-text-grey-light">
 						{% if keep_awake_unsupported == "container" %}
 						{# MSG: Shown instead of the keep-awake checkbox when running in a container. #} {% trans %}Keep the server awake: unavailable in a container. Disable sleep on the host.{% endtrans %}
 						{% elif keep_awake_unsupported == "missing_tool" %}
@@ -802,7 +802,7 @@
 					{# MSG: Header of the information section about the computer running Pikaraoke. #}
 					<h3 class="m-0">{% trans %}System Info{% endtrans %}</h3>
 					{# MSG: Button that copies the system info below it, for pasting into a bug report. #}
-					<button id="copy-system-info" class="button is-small is-primary is-inverted ml-auto">{% trans %}Copy{% endtrans %}</button>
+					<button id="copy-system-info" class="button is-small is-primary ml-auto">{% trans %}Copy{% endtrans %}</button>
 			</header>
 			<div class="card-content">
 				<div class="content">
@@ -855,7 +855,7 @@
 						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
 						The current installed version is: "{{ youtubedl_version }}".
 					{% endtrans %}</p>
-					<a id="update-ytdl-link" class="button is-primary is-inverted" href="{{ url_for('admin.update_ytdl') }}"
+					<a id="update-ytdl-link" class="button is-primary" href="{{ url_for('admin.update_ytdl') }}"
 						{# MSG: Text for the link which will try and update yt-dlp on the machine running Pikaraoke. #}
 							>{% trans %}Update yt-dlp{% endtrans %}</a
 						>
@@ -889,7 +889,7 @@
 							you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
 							This will reboot the system.
 						{%- endtrans %}</p>
-						<a id="expand-link"  class="button is-primary is-inverted" href="{{ url_for('admin.expand_fs') }}">
+						<a id="expand-link" class="button is-primary" href="{{ url_for('admin.expand_fs') }}">
 							{# MSG: Text for button#}
 							{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</a>
 					</div>
@@ -918,7 +918,7 @@
 							</div>
 							<div class="control">
 								{# MSG: Button which saves a new administrator password. #}
-								<button class="button is-rounded is-primary">{% trans %}Save password{% endtrans %}</button>
+								<button class="button is-primary">{% trans %}Save password{% endtrans %}</button>
 							</div>
 						</div>
 					</form>
@@ -982,11 +982,6 @@
 	}
 	.user-preference-container .input {
 		width: 80px;
-	}
-	.user-preference-checkbox {
-		accent-color: hsl(141, 71%, 48%);
-		margin-right: 8px;
-		min-width: 20px;
 	}
 	/* Collapsible sections */
 	.collapsible-header {

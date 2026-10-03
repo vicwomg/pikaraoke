@@ -42,6 +42,16 @@ repos:
     types: [python]
     require_serial: true
 
+  # Templates may carry layout but never a colour: colours come from Bulma's variables,
+  # configured in custom.css, so a literal here is a second theme that drifts from the first.
+- repo: local
+  hooks:
+  - id: no-template-colour-literals
+    name: No Colour Literals in Templates
+    language: pygrep
+    entry: '(?i)(:\s*(white|black|red|green|blue|yellow|orange|gr[ae]y|silver)\b|#[0-9a-f]{3}\b|#[0-9a-f]{6}\b|\b(rgba?|hsla?)\()'
+    files: ^pikaraoke/templates/.*\.html$
+
 - repo: https://github.com/executablebooks/mdformat
   rev: 1.0.0
   hooks:
