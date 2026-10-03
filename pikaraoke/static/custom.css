@@ -128,6 +128,20 @@
   --bulma-card-radius: var(--bulma-radius);
 }
 
+/* The join card sets the QR code beside its web address on a wide screen. On a
+   phone that squeezes the address into a sliver, so stack them instead - code
+   above, address centred below. Bulma has no responsive flex-direction helper. */
+@media screen and (max-width: 768px) {
+  .join-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  .join-card > div {
+    margin-inline-start: 0;
+    margin-top: 1rem;
+  }
+}
+
 /* Striped tables tell rows apart by the stripe; a rule under each row says it
    twice. Every table sits in base.html's .content, whose rule draws it. Heading
    underlines are a separate variable and stay. Bulma's 800 heading weight has no
