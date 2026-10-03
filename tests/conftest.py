@@ -26,6 +26,7 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/browse", "files.browse"),
     ("/search", "search.search"),
     ("/info", "info.info"),
+    ("/settings", "settings.settings"),
     ("/rankings", "sessions.rankings"),
     ("/history", "sessions.history"),
     ("/sessions", "sessions.sessions"),

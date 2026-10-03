@@ -220,13 +220,6 @@ input.checkbox {
   /* The burger reads --bulma-navbar-burger-color, which defaults to the link
      colour; is-primary only sets a variable an overridden rule consumes. */
   --bulma-navbar-burger-color: var(--bulma-navbar-item-color);
-  /* is-primary sets the arrow to a lightness, which is no colour at all.
-     currentColor makes it follow the link's text, hover included. */
-  --bulma-navbar-dropdown-arrow: currentColor;
-  /* Dropdown items and the panel behind them take the bar's navy, so the
-     dropdown matches the top-level items. */
-  --bulma-navbar-dropdown-item-background-l: var(--bulma-primary-l);
-  --bulma-navbar-dropdown-item-color-l: var(--bulma-primary-invert-l);
   /* Lines sit the ramp's border step (+15%) lighter than their surface; the divider's
      surface is the bar's navy. Bulma's default is darker than the bar. */
   --bulma-navbar-divider-background-l: calc(var(--bulma-primary-l) + 15%);
@@ -235,35 +228,71 @@ input.checkbox {
   --bulma-navbar-item-hover-background-l-delta: 0%;
 }
 
+/* One hamburger at every width. Bulma shows the brand burger only below 1024px and
+   lays the secondary menu out inline above it; these rules keep the burger and its
+   drop-down panel at all widths, so the menu looks and behaves the same on a phone
+   and a desktop. The panel's chrome (navy background, shadow, padding) is Bulma's
+   own mobile styling, which the desktop breakpoint leaves untouched. */
+.navbar-menu.is-active {
+  position: absolute;
+  right: 0;
+}
+@media screen and (min-width: 1024px) {
+  /* Block, not flex: the brand row then fills the bar's width, so the burger's
+     margin-inline-start:auto carries it to the far right and the panel drops
+     below it - exactly the mobile layout. */
+  .navbar {
+    display: block;
+  }
+  .navbar-burger {
+    display: inline-flex;
+  }
+  .navbar-menu {
+    display: none;
+  }
+  .navbar-menu.is-active {
+    display: block;
+  }
+  .navbar-end {
+    display: block;
+  }
+}
+
 /* White text cannot brighten, so hover takes the interactive teal, as does the
    current page, which spa-navigation.js marks with is-active - the app's only
    "you are here". Bulma's selected state cannot do it: it changes the item's hue
-   variables, but the text colour is composed on .navbar and inherited finished.
-   The dropdown selector matches Bulma's desktop one, a.navbar-item included. */
+   variables, but the text colour is composed on .navbar and inherited finished. */
 .navbar-item:hover,
-.navbar-link:hover,
-.navbar-dropdown a.navbar-item:hover,
 a.navbar-item.is-active {
   color: var(--bulma-link);
 }
 
-/* Bulma hides the divider below its desktop breakpoint, where the dropdown
-   flattens into the burger menu - which is exactly where a group separator is
-   needed most, the items having lost the panel that framed them. */
-.navbar-dropdown .navbar-divider {
+/* Bulma hides the divider below its desktop breakpoint; the burger menu it would
+   separate now exists at all widths, so the divider does too. */
+.navbar-menu .navbar-divider {
   display: block;
 }
 
-@media screen and (max-width: 1023px) {
-  /* The open burger menu hangs below the bar, so only its bottom corners round:
-     the same pair Bulma rounds on the desktop dropdown. */
-  .navbar-menu {
-    border-end-start-radius: var(--bulma-radius);
-    border-end-end-radius: var(--bulma-radius);
-    /* The dropdown flattens into this menu and is its last child, so without
-       clipping its square corners paint over the rounded ones. */
-    overflow: hidden;
-  }
+/* The burger panel's chrome. Bulma scopes the background, shadow and padding to
+   its touch breakpoint, so forcing burger mode on desktop would leave the panel
+   see-through; re-assert them here at all widths, since the panel is a burger
+   panel everywhere now. The panel hangs below the bar, so only its bottom corners
+   round, and overflow clips the last item's square corners off the rounded panel. */
+.navbar-menu {
+  background-color: var(--bulma-navbar-background-color);
+  box-shadow: 0 0.5em 1em
+    hsla(var(--bulma-scheme-h), var(--bulma-scheme-s), var(--bulma-scheme-invert-l), 0.1);
+  padding: 0.5rem 0;
+  border-end-start-radius: var(--bulma-radius);
+  border-end-end-radius: var(--bulma-radius);
+  overflow: hidden;
+}
+
+/* The name sits above a divider from the pages. An unnamed device hides the name
+   (JS clears is-hidden once a name is set), so the divider hides with it rather
+   than stranding a line at the top of the panel. */
+#current-user.is-hidden + .navbar-divider {
+  display: none;
 }
 
 .control-box a {

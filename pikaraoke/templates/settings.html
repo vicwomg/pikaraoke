@@ -1,0 +1,876 @@
+{% extends 'base.html' %} {% block scripts %}
+	<script>
+		async function updatePhrases(phrases) {
+			let returnData = null
+
+			try {
+				for (const phraseRange in phrases) {
+					returnData = await $.post("{{ url_for('preferences.change_preferences') }}", {
+							pref: phraseRange,
+							val: phrases[phraseRange]
+					})
+
+					if (!returnData[0]) break
+				}
+
+				if (returnData[0]) showNotification(returnData[1], "is-success");
+				else showNotification(returnData[1], "is-danger");
+			} catch (_e) {
+				showNotification({{ _('Something went wrong! Your preferences were not changed') | tojson }}, "is-danger");
+			}
+		}
+
+		$(function () {
+
+			$(".user-preference-input").change(function() {
+				let val = $(this).val();
+				let pref = $(this).attr("data-pref");
+				let startVal = $(this).attr("data-start-value");
+				let $this = $(this);
+
+				if (val == startVal) return;
+
+				let timeoutId = setTimeout(function() {
+					$this.attr("data-start-value", val);
+
+					if (pref == "bg_music_volume" || pref == "volume") {
+						val = val / 100;
+					}
+					changePreferences(pref, val);
+				}, 1000);
+
+				// If the user changes the value again before the daly expires, cancel the timeout
+				$(this).one("change", function() {
+					clearTimeout(timeoutId);
+				});
+			})
+			$(".user-preference-checkbox").click(function() {
+				let val = $(this).is(":checked") ? "True" : "False";
+				let pref = $(this).attr("data-pref");
+
+				changePreferences(pref, val);
+			})
+
+			function changePreferences(pref, val) {
+				$.post("{{ url_for('preferences.change_preferences') }}", {
+					"pref": pref,
+					"val": val
+				})
+				.done(function(data) {
+					// The language is chosen on every request, and it is in the navbar
+					// and the strings base.html hands to scripts as well as this page,
+					// so a full reload is what shows it.
+					if (data[0] && pref == "preferred_language") window.location.reload();
+					else if (data[0]) showNotification(data[1], "is-success");
+					else showNotification(data[1], "is-danger")
+				});
+			}
+
+			$("#quit-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user selects quit. #}
+				if (window.confirm({{ _('Are you sure you want to quit?') | tojson }})) {
+					window.postNavigate(this.href);
+				}
+			});
+
+			$("#shutdown-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
+				if (window.confirm({{ _('Are you sure you want to shut down?') | tojson }})) {
+					window.postNavigate(this.href);
+				}
+			});
+
+			$("#clear-preferences-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user clears preferences. #}
+				if (window.confirm({{ _('Are you sure you want to clear your preferences?') | tojson }})) {
+					$.post(this.href).done(function (data) {
+						// The controls here are server-rendered and listen for nothing, so
+						// they show the old values until the page comes back. Notify after:
+						// the re-render replays base.html's script, which hides the bar.
+						window.spaNavigation.rerender().then(function () {
+							showNotification(data[1], data[0] ? "is-success" : "is-danger");
+						});
+					});
+				}
+			});
+
+			$("#restart-link").click(function (e) {
+				e.preventDefault();
+				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
+				if (window.confirm({{ _('Are you sure you want to reboot?') | tojson }})) {
+					window.postNavigate(this.href);
+				}
+			});
+
+			$("#update-ytdl-link").click(function (e) {
+				e.preventDefault();
+				if (
+					window.confirm(
+						// {# MSG: Confirmation text whe the user asks to update yt-dlp. #}
+						{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') | tojson }}
+					)
+				) {
+					window.postNavigate(this.href);
+				}
+			});
+
+		$("#expand-link").click(function (e) {
+			e.preventDefault();
+			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
+			if (window.confirm(window.translations.confirmExpandFilesystem)) {
+				window.postNavigate(this.href);
+			}
+		});
+
+		// Collapsible card sections
+		$(".collapsible-header").click(function() {
+			$(this).toggleClass("is-collapsed");
+			$(this).next(".collapsible-content").slideToggle(200);
+		});
+
+			function serializePhrases(textareaValue) {
+				return textareaValue.split("\n").map(s => s.trim().replace(/[|]/g, "")).filter(s => s).join("|");
+			}
+
+			$("#save-phrases").click(function (e){
+				e.preventDefault();
+
+				let phrases = {
+					"low_score_phrases": serializePhrases($("#low-score-phrases").val()),
+					"mid_score_phrases": serializePhrases($("#mid-score-phrases").val()),
+					"high_score_phrases": serializePhrases($("#high-score-phrases").val())
+				}
+
+				updatePhrases(phrases)
+			})
+
+		// Shared SocketIO connection (used by mic controls and library sync)
+		if (typeof window.socket === 'undefined') {
+			window.socket = io({ path: window.pikaraokeConfig.socketioPath });
+		}
+
+		{% if admin and mic_available %}
+		// Mic settings (latency, echo cancel)
+		window.socket.on("mic_settings_state", function(state) {
+			$("#mic-latency").val(state.latency_ms);
+			$("#mic-latency-value").text(state.latency_ms + "ms");
+			$("#mic-echo-cancel").prop("checked", state.echo_cancel);
+		});
+
+		$(document).on("input", "#mic-latency", debounce(function() {
+			var val = parseInt($(this).val());
+			$("#mic-latency-value").text(val + "ms");
+			window.socket.emit("mic_latency_change", {latency_ms: val});
+		}, 500));
+
+		$(document).on("change", "#mic-echo-cancel", function() {
+			window.socket.emit("mic_echo_cancel_change", {enabled: $(this).is(":checked")});
+		});
+
+		// Mic device list
+		window.socket.on("mic_devices_state", function(devices) {
+			var list = $("#mic-list");
+			list.empty();
+			if (devices.length === 0) {
+				list.html('<p class="has-text-grey-light">{{ _("No microphones detected. Connect a USB or Bluetooth mic and click Refresh.") | forceescape }}</p>');
+				$("#mic-settings-panel").hide();
+				return;
+			}
+			$("#mic-settings-panel").show();
+			devices.forEach(function(dev) {
+				var escaped = $('<span>').text(dev.label).html();
+				list.append(
+					'<div class="is-flex is-align-items-center mb-2">' +
+						'<label class="checkbox" style="flex: 1; display: flex; align-items: center; min-width: 0;">' +
+							'<input type="checkbox" class="mic-toggle mr-2" ' +
+								'data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
+								(dev.enabled ? 'checked' : '') + ' />' +
+							'<span class="is-truncated">' + escaped + '</span>' +
+						'</label>' +
+						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
+							'class="mic-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
+							'class="ml-2" style="width: 100px;" ' + (!dev.enabled ? 'disabled' : '') + ' />' +
+					'</div>'
+				);
+			});
+		});
+
+		window.socket.on("mic_update", function(data) {
+			var toggle = $(".mic-toggle").filter(function() {
+				return $(this).data("device-id") === data.deviceId;
+			});
+			if (toggle.length) {
+				toggle.prop("checked", data.enabled);
+				var slider = $(".mic-volume").filter(function() {
+					return $(this).data("device-id") === data.deviceId;
+				});
+				slider.val(data.volume);
+				slider.prop("disabled", !data.enabled);
+			}
+		});
+
+		$(document).on("change", ".mic-toggle", function() {
+			var deviceId = $(this).data("device-id");
+			var label = $(this).data("label");
+			var enabled = $(this).is(":checked");
+			var slider = $(".mic-volume").filter(function() {
+				return $(this).data("device-id") === deviceId;
+			});
+			var volume = parseFloat(slider.val());
+			slider.prop("disabled", !enabled);
+			window.socket.emit("mic_update", {
+				deviceId: deviceId, label: label, enabled: enabled, volume: volume
+			});
+		});
+
+		$(document).on("input", ".mic-volume", debounce(function() {
+			var deviceId = $(this).data("device-id");
+			var label = $(this).data("label");
+			var volume = parseFloat($(this).val());
+			var enabled = $(".mic-toggle").filter(function() {
+				return $(this).data("device-id") === deviceId;
+			}).is(":checked");
+			window.socket.emit("mic_update", {
+				deviceId: deviceId, label: label, enabled: enabled, volume: volume
+			});
+		}, 300));
+
+		$("#mic-refresh").click(function(e) {
+			e.preventDefault();
+			window.socket.emit("mic_refresh");
+			$(this).prop("disabled", true).text({{ _('Scanning...') | tojson }});
+			setTimeout(function() {
+				$("#mic-refresh").prop("disabled", false).text({{ _('Refresh') | tojson }});
+			}, 3000);
+		});
+
+		// Request current state on page load
+		window.socket.emit("request_mic_devices");
+		window.socket.emit("request_mic_settings");
+		{% endif %}
+
+		{# Everything below is host-only, and the elements it writes to only
+		   render for the host: a guest would collect two 403s and no page. #}
+		{% if admin %}
+
+			// Song library stats
+			$.getJSON("{{ url_for('library.library_stats') }}", function(data) {
+				if (!data.error) {
+					$("#library-song-count").text(data.song_count);
+				}
+			});
+
+			// Sync Now button
+			$("#sync-library-btn").click(function() {
+				var $btn = $(this);
+				$btn.addClass("is-loading").prop("disabled", true);
+				$.post("{{ url_for('library.sync_library') }}", function(data) {
+					if (data.status !== "already_syncing") return;
+					// stays disabled -- sync_finished will re-enable
+				}).fail(function() {
+					$btn.removeClass("is-loading").prop("disabled", false);
+				});
+			});
+
+			// Wiping every session and play asks for a typed confirmation rather
+			// than a click, matching the clear-queue control: the friction is
+			// proportional to what cannot be undone.
+			$("#reset-history-btn").click(function() {
+				// {# MSG: Confirmation before deleting the entire play history. The host must type ok to proceed. #}
+				var typed = window.prompt({{ _('Delete ALL play history - every session and every play, for good? Type "ok" to continue.') | tojson }});
+				if (typed === null || typed.trim().toLowerCase() !== "ok") return;
+				$.ajax({
+					url: "{{ url_for('sessions_api.reset_history') }}?scope=all",
+					type: "DELETE"
+				}).done(function() {
+					// {# MSG: Notification shown once the play history has been erased. #}
+					showNotification({{ _('Play history erased') | tojson }}, "is-success");
+				});
+			});
+
+			// SocketIO: manage Sync Now button state
+			window.socket.on("sync_started", function() {
+				$("#sync-library-btn").addClass("is-loading").prop("disabled", true);
+			});
+			window.socket.on("sync_finished", function() {
+				$("#sync-library-btn").removeClass("is-loading").prop("disabled", false);
+				$.getJSON("{{ url_for('library.library_stats') }}", function(data) {
+					if (!data.error) $("#library-song-count").text(data.song_count);
+				});
+				showNotification({{ _('Library sync complete') | tojson }}, "is-success");
+			});
+		{% endif %}
+		});
+	</script>
+{% endblock %}
+
+{% block content %}
+
+	{% if not admin and admin_password_set %}
+		<div class="card mt-5">
+			<header class="card-header py-3 px-5">
+				{# MSG: Title of the admin section. #}
+				<h3 class="m-0">{% trans %}Admin{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{# MSG: Title fo the form to enter the administrator password. #}
+					<p>{% trans %}Enter the administrator password{% endtrans %}</p>
+					<form action="{{ url_for('admin.auth') }}" method="post">
+						<div class="field has-addons mb-2">
+							<div class="control" style="width: 100%; max-width: 350px">
+								<input type="password" name="admin_password" class="input" autocomplete="current-password" />
+							</div>
+							<div class="control">
+								{# MSG: Text on submit button for the admin login form. #}
+								<button class="button is-primary">{% trans %}Login{% endtrans %}</button>
+							</div>
+						</div>
+					</form>
+					{# MSG: Tells a locked-out host how to reset a forgotten admin password. #}
+					<p class="is-size-7 has-text-grey-light">{% trans %}Forgotten it? Restart PiKaraoke with --admin-password to set a new one.{% endtrans %}</p>
+				</div>
+			</div>
+		</div>
+	{% endif %}
+
+	{% if admin %}
+
+		<div class="card mt-5">
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for the screen the videos play on, usually a TV, and what it shows between songs. #}
+					<h3 class="m-0">{% trans %}Splash screen{% endtrans %}</h3>
+					{# MSG: One-line summary under the Splash screen heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Logo, clock, screensaver and overlays{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL{% endtrans %}</span>
+					<input id="pref-url" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables the QR code display #} {% trans %}Hide the QR code{% endtrans %}</span>
+					<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_qr_code" {% if hide_qr_code == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enables/disables the karaoke session name shown under the logo on the splash screen #} {% trans %}Hide the session name{% endtrans %}</span>
+					<input id="pref-session-name" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_session_name" {% if hide_session_name == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enables/disables the logo in the middle of the splash screen #} {% trans %}Hide the logo{% endtrans %}</span>
+					<input id="pref-logo" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_logo" {% if hide_logo == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Now playing, up next and the QR code.{% endtrans %}</span>
+					</span>
+					<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}</span>
+					<input id="pref-notifications" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_notifications" {% if hide_notifications == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables the digital clock on the splash screen #} {% trans %}Show the clock{% endtrans %}</span>
+					<input id="pref-splash-clock" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="show_splash_clock" {% if show_splash_clock == True %}checked{% endif %}>
+				</label>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-screensaver-timeout">
+						{# MSG: Numberbox label for setting the inactive delay before showing the screensaver #} {% trans %}Screensaver after (seconds){% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}0 turns it off.{% endtrans %}</span>
+					</label>
+					<input id="pref-screensaver-timeout" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0" max="999" data-pref="screensaver_timeout" data-start-value="{{ screensaver_timeout }}" value="{{ screensaver_timeout }}" />
+				</div>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-splash-scale">
+						{# MSG: Numberbox label for setting how large the text and overlays on the splash screen are drawn #} {% trans %}Size of the overlays{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}1 is normal size, 1.5 suits a large TV.{% endtrans %}</span>
+					</label>
+					<input id="pref-splash-scale" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0.5" max="4" step="0.1" data-pref="splash_scale" data-start-value="{{ splash_scale }}" value="{{ splash_scale }}" />
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for the music and video the splash screen plays between songs. #}
+					<h3 class="m-0">{% trans %}Background music and video{% endtrans %}</h3>
+					{# MSG: One-line summary under the Background music and video heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Idle-time music, video and volume{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}</span>
+					<input id="pref-bg-music" class="user-preference-checkbox checkbox ml-4 mr-0" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == True %}checked{% endif %} />
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}</span>
+					<input id="pref-bg-video" class="user-preference-checkbox checkbox ml-4 mr-0" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
+				</label>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="bg-music-volume">
+						{# MSG: Numberbox label for setting the background music volume#} {% trans %}Background music volume{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}0 to 100.{% endtrans %}</span>
+					</label>
+					<input id="bg-music-volume" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0" max="100" step="5" data-pref="bg_music_volume" data-start-value="{{ bg_music_volume }}" value="{{ bg_music_volume }}" />
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for how a song is played: volume, transcoding and microphones. #}
+					<h3 class="m-0">{% trans %}Playback and audio{% endtrans %}</h3>
+					{# MSG: One-line summary under the Playback and audio heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Volume, next-song delay, transcoding and mics{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-volume">
+						{# MSG: Numberbox label for setting the default video volume#} {% trans %}Default volume{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}0 to 100.{% endtrans %}</span>
+					</label>
+					<input id="pref-volume" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0" max="100" step="5" data-pref="volume" data-start-value="{{ volume }}" value="{{ volume }}" />
+				</div>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-splash-delay">{# MSG: Numberbox label for setting the delay before playing the next song #} {% trans %}Delay before the next song (seconds){% endtrans %}</label>
+					<input id="pref-splash-delay" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0" max="99" data-pref="splash_delay" data-start-value="{{ splash_delay }}" value="{{ splash_delay }}" />
+				</div>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}</span>
+					<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode fully before playing{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Better browser compatibility, slower starts. Ignores the buffer size.{% endtrans %}</span>
+					</span>
+					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == True %}checked{% endif %}>
+				</label>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-buffer-size">
+						{# MSG: Numberbox label for setting the buffer size in kilobytes #} {% trans %}Buffer size (kilobytes){% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}How much of a video is transcoded before it is sent to the screen.{% endtrans %}</span>
+					</label>
+					<input id="pref-buffer-size" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0" max="9999" data-pref="buffer_size" data-start-value="{{ buffer_size }}" value="{{ buffer_size }}" />
+				</div>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-avsync">
+						{# MSG: Numberbox label for audio video synchronization #} {% trans %}Audio delay (seconds){% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Negative plays the audio earlier, positive later.{% endtrans %}</span>
+					</label>
+					<input id="pref-avsync" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" step="0.1" min="-10" max="10" data-pref="avsync" data-start-value="{{ avsync }}" value="{{ avsync }}" />
+				</div>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Crisper visuals for CDG files, may increase CPU usage.{% endtrans %}</span>
+					</span>
+					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
+				</label>
+				{% if mic_passthrough_enabled %}
+				<div class="panel-block is-block p-5">
+					{% if mic_available %}
+					<h5 class="mb-2">{% trans %}Microphones{% endtrans %}</h5>
+					<p class="is-size-7 has-text-grey-light mb-2">
+						{% trans %}Microphones detected on the server. Audio is routed directly to speakers.{% endtrans %}
+					</p>
+					<div id="mic-list">
+						<p class="has-text-grey-light">{% trans %}No microphones detected. Connect a USB or Bluetooth mic and click Refresh.{% endtrans %}</p>
+					</div>
+
+					<div id="mic-settings-panel" style="display: none;">
+					<div class="is-flex is-align-items-center mt-3 mb-2">
+						<label class="label mr-2 mb-0" style="white-space: nowrap; font-size: 0.85rem;">{% trans %}Latency{% endtrans %}</label>
+						<input type="range" id="mic-latency" min="10" max="200" step="10" value="10" style="flex: 1;" />
+						<span id="mic-latency-value" class="ml-2 is-size-7" style="min-width: 45px;">10ms</span>
+					</div>
+					{% if is_linux %}
+					<div class="is-flex is-align-items-center mb-2">
+						<label class="checkbox" style="font-size: 0.85rem;">
+							<input type="checkbox" id="mic-echo-cancel" class="mr-1" />
+							{% trans %}Echo cancellation{% endtrans %}
+						</label>
+						<span class="tag is-warning is-light ml-2">{% trans %}Experimental{% endtrans %}</span>
+						<span class="is-size-7 has-text-grey-light ml-2">{% trans %}(reduces feedback, adds latency){% endtrans %}</span>
+					</div>
+					{% endif %}
+					</div>
+
+					<button id="mic-refresh" class="button is-small is-primary mt-3">{% trans %}Refresh{% endtrans %}</button>
+					{% else %}
+					<p class="has-text-warning">
+						{% trans %}Microphone support is unavailable. Required audio tools are not installed.{% endtrans %}
+					</p>
+					<p class="is-size-7 has-text-grey-light">
+						{% trans %}On Linux / Raspberry Pi, install it with:{% endtrans %}
+						<code>sudo apt install pulseaudio-utils</code>
+						{% trans %}and restart PiKaraoke.{% endtrans %}
+					</p>
+					{% endif %}
+				</div>
+				{% endif %}
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for the rules of the song queue. #}
+					<h3 class="m-0">{% trans %}Queue{% endtrans %}</h3>
+					{# MSG: One-line summary under the Queue heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Songs per singer and fair queue{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-limit-user-songs-by">
+						{# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Songs per singer{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}0 for no limit.{% endtrans %}</span>
+					</label>
+					<input id="pref-limit-user-songs-by" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="0" max="99" data-pref="limit_user_songs_by" data-start-value="{{ limit_user_songs_by }}" value="{{ limit_user_songs_by }}" />
+				</div>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enable/disables fair queue (round-robin) mode #} {% trans %}Enable fair queue{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Round-robin: singers take turns.{% endtrans %}</span>
+					</span>
+					<input id="pref-fair-queue" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_fair_queue" {% if enable_fair_queue == True %}checked{% endif %}>
+				</label>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for the score screen shown after each song. #}
+					<h3 class="m-0">{% trans %}Scoring{% endtrans %}</h3>
+					{# MSG: One-line summary under the Scoring heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}The score screen and its phrases{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}</span>
+					<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
+				</label>
+				<div class="panel-block is-block p-5">
+					{# MSG: Help text explaining how to add phrases #}
+					<p class="is-size-7 has-text-grey-light mt-1">{% trans %}Add one phrase per line in each box and hit save.{% endtrans %}</p>
+					{# MSG: Title for LOW Score Phrases #}
+					<h5>{% trans %}LOW Score Phrases (score < 30){% endtrans %}</h5>
+					{# MSG: Placeholder for the low score phrases textarea #}
+					<textarea id="low-score-phrases" class="textarea mb-5" placeholder="{% trans %}Could be better...{% endtrans %}">{{ score_phrases.low | replace('|', '\n') }}</textarea>
+					{# MSG: Title for MID Score Phrases #}
+					<h5>{% trans %}MID Score Phrases (30 <= score < 60){% endtrans %}</h5>
+					{# MSG: Placeholder for the MID score phrases textarea #}
+					<textarea id="mid-score-phrases" class="textarea mb-5" placeholder="{% trans %}That was ok...{% endtrans %}">{{ score_phrases.mid | replace('|', '\n') }}</textarea>
+					{# MSG: Title for HIGH Score Phrases #}
+					<h5>{% trans %}HIGH Score Phrases (60 <= score){% endtrans %}</h5>
+					{# MSG: Placeholder for the HIGH score phrases textarea #}
+					<textarea id="high-score-phrases" class="textarea" placeholder="{% trans %}Wonderful...{% endtrans %}">{{ score_phrases.high | replace('|', '\n') }}</textarea>
+					{# MSG: Button which saves the score phrases entered in the three boxes above it. #}
+					<a id="save-phrases" class="button is-fullwidth is-primary mt-5">{% trans %}Save phrases{% endtrans %}</a>
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for the song library and how songs are downloaded into it. #}
+					<h3 class="m-0">{% trans %}Song library and downloads{% endtrans %}</h3>
+					{# MSG: One-line summary under the Song library and downloads heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Library sync, download quality and naming{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Song count display in the library card. #}
+						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
+						{# MSG: Help text explaining what Sync Now does. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}</span>
+					</span>
+					{# MSG: Button to trigger a background library scan. #}
+					<button id="sync-library-btn" class="button is-primary is-flex-shrink-0 ml-4">{% trans %}Sync Now{% endtrans %}</button>
+				</div>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}</span>
+					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enables browsing the song library by folder #} {% trans %}Enable folder browsing{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Adds a Folders view to the Songs page when the library has subfolders.{% endtrans %}</span>
+					</span>
+					<input id="pref-enable-folder-browsing" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_folder_browsing" {% if enable_folder_browsing == True %}checked{% endif %}>
+				</label>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-browse-per-page">{# MSG: Label for the dropdown choosing how many songs are shown per page on the Songs page. #} {% trans %}Songs per page{% endtrans %}</label>
+					<div class="select is-flex-shrink-0 ml-4">
+						<select id="pref-browse-per-page" class="user-preference-input" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}">
+							{% for n in per_page_options %}
+							<option value="{{ n }}" {% if browse_results_per_page == n %}selected{% endif %}>{{ n }}</option>
+							{% endfor %}
+						</select>
+					</div>
+				</div>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enables automatic cleanup of YouTube song titles #} {% trans %}Enable automatic YouTube title cleanup{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Strips noise words like "Karaoke Version HD".{% endtrans %}</span>
+					</span>
+					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
+				</label>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-name-order">{# MSG: Label for the suggestion name order dropdown #} {% trans %}Order of iTunes suggested song names{% endtrans %}</label>
+					<div class="select is-flex-shrink-0 ml-4">
+						<select id="pref-name-order" class="user-preference-input" data-pref="suggestion_name_order" data-start-value="{{ suggestion_name_order }}">
+							{# MSG: Option for naming songs artist first, e.g. "Abba - Waterloo". #}
+							<option value="artist_title" {% if suggestion_name_order == 'artist_title' %}selected{% endif %}>{% trans %}Artist - Title{% endtrans %}</option>
+							{# MSG: Option for naming songs title first, e.g. "Waterloo - Abba". #}
+							<option value="title_artist" {% if suggestion_name_order == 'title_artist' %}selected{% endif %}>{% trans %}Title - Artist{% endtrans %}</option>
+						</select>
+					</div>
+				</div>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-itunes-country">{# MSG: Label for iTunes search country dropdown #} {% trans %}iTunes search country{% endtrans %}</label>
+					<div class="select is-flex-shrink-0 ml-4">
+						<select id="pref-itunes-country" class="user-preference-input" data-pref="itunes_search_country" data-start-value="{{ itunes_search_country }}">
+							{% for code, name in itunes_countries.items() %}
+							<option value="{{ code }}" {% if itunes_search_country == code %}selected{% endif %}>{{ name }}</option>
+							{% endfor %}
+						</select>
+					</div>
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for the interface language and the computer running Pikaraoke. #}
+					<h3 class="m-0">{% trans %}System{% endtrans %}</h3>
+					{# MSG: One-line summary under the System heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Language, keep-awake and yt-dlp updates{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-language">{# MSG: Label for language selection dropdown #} {% trans %}Language{% endtrans %}</label>
+					<div class="select is-flex-shrink-0 ml-4">
+						<select id="pref-language" class="user-preference-input" data-pref="preferred_language" data-start-value="{{ preferred_language }}">
+							{% for lang_code, lang_name in languages.items() %}
+							<option value="{{ lang_code }}" {% if preferred_language == lang_code %}selected{% endif %}>{{ lang_name }}</option>
+							{% endfor %}
+						</select>
+					</div>
+				</div>
+				{% if keep_awake_unsupported %}
+				<div class="panel-block px-5 py-3 is-size-7 has-text-grey-light">
+					{% if keep_awake_unsupported == "container" %}
+					{# MSG: Shown instead of the keep-awake checkbox when running in a container. #} {% trans %}Keep the server awake: unavailable in a container. Disable sleep on the host.{% endtrans %}
+					{% elif keep_awake_unsupported == "missing_tool" %}
+					{# MSG: Shown instead of the keep-awake checkbox when the required tool is missing. #} {% trans %}Keep the server awake: needs systemd-inhibit (Linux) or caffeinate (macOS).{% endtrans %}
+					{% else %}
+					{# MSG: Shown instead of the keep-awake checkbox on platforms without a wake lock. #} {% trans %}Keep the server awake: not supported on this platform.{% endtrans %}
+					{% endif %}
+				</div>
+				{% else %}
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>{# MSG: Checkbox label which stops the server machine from sleeping #} {% trans %}Keep the server awake while PiKaraoke is running{% endtrans %}</span>
+					<input id="pref-keep-awake" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="keep_awake" {% if keep_awake == True %}checked{% endif %}>
+				</label>
+				{% endif %}
+				{# The lines inside a multi-line trans block are part of its message id:
+				   re-indenting them detaches the label from its translations. #}
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Label for the YT-DLP update on the updates section #}
+						{% trans %}YT-DLP update{% endtrans %}
+						{# MSG: Text explaining why you might want to update yt-dlp. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}
+						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
+						The current installed version is: "{{ youtubedl_version }}".
+					{% endtrans %}</span>
+						{# MSG: Help text which explains why updating yt-dlp can fail. The log is a file on the machine running Pikaraoke. #}
+						<span class="is-block is-size-7 has-text-warning">{% trans -%}
+							* This update link above may fail if you don't have proper file permissions.
+							Check the pikaraoke log for errors.
+						{%- endtrans %}</span>
+					</span>
+					{# MSG: Text for the link which will try and update yt-dlp on the machine running Pikaraoke. #}
+					<a id="update-ytdl-link" class="button is-primary is-flex-shrink-0 ml-4" href="{{ url_for('admin.update_ytdl') }}">{% trans %}Update yt-dlp{% endtrans %}</a>
+				</div>
+				{# A Pi container still reports as a Pi, but has no raspi-config. #}
+				{% if is_pi and not is_container %}
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Title for section containing a few other options on the Info page. #}
+						{% trans %}Expand Raspberry Pi filesystem{% endtrans %}
+						{# MSG: Explainitory text which explains why you might want to expand the filesystem. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans -%}
+							If you just installed the pre-built pikaraoke pi image and your SD card is larger than 4GB,
+							you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
+							This will reboot the system.
+						{%- endtrans %}</span>
+					</span>
+					{# MSG: Text for button#}
+					<a id="expand-link" class="button is-primary is-flex-shrink-0 ml-4" href="{{ url_for('admin.expand_fs') }}">{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</a>
+				</div>
+				{% endif %}
+			</div>
+
+			<hr class="my-0">
+
+			{# A section of its own: neither action can be undone, so neither sits a
+			   click away from an everyday control such as Sync Now. Reset all history
+			   lives here rather than on the pages that report it -- a chart is for
+			   reading. Clearing a single session is still offered from that session's
+			   own row on the Sessions page. #}
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section holding the two actions that erase settings or history. #}
+					<h3 class="m-0">{% trans %}Reset{% endtrans %}</h3>
+					{# MSG: One-line summary under the Reset heading, naming the actions inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Clear preferences or erase play history{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Help text explaining what Clear preferences does. #}
+						{% trans %}Returns every setting to its default.{% endtrans %}
+					</span>
+					{# MSG: Text for the link where the user can clear all user preferences #}
+					<a id="clear-preferences-link" class="button is-danger is-outlined is-flex-shrink-0 ml-4" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
+				</div>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Help text explaining what Reset all history does. #}
+						{% trans %}Deletes every session and every play on record. This cannot be undone.{% endtrans %}
+					</span>
+					{# MSG: Button which deletes the entire play history, every session and every play. #}
+					<button id="reset-history-btn" class="button is-danger is-outlined is-flex-shrink-0 ml-4">{% trans %}Reset all history{% endtrans %}</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="card mt-5">
+			<header class="card-header py-3 px-5">
+				{# MSG: Title of the admin section. #}
+				<h3 class="m-0">{% trans %}Admin{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					{% if admin_password_set %}
+						{# MSG: Explains the admin password field when a password is already set. #}
+						<p>{% trans %}Change the administrator password. Every other device will need to log in again.{% endtrans %}</p>
+					{% else %}
+						{# MSG: Explains the admin password field when no password has been set. #}
+						<p>{% trans %}Everyone on the network is an admin. Set a password to keep the player controls, song editing and shutdown to yourself.{% endtrans %}</p>
+					{% endif %}
+					<form action="{{ url_for('admin.set_admin_password') }}" method="post">
+						<div class="field has-addons mb-2">
+							<div class="control" style="width: 100%; max-width: 350px">
+								<input type="password" name="admin_password" class="input" autocomplete="new-password" />
+							</div>
+							<div class="control">
+								{# MSG: Button which saves a new administrator password. #}
+								<button class="button is-primary">{% trans %}Save password{% endtrans %}</button>
+							</div>
+						</div>
+					</form>
+					{% if admin_password_set %}
+						<div class="buttons">
+							<form action="{{ url_for('admin.set_admin_password') }}" method="post">
+								<input type="hidden" name="admin_password" value="" />
+								{# MSG: Button which removes the administrator password, making everyone an admin. #}
+								<button class="button is-danger is-outlined">{% trans %}Clear password{% endtrans %}</button>
+							</form>
+							<form action="{{ url_for('admin.logout') }}" method="post">
+								{# MSG: Button which logs the user out of admin mode. #}
+								<button class="button is-primary">{% trans %}Log out{% endtrans %}</button>
+							</form>
+						</div>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+
+		<div class="card mt-5">
+			<header class="card-header py-3 px-5">
+				{# MSG: Title of the section on shutting down / turning off the machine running Pikaraoke. #}
+				<h3 class="m-0">{% trans %}Shutdown{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="content">
+					<p>
+						{# MSG: Explainitory text which explains why to use the shutdown link. #}
+						{% trans -%}
+							Don't just pull the plug! Always shut down your server properly to avoid data corruption.
+						{%- endtrans %}
+					</p>
+
+					<div class="buttons">
+						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
+						<a id="quit-link" class="button is-danger is-outlined" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
+						{# Host power control is meaningless in a container: only "Quit" applies. #}
+						{% if (is_pi or is_linux) and not is_container %}
+							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
+							<a id="restart-link" class="button is-danger is-outlined" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
+
+							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
+							<a id="shutdown-link" class="button is-danger is-outlined" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
+						{% endif %}
+					</div>
+
+				</div>
+			</div>
+
+	{% endif %}
+
+	<style>
+	input.user-preference-input {
+		width: 80px;
+	}
+	/* Collapsible sections */
+	.collapsible-header {
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.collapsible-header::after {
+		content: "▲";
+		font-size: 0.8em;
+		transition: transform 0.2s ease;
+	}
+	.collapsible-header.is-collapsed::after {
+		content: "▼";
+	}
+	/* A hint of what each section holds, so you needn't open one to find out.
+	   Redundant once expanded, so it shows only while collapsed. */
+	.section-summary {
+		display: block;
+	}
+	.collapsible-header:not(.is-collapsed) .section-summary {
+		display: none;
+	}
+	.collapsible-content {
+		display: none;
+	}
+	</style>
+
+{% endblock %}
