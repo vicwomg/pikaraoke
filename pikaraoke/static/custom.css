@@ -317,6 +317,42 @@ a.navbar-item.is-active {
   max-width: 8rem;
 }
 
+/* The box and the first navbar icon share one left inset, so the bar icons line
+   up with the body text beneath them. A single gutter drives both: the box's
+   padding and the first brand item's left padding. A phone tightens the gutter
+   for more room; the icons follow because they read the same variable. */
+.container {
+  --app-gutter: 1rem;
+}
+@media screen and (max-width: 768px) {
+  .container {
+    --app-gutter: 0.75rem;
+  }
+}
+.box {
+  --bulma-box-padding: var(--app-gutter);
+}
+/* The first item now sits flush in the navbar's rounded corner, so its active
+   and hover background (Bulma paints it opaque) would square that corner off.
+   Rounding the item's leading edge lets the fill follow the navbar instead. */
+.navbar-brand .navbar-item:first-child {
+  padding-left: var(--app-gutter);
+  border-start-start-radius: var(--bulma-radius);
+  border-end-start-radius: var(--bulma-radius);
+}
+
+/* Bar icons hug their glyph (Bulma gives .icon a fixed 1.5rem box) so the first
+   one's glyph meets the gutter and each label sits close to its icon, not across
+   the leftover box width. The glyph's own left margin goes too. The singer pill
+   keeps the centred box: it pairs its mic with a name, and shrinking the box
+   would pull the mic left. */
+.navbar-brand .navbar-item:not(#current-user) > .icon {
+  width: auto;
+}
+.navbar-brand .navbar-item:not(#current-user) > .icon::before {
+  margin-left: 0;
+}
+
 .control-box a {
   color: var(--bulma-text);
 }
