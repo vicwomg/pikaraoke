@@ -251,6 +251,17 @@
 		top: 3px;
 		z-index: 20;
 	}
+	/* Each letter's hit area reaches into the gaps on either side so the whole
+	   strip is tappable, not just the glyph. The negative margin offsets the
+	   padding, so space-between still spaces the letters as it did before. */
+	#alpha-bar > a,
+	#alpha-bar > span {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-inline: 10px;
+		margin-inline: -10px;
+	}
 	/* Held in the layout rather than hidden, so the strip keeps the same 27 slots in
 	   every folder. Dim enough to read as unavailable, but still legible: it is the
 	   only thing telling you the folder has nothing under that letter. */
@@ -280,8 +291,9 @@
 		#alpha-bar {
 			font-size: 13px;
 			position: fixed;
-			display: flex;
-			align-items: center;
+			/* No horizontal padding and no align-items, so slots fill the 22px strip
+			   and the whole column is tappable, not just the glyph. */
+			padding: 5px 0;
 			/* Flush with the navbar and the box, which both stop at the container's
 			   5px padding. Any further in covers song titles, page links and edit
 			   icons; any further out and the blue navbar looks clipped beside it. */
@@ -296,6 +308,14 @@
 			bottom: 8px;
 			flex-direction: column;
 			max-width: 22px;
+		}
+		/* Equal-height slots fill the strip, since a phone's height varies and no
+		   fixed gap padding would cover it; the desktop gap padding is reset. */
+		#alpha-bar > a,
+		#alpha-bar > span {
+			flex: 1;
+			margin-inline: 0;
+			padding-inline: 0;
 		}
 		/* The strip is an overlay, so the content has to give up the width it sits
 		   in. Bulma's 20px of box padding is not enough on its own: it leaves the
