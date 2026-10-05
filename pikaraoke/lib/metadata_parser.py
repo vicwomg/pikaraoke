@@ -761,6 +761,26 @@ def _strip_trailing_discardable_qualifier(name: str) -> str:
     return name
 
 
+# A bracket with an "- artist" tail behind it: the lookahead keeps this to the
+# interior "Title (Karaoke) - Artist" shape and off a plain trailing bracket,
+# which the trailing logic already handles on its own terms.
+_INTERIOR_BRACKET_RE = re.compile(r"\s*[\(\[]([^)\]]*)[\)\]](?=\s*[-–—]\s*\S)")
+
+
+def _strip_interior_discardable_bracket(name: str) -> str:
+    """Drop a bracketed karaoke qualifier that sits between title and artist.
+
+    "Black Valentine (Karaoke) - Caro Emerald" must keep the artist, but the
+    end-first keyword sweep deletes from the keyword to end of string and loses
+    it. Remove only an interior bracket is_discardable_qualifier certifies as
+    noise, so a real variant like "(Live)" survives; runs after attribution
+    extraction so it cannot eat a "(Made Famous by ...)" bracket.
+    """
+    return _INTERIOR_BRACKET_RE.sub(
+        lambda m: "" if is_discardable_qualifier(m.group(1)) else m.group(0), name
+    )
+
+
 def _step_extract_attribution_or_strip_noise(name: str) -> str:
     artist = _extract_attribution_artist(name)
     if artist:
@@ -770,6 +790,7 @@ def _step_extract_attribution_or_strip_noise(name: str) -> str:
         if title:
             return f"{title} - {artist}"
     # No attribution — strip trailing parenthesised/bracketed content + noise
+    name = _strip_interior_discardable_bracket(name)
     name = _PAREN_NOT_FEAT_TRAILING.sub("", name)
     name = re.sub(r"\s*\[[^\]]*\]\s*$", "", name, flags=re.IGNORECASE)
     for noise_pat in TRAILING_NOISE_PATTERNS:

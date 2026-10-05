@@ -684,10 +684,11 @@ class TestScoreAnchoring:
         assert _anchored("halo - beyonce", "Beyoncé", "Halo") == 95
         assert _anchored("Halo - Beyonce (Official Video)", "Beyoncé", "Halo") == 95
 
-    def test_noise_the_tidy_cannot_reach_never_confirms(self):
-        """regex_tidy only strips *trailing* qualifiers, so noise attached to a
-        leading title survives into the query and the fields never match."""
-        assert _anchored("Halo (Official Video) - Beyonce", "Beyoncé", "Halo") <= 94
+    def test_interior_noise_before_the_artist_now_confirms(self):
+        """regex_tidy reaches an interior qualifier before a "- artist" tail, so
+        "Halo (Official Video) - Beyonce" cleans to a matching query and confirms;
+        the order, accent and noise are still what the rename puts right."""
+        assert _anchored("Halo (Official Video) - Beyonce", "Beyoncé", "Halo") == 95
 
     def test_a_tidied_name_still_needs_renaming(self):
         """The tidy decides confidence; the raw stem decides whether there is

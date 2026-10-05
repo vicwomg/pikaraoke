@@ -587,6 +587,20 @@ class TestRegexTidy:
         title = "Song (Live) (Karaoke Version) (Made Famous by Adele)"
         assert regex_tidy(title) == "Song (Live) - Adele"
 
+    def test_interior_karaoke_bracket_keeps_the_trailing_artist(self):
+        assert (
+            regex_tidy("Black Valentine (Karaoke) - Caro Emerald")
+            == "Black Valentine - Caro Emerald"
+        )
+
+    def test_interior_strip_keeps_a_real_variant_before_the_artist(self):
+        title = "Impossible (Factor X) (Karaoke) - James Arthur"
+        assert regex_tidy(title) == "Impossible (Factor X) - James Arthur"
+
+    def test_interior_strip_leaves_a_plain_trailing_qualifier_alone(self):
+        title = "Travis Scott - RHYNO (from GTAVI: The Album) (Karaoke Version)"
+        assert regex_tidy(title) == "Travis Scott - RHYNO (from GTAVI: The Album)"
+
     def test_strips_trailing_parenthesised_content(self):
         assert regex_tidy("Artist - Song (Official Video)") == "Artist - Song"
 
