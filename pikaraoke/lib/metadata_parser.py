@@ -217,13 +217,14 @@ _QUALIFIER_ATTRIBUTION_RE = re.compile(rf"\b(?:{_ATTRIBUTION_ALT})\b.*$", re.IGN
 TRAILING_NOISE_PATTERNS = [
     # Any karaoke keyword = nuke everything from that word to end of string.
     # Covers all languages via _KARAOKE_KEYWORDS — no per-language patterns needed.
-    re.compile(rf"\s*(?:{_KARAOKE_KEYWORDS_ALT}).*$", re.IGNORECASE),
+    # A bracket opening right before the keyword goes too, so it cannot strand "(".
+    re.compile(rf"\s*[\(\[]?\s*(?:{_KARAOKE_KEYWORDS_ALT}).*$", re.IGNORECASE),
     # Production/metadata labels (any language) — strip at end of string only.
     # These are NOT karaoke synonyms, just generic video/audio labels.
     re.compile(
         r"\s*(?:"
-        r"official\s+(?:music\s+)?video|lyrics?|hd|hq"
-        r"|with\s+lyrics|no\s+lead\s+vocal|cc"  # English
+        r"official\s+(?:music\s+)?video|(?:with\s+)?lyrics?(?:\s+on(?:\s+the)?\s+screen)?|hd|hq"
+        r"|no\s+lead\s+vocal|cc"  # English
         r"|翻唱|現場|现场|高清|歌詞|歌词|MV|原版"  # Chinese
         r"|歌ってみた|カバー"  # Japanese
         r"|TJ|MR"  # Korean
@@ -231,6 +232,8 @@ TRAILING_NOISE_PATTERNS = [
         re.IGNORECASE,
     ),
 ]
+
+_TRAILING_BRACKET_RE = re.compile(r"\s*[\(\[]([^)\]]*)[\)\]]\s*$")
 
 # Everything a bracketed qualifier may be made of and still be safe to drop.
 # A whitelist, not a blacklist: the qualifiers that must survive a rename --
@@ -241,6 +244,7 @@ TRAILING_NOISE_PATTERNS = [
 DISCARDABLE_QUALIFIER_WORDS = [
     r"official\s+(?:music\s+)?video",
     r"no\s+lead\s+vocals?",
+    r"(?:no|without)\s+backing\s+vocals?",
     r"original\s+key",
     r"with\s+lyrics?",
     r"sing[\s-]*along",
@@ -740,10 +744,27 @@ def _step_normalize_cjk_dashes(name: str) -> str:
     return _CJK_DASH_RE.sub(" - ", name)
 
 
+def _strip_trailing_discardable_qualifier(name: str) -> str:
+    """Drop a trailing bracket the keyword sweep left exposed, if it is noise.
+
+    The pre-sweep strip runs first, so a discardable qualifier in front of a
+    karaoke bracket only becomes trailing once the sweep removes that bracket.
+    Re-check here, removing only what is_discardable_qualifier certifies as noise
+    so a real variant like "(Live)" or "(With Backing Vocals)" survives.
+    """
+    prev = None
+    while prev != name:
+        prev = name
+        match = _TRAILING_BRACKET_RE.search(name)
+        if match and is_discardable_qualifier(match.group(1)):
+            name = name[: match.start()].rstrip()
+    return name
+
+
 def _step_extract_attribution_or_strip_noise(name: str) -> str:
     artist = _extract_attribution_artist(name)
     if artist:
-        title = _strip_attribution_and_noise(name)
+        title = _strip_trailing_discardable_qualifier(_strip_attribution_and_noise(name))
         # An empty title means the phrase matched across the whole name and what
         # it called the artist was really the title ("Karaoke - Stand by Me").
         if title:
@@ -761,7 +782,7 @@ def _step_extract_attribution_or_strip_noise(name: str) -> str:
             # worth more than no name at all: the search still gets a query, and
             # the score still gets something to measure against.
             name = stripped if stripped.strip() else name
-    return name
+    return _strip_trailing_discardable_qualifier(name)
 
 
 def _step_normalize_separators_and_whitespace(name: str) -> str:
