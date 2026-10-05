@@ -135,6 +135,7 @@ def upgrade_youtubedl() -> str:
 PROGRESS_PREFIX = "[pk]|"
 POSTPROCESS_PREFIX = "[pk-post]|"
 SIZE_PREFIX = "[pk-size]|"
+PATH_PREFIX = "[pk-path]|"
 
 # Pipe-delimited: speed and ETA render as "Unknown B/s" when yt-dlp has no estimate, so
 # whitespace splitting breaks exactly when the download is struggling.
@@ -145,6 +146,8 @@ _DOWNLOAD_PROGRESS_TEMPLATE = (
 _POSTPROCESS_PROGRESS_TEMPLATE = f"postprocess:{POSTPROCESS_PREFIX}%(progress.postprocessor)s"
 # Both formats' sizes, emitted once before the first byte.
 _SIZE_PRINT_TEMPLATE = f"before_dl:{SIZE_PREFIX}%(requested_formats.:.filesize,filesize_approx)s"
+# after_move fires past the merge, so it names the final playable file, not a fragment.
+_PATH_PRINT_TEMPLATE = f"after_move:{PATH_PREFIX}%(filepath)s"
 
 
 def build_ytdl_download_command(
@@ -193,6 +196,8 @@ def build_ytdl_download_command(
         _POSTPROCESS_PROGRESS_TEMPLATE,
         "--print",
         _SIZE_PRINT_TEMPLATE,
+        "--print",
+        _PATH_PRINT_TEMPLATE,
         # --print implies --quiet, which would silence the progress lines above.
         "--no-quiet",
         "-o",
