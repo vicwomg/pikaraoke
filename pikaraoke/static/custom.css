@@ -476,9 +476,9 @@ td {
 }
 
 /* Wraps, unlike the .level.is-mobile it replaces: the phase and the three figures
-   need more room than a phone gives them. The auto margin is on the phase so the
-   figures stay grouped at the right, and so the rate stays right-aligned when it
-   drops to a second line. */
+   need more room than a phone gives them. The auto margin is on the span wrapping
+   the phase so the figures stay grouped at the right, and so the rate stays
+   right-aligned when it drops to a second line. */
 .dl-meta {
   align-items: baseline;
   display: flex;
