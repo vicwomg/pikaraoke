@@ -74,6 +74,8 @@ class TestIsDiscardableQualifier:
             "Lyrics",
             "With Lyrics",
             "Original Key",
+            "Without Backing Vocals",
+            "No Backing Vocals",
             "カラオケ",
             "2011",
         ):
@@ -96,6 +98,7 @@ class TestIsDiscardableQualifier:
             "BBC Session",
             "Alternate Take",
             "Taylor's Version",
+            "With Backing Vocals",
         ):
             assert not is_discardable_qualifier(text), text
 
@@ -557,6 +560,24 @@ class TestRegexTidy:
 
     def test_strips_trailing_with_lyrics(self):
         assert regex_tidy("Artist - Song with lyrics") == "Artist - Song"
+
+    def test_strips_trailing_lyrics_on_screen(self):
+        assert regex_tidy("Artist - Song with Lyrics on Screen") == "Artist - Song"
+
+    def test_strips_backing_vocals_bracket_before_karaoke(self):
+        title = "Artist - Song (Without Backing Vocals) (Karaoke Version) with Lyrics On Screen"
+        assert regex_tidy(title) == "Artist - Song"
+
+    def test_backing_vocals_strip_keeps_a_real_variant(self):
+        title = "Artist - Song (2025 Remake) (No Backing Vocals) (Karaoke Version)"
+        assert regex_tidy(title) == "Artist - Song (2025 Remake)"
+
+    def test_with_backing_vocals_is_kept_like_any_variant(self):
+        title = "Artist - Song (With Backing Vocals) (Karaoke Version)"
+        assert regex_tidy(title) == "Artist - Song (With Backing Vocals)"
+
+    def test_discardable_qualifier_before_keyword_is_dropped(self):
+        assert regex_tidy("Artist - Song (Official Video) (Karaoke Version)") == "Artist - Song"
 
     def test_strips_trailing_parenthesised_content(self):
         assert regex_tidy("Artist - Song (Official Video)") == "Artist - Song"
