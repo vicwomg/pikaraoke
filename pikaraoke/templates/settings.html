@@ -84,8 +84,8 @@
 
 			$("#clear-preferences-link").click(function (e) {
 				e.preventDefault();
-				// {# MSG: Confirmation text whe the user clears preferences. #}
-				if (window.confirm({{ _('Are you sure you want to clear your preferences?') | tojson }})) {
+				// {# MSG: Confirmation text when the user resets all settings to their defaults. #}
+				if (window.confirm({{ _('Are you sure you want to reset all settings to their defaults?') | tojson }})) {
 					$.post(this.href).done(function (data) {
 						// The controls here are server-rendered and listen for nothing, so
 						// they show the old values until the page comes back. Notify after:
@@ -588,23 +588,13 @@
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div>
-					{# MSG: Header of the settings section for the song library and how songs are downloaded into it. #}
-					<h3 class="m-0">{% trans %}Song library and downloads{% endtrans %}</h3>
-					{# MSG: One-line summary under the Song library and downloads heading, naming the controls inside it. #}
-					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Library sync, download quality and naming{% endtrans %}</span>
+					{# MSG: Header of the settings section for how songs download and how the Songs page shows them. #}
+					<h3 class="m-0">{% trans %}Song display and downloading{% endtrans %}</h3>
+					{# MSG: One-line summary under the Song display and downloading heading, naming the controls inside it. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Download quality, title cleanup and the Songs page{% endtrans %}</span>
 				</div>
 			</header>
 			<div class="collapsible-content panel is-shadowless mb-0">
-				<div class="panel-block px-5 py-3 is-justify-content-space-between">
-					<span>
-						{# MSG: Song count display in the library card. #}
-						{% trans %}Songs in library:{% endtrans %} <strong id="library-song-count">...</strong>
-						{# MSG: Help text explaining what Sync Now does. #}
-						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}</span>
-					</span>
-					{# MSG: Button to trigger a background library scan. #}
-					<button id="sync-library-btn" class="button is-primary is-flex-shrink-0 ml-4">{% trans %}Sync Now{% endtrans %}</button>
-				</div>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}</span>
 					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
@@ -633,6 +623,34 @@
 					</span>
 					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
 				</label>
+			</div>
+
+			<hr class="my-0">
+
+			{# The song database. Sync Now reconciles the index with the song directory,
+			   a routine operation; the destructive Reset actions sit at the foot of the
+			   page instead. The iTunes suggestion settings live here, with the rename and
+			   lookup functions they drive. #}
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<div>
+					{# MSG: Header of the settings section for operations on the song database. #}
+					<h3 class="m-0">{% trans %}Database{% endtrans %}</h3>
+					{# MSG: One-line summary under the Database heading. Kept general on purpose,
+					   so it still fits as backup, restore and metadata tools join the section. #}
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}The song database and its upkeep{% endtrans %}</span>
+				</div>
+			</header>
+			<div class="collapsible-content panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Song count display in the database section. #}
+						{% trans %}Songs in database:{% endtrans %} <strong id="library-song-count">...</strong>
+						{# MSG: Help text explaining what Sync Now does. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Reconciles the library with the song directory in the background.{% endtrans %}</span>
+					</span>
+					{# MSG: Button to trigger a background library scan. #}
+					<button id="sync-library-btn" class="button is-primary is-flex-shrink-0 ml-4">{% trans %}Sync Now{% endtrans %}</button>
+				</div>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="pref-name-order">{# MSG: Label for the suggestion name order dropdown #} {% trans %}Order of iTunes suggested song names{% endtrans %}</label>
 					<div class="select is-flex-shrink-0 ml-4">
@@ -732,39 +750,6 @@
 				{% endif %}
 			</div>
 
-			<hr class="my-0">
-
-			{# A section of its own: neither action can be undone, so neither sits a
-			   click away from an everyday control such as Sync Now. Reset all history
-			   lives here rather than on the pages that report it -- a chart is for
-			   reading. Clearing a single session is still offered from that session's
-			   own row on the Sessions page. #}
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
-				<div>
-					{# MSG: Header of the settings section holding the two actions that erase settings or history. #}
-					<h3 class="m-0">{% trans %}Reset{% endtrans %}</h3>
-					{# MSG: One-line summary under the Reset heading, naming the actions inside it. #}
-					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Clear preferences or erase play history{% endtrans %}</span>
-				</div>
-			</header>
-			<div class="collapsible-content panel is-shadowless mb-0">
-				<div class="panel-block px-5 py-3 is-justify-content-space-between">
-					<span>
-						{# MSG: Help text explaining what Clear preferences does. #}
-						{% trans %}Returns every setting to its default.{% endtrans %}
-					</span>
-					{# MSG: Text for the link where the user can clear all user preferences #}
-					<a id="clear-preferences-link" class="button is-danger is-outlined is-flex-shrink-0 ml-4" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Clear preferences{% endtrans %}</a>
-				</div>
-				<div class="panel-block px-5 py-3 is-justify-content-space-between">
-					<span>
-						{# MSG: Help text explaining what Reset all history does. #}
-						{% trans %}Deletes every session and every play on record. This cannot be undone.{% endtrans %}
-					</span>
-					{# MSG: Button which deletes the entire play history, every session and every play. #}
-					<button id="reset-history-btn" class="button is-danger is-outlined is-flex-shrink-0 ml-4">{% trans %}Reset all history{% endtrans %}</button>
-				</div>
-			</div>
 		</div>
 
 		<div class="card mt-5">
@@ -805,6 +790,27 @@
 							</form>
 						</div>
 					{% endif %}
+				</div>
+			</div>
+		</div>
+
+		<div class="card mt-5">
+			<header class="card-header py-3 px-5">
+				{# MSG: Title of the card holding the two destructive reset actions, set apart at the foot of the page. #}
+				<h3 class="m-0">{% trans %}Reset{% endtrans %}</h3>
+			</header>
+			<div class="card-content">
+				<div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+					{# MSG: Help text explaining what Reset settings does. #}
+					<span>{% trans %}Returns every setting to its default.{% endtrans %}</span>
+					{# MSG: Button which returns every preference to its default. #}
+					<a id="clear-preferences-link" class="button is-danger is-outlined is-flex-shrink-0 ml-4" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Reset settings{% endtrans %}</a>
+				</div>
+				<div class="is-flex is-justify-content-space-between is-align-items-center">
+					{# MSG: Help text explaining what Reset all history does. #}
+					<span>{% trans %}Deletes every session and every play on record. This cannot be undone.{% endtrans %}</span>
+					{# MSG: Button which deletes the entire play history, every session and every play. #}
+					<button id="reset-history-btn" class="button is-danger is-outlined is-flex-shrink-0 ml-4">{% trans %}Reset all history{% endtrans %}</button>
 				</div>
 			</div>
 		</div>
