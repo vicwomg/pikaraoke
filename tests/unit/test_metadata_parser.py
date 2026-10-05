@@ -579,6 +579,14 @@ class TestRegexTidy:
     def test_discardable_qualifier_before_keyword_is_dropped(self):
         assert regex_tidy("Artist - Song (Official Video) (Karaoke Version)") == "Artist - Song"
 
+    def test_exposed_qualifier_is_dropped_on_attribution_path(self):
+        title = "Song (Official Video) (Karaoke Version) (Made Famous by Adele)"
+        assert regex_tidy(title) == "Song - Adele"
+
+    def test_attribution_path_keeps_a_real_variant(self):
+        title = "Song (Live) (Karaoke Version) (Made Famous by Adele)"
+        assert regex_tidy(title) == "Song (Live) - Adele"
+
     def test_strips_trailing_parenthesised_content(self):
         assert regex_tidy("Artist - Song (Official Video)") == "Artist - Song"
 

@@ -764,7 +764,7 @@ def _strip_trailing_discardable_qualifier(name: str) -> str:
 def _step_extract_attribution_or_strip_noise(name: str) -> str:
     artist = _extract_attribution_artist(name)
     if artist:
-        title = _strip_attribution_and_noise(name)
+        title = _strip_trailing_discardable_qualifier(_strip_attribution_and_noise(name))
         # An empty title means the phrase matched across the whole name and what
         # it called the artist was really the title ("Karaoke - Stand by Me").
         if title:
