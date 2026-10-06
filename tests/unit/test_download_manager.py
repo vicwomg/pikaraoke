@@ -13,6 +13,7 @@ from pikaraoke.lib.download_manager import (
 )
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.youtube_dl import PATH_PREFIX
 
 
 def make_request(
@@ -208,6 +209,48 @@ class TestDownloadManagerExecuteDownload:
         # its row rewrite off the id, so both halves of the payload matter.
         assert downloaded == [("/songs/Artist - Song---dQw4w9WgXcQ.mp4", "dQw4w9WgXcQ")]
         assert any("Downloaded" in n for n in notifications)
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_execute_download_uses_printed_path(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager, song_manager, events
+    ):
+        """The path yt-dlp prints is used directly, without scanning by id."""
+        downloaded = []
+        events.on("song_downloaded", lambda path, video_id: downloaded.append((path, video_id)))
+
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        path = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [f"{PATH_PREFIX}{path}", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+        song_manager.songs.is_valid_song.return_value = True
+
+        download_manager._execute_download(make_request())
+
+        song_manager.songs.find_by_id.assert_not_called()
+        assert downloaded == [(path, "dQw4w9WgXcQ")]
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_execute_download_falls_back_when_printed_path_unusable(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager, song_manager, events
+    ):
+        """An unusable printed path falls back to the id scan."""
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [f"{PATH_PREFIX}/songs/leftover.part", ""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+        song_manager.songs.is_valid_song.return_value = False
+        song_manager.songs.find_by_id.return_value = "/songs/Song---dQw4w9WgXcQ.mp4"
+
+        download_manager._execute_download(make_request())
+
+        song_manager.songs.find_by_id.assert_called_once_with("/songs", "dQw4w9WgXcQ")
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")

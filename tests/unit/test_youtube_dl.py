@@ -9,6 +9,7 @@ import requests
 
 from pikaraoke.lib.youtube_dl import (
     _PREVIEW_ATTEMPTS,
+    PATH_PREFIX,
     POSTPROCESS_PREFIX,
     PROGRESS_PREFIX,
     SIZE_PREFIX,
@@ -166,10 +167,12 @@ class TestBuildYtdlDownloadCommand:
         # The discriminator for which pass of a "+" selector is running.
         assert "%(info.vcodec)s" in download
         assert postprocess == f"postprocess:{POSTPROCESS_PREFIX}%(progress.postprocessor)s"
+        prints = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--print"]
         # Both formats' sizes, printed before the first byte; no progress line carries them.
-        size = cmd[cmd.index("--print") + 1]
-        assert size.startswith(f"before_dl:{SIZE_PREFIX}")
+        size = next(p for p in prints if p.startswith(f"before_dl:{SIZE_PREFIX}"))
         assert "requested_formats" in size
+        # The final path, printed after the move so DownloadManager need not scan for it.
+        assert f"after_move:{PATH_PREFIX}%(filepath)s" in prints
         # --print implies --quiet, which silences every progress line above it.
         assert "--no-quiet" in cmd
 

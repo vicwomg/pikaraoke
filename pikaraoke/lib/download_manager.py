@@ -17,6 +17,7 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.youtube_dl import (
+    PATH_PREFIX,
     POSTPROCESS_PREFIX,
     PROGRESS_PREFIX,
     SIZE_PREFIX,
@@ -328,11 +329,13 @@ class DownloadManager:
                 if self.download_queue.empty():
                     self._events.emit("download_stopped")
 
-    def _run_ytdl(self, cmd: list[str]) -> tuple[int, str]:
+    def _run_ytdl(self, cmd: list[str]) -> tuple[int, str, str | None]:
         """Run yt-dlp to completion, streaming its progress into active_download.
 
         Returns:
-            Tuple of (return code, captured output).
+            Tuple of (return code, captured output, final on-disk path). The path is
+            the one yt-dlp printed after moving the finished file, or None if no such
+            line was seen; a retry across clients emits one per attempt, so the last wins.
         """
         # Use Popen to capture output in real-time
         process = subprocess.Popen(
@@ -346,6 +349,7 @@ class DownloadManager:
         _use_spare_capacity(process)
 
         output_buffer = []
+        final_path = None
         video_end = _FALLBACK_VIDEO_END if _selects_separate_streams(cmd) else 100.0
 
         while True:
@@ -356,6 +360,8 @@ class DownloadManager:
                 output_buffer.append(line)
                 if line.startswith(SIZE_PREFIX):
                     video_end = _video_band_end(line, video_end)
+                elif line.startswith(PATH_PREFIX):
+                    final_path = line[len(PATH_PREFIX) :].strip() or None
                 else:
                     self._apply_progress_line(line, video_end)
 
@@ -365,7 +371,7 @@ class DownloadManager:
             # A retry that succeeds is only diagnosable against the attempt that failed,
             # so the winning attempt's output has to be kept as well.
             logging.debug(f"yt-dlp output: {output}")
-        return rc, output
+        return rc, output, final_path
 
     def _apply_progress_line(self, line: str, video_end: float) -> None:
         """Fold one templated yt-dlp progress line into active_download."""
@@ -466,12 +472,12 @@ class DownloadManager:
         logging.debug("yt-dlp command: " + " ".join(cmd))
 
         try:
-            rc, output = self._run_ytdl(cmd)
+            rc, output, final_path = self._run_ytdl(cmd)
         except Exception as e:
             # Deliberately broad: whatever goes wrong spawning or reading yt-dlp, the request
             # has to reach the retry and error card below rather than vanish out of the worker.
             logging.error(f"yt-dlp invocation failed for {video_url}: {e}")
-            rc, output = 1, f"{type(e).__name__}: {e}"
+            rc, output, final_path = 1, f"{type(e).__name__}: {e}", None
 
         if rc != 0:
             logging.error(f"yt-dlp stderr: {output}")
@@ -506,14 +512,18 @@ class DownloadManager:
                 # MSG: Message shown after the download is completed but not queued
                 self._events.emit("notification", _("Downloaded: %s") % displayed_title, "success")
 
-            # After download, find the file path by ID
-            song_path = None
+            # Prefer the path yt-dlp printed; scan by id only if it is missing or unusable.
             video_id = get_youtube_id_from_url(video_url)
-            if video_id:
-                logging.debug(f"Searching for downloaded file by ID: {video_id}")
-                song_path = self._song_manager.songs.find_by_id(self._download_path, video_id)
+            if final_path and self._song_manager.songs.is_valid_song(final_path):
+                song_path = final_path
             else:
-                logging.warning("No video ID available to find downloaded song")
+                if final_path:
+                    logging.warning(f"yt-dlp path unusable, falling back to id scan: {final_path}")
+                song_path = None
+                if video_id:
+                    song_path = self._song_manager.songs.find_by_id(self._download_path, video_id)
+                else:
+                    logging.warning("No video ID available to find downloaded song")
 
             if song_path:
                 self._events.emit("song_downloaded", song_path, video_id)
