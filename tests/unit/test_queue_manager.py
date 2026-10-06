@@ -475,6 +475,27 @@ class TestQueueManagerPopNext:
         assert song["title"] == "test"
 
 
+class TestQueueManagerSetSongSemitones:
+    """Test pre-setting a queued song's key."""
+
+    def test_sets_semitones_on_queued_song(self, queue_manager):
+        """Setting the key updates the matching song and reports success."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+        queue_manager.enqueue("/songs/song2---def.mp4", "User2")
+
+        result = queue_manager.set_song_semitones("/songs/song2---def.mp4", 3)
+
+        assert result is True
+        assert queue_manager.queue[1]["semitones"] == 3
+        assert queue_manager.queue[0]["semitones"] == 0
+
+    def test_missing_song_returns_false(self, queue_manager):
+        """Setting the key of a song not in the queue reports failure."""
+        queue_manager.enqueue("/songs/song1---abc.mp4", "User1")
+
+        assert queue_manager.set_song_semitones("/songs/absent---xyz.mp4", 2) is False
+
+
 class TestQueueManagerClear:
     """Test queue clearing."""
 

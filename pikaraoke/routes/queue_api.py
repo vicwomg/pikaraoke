@@ -38,6 +38,13 @@ class QueueEditQuery(Schema):
     )
 
 
+class QueuePitchQuery(Schema):
+    song = fields.String(required=True, metadata={"description": "Path to the song file"})
+    semitones = fields.Integer(
+        required=True, metadata={"description": "Key the song will transcode in when it starts"}
+    )
+
+
 @queue_api_bp.route("/api/get_queue")
 @public
 def get_queue():
@@ -97,6 +104,19 @@ def queue_edit(query):
 
     # QueueManager emits queue_update and now_playing_update itself, and Karaoke
     # bridges those to the socket -- so this path adds no broadcast_event.
+    return jsonify({"success": success})
+
+
+@queue_api_bp.route("/api/queue/pitch", methods=["POST"])
+@queue_api_bp.arguments(QueuePitchQuery, location="query")
+def queue_pitch(query):
+    """Pre-set the key a queued song transcodes in when it starts (admin only).
+
+    QueueManager emits now_playing_update itself, which Karaoke bridges to the
+    socket, so this path adds no broadcast_event.
+    """
+    k = get_karaoke_instance()
+    success = k.queue_manager.set_song_semitones(unquote(query["song"]), query["semitones"])
     return jsonify({"success": success})
 
 

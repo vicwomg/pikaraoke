@@ -636,6 +636,11 @@ class Karaoke:
             **playback_state,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
+            # Drive the waiting-song panel: the control box when autoplay is off,
+            # showing and setting the key the next song will start in.
+            "autoplay": self.preferences.get_or_default("autoplay"),
+            "up_next_file": next_song["file"] if next_song else None,
+            "up_next_transpose": next_song["semitones"] if next_song else 0,
             "volume": self.volume,
             # The splash screen never reloads, so the session name rides this
             # payload rather than being rendered once at page load.
@@ -693,15 +698,22 @@ class Karaoke:
                     logging.info("Playback state out of sync, resetting")
                     self.reset_now_playing()
 
-                # Start next song from queue if not currently playing
-                if len(self.queue_manager.queue) > 0 and not self.playback_controller.is_playing:
+                # Start next song from queue if not currently playing. With
+                # autoplay off, the head of the queue waits for a manual start.
+                autoplay = self.preferences.get_or_default("autoplay")
+                if (
+                    len(self.queue_manager.queue) > 0
+                    and not self.playback_controller.is_playing
+                    and (autoplay or self.playback_controller.start_requested)
+                ):
                     self.reset_now_playing()
-                    # Splash delay between songs
-                    splash_delay = self.preferences.get_or_default("splash_delay")
-                    i = 0
-                    while i < (splash_delay * 1000):
-                        self.handle_run_loop()
-                        i += self.loop_interval
+                    # Splash delay between songs, skipped for the human-driven manual wait
+                    if autoplay:
+                        splash_delay = self.preferences.get_or_default("splash_delay")
+                        i = 0
+                        while i < (splash_delay * 1000):
+                            self.handle_run_loop()
+                            i += self.loop_interval
 
                     # Pop song before playback to avoid UI flicker. Released
                     # before play_file, which sleeps for seconds while transcoding.

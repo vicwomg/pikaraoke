@@ -285,6 +285,20 @@ class QueueManager:
         logging.info(f"Popped song from queue: {song['title']}")
         return song
 
+    def set_song_semitones(self, song_path: str, semitones: int) -> bool:
+        """Set the key a queued song will transcode in when it starts.
+
+        Pre-sets pitch while a song waits, so it transcodes once in the chosen
+        key. Returns False if the song is not in the queue.
+        """
+        index = self._find_song_index(song_path)
+        if index == -1:
+            logging.error("Song not found in queue: " + song_path)
+            return False
+        self.queue[index]["semitones"] = semitones
+        self._events.emit("now_playing_update")
+        return True
+
     def queue_edit(self, song_path: str, action: str) -> bool:
         """Move or remove a song in the queue. Action: 'up', 'down', or 'delete'."""
         index = self._find_song_index(song_path)

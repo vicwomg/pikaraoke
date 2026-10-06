@@ -29,6 +29,18 @@ def pause():
     return jsonify({"success": True})
 
 
+@controller_bp.route("/api/play", methods=["POST"])
+def play():
+    """Start the song waiting on the splash when autoplay is off.
+
+    No socket broadcast: the run loop pops the song and the now_playing update
+    carries the player into playback.
+    """
+    k = get_karaoke_instance()
+    k.playback_controller.request_start()
+    return jsonify({"success": True})
+
+
 @controller_bp.route("/api/transpose/<semitones>", methods=["POST"])
 def transpose(semitones):
     """Transpose (pitch shift) the current song."""

@@ -64,6 +64,8 @@ class PlaybackController:
     playback_id: str | None = None
     is_paused: bool = True
     is_playing: bool = False
+    # Cleared in reset_now_playing so a stale press never carries into the next song.
+    start_requested: bool = False
     _deadline: float | None = None
     _paused_at: float | None = None
     # Start watchdog: set while play_file waits for the client to confirm a start.
@@ -333,6 +335,10 @@ class PlaybackController:
             logging.warning("Tried to pause, but no file is playing!")
             return False
 
+    def request_start(self) -> None:
+        """Arm the waiting song to start; the run loop pops it on the next tick."""
+        self.start_requested = True
+
     def _hold_deadline_while_paused(self) -> None:
         """Push the deadline back by however long the song sat paused."""
         now = time.monotonic()
@@ -371,6 +377,7 @@ class PlaybackController:
         self.now_playing_subtitle_url = None
         self.is_paused = True
         self.is_playing = False
+        self.start_requested = False
         self.now_playing_transpose = 0
         self.now_playing_duration = None
         self.now_playing_position = None

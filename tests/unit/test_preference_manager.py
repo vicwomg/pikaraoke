@@ -277,6 +277,7 @@ def test_preference_manager_defaults_exist():
         "bg_music_volume",
         "disable_bg_video",
         "disable_score",
+        "autoplay",
         "limit_user_songs_by",
         "enable_fair_queue",
         "cdg_pixel_scaling",
@@ -316,6 +317,8 @@ def test_preference_manager_defaults_types():
     assert isinstance(defaults["disable_score"], bool)
     assert isinstance(defaults["enable_fair_queue"], bool)
     assert isinstance(defaults["cdg_pixel_scaling"], bool)
+    # Autoplay is the one playback toggle that defaults on.
+    assert defaults["autoplay"] is True
 
     # Integer preferences
     assert isinstance(defaults["splash_delay"], int)
