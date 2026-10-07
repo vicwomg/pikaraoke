@@ -23,7 +23,7 @@
    row count. These lists are top-N rather than paged, so this says how much of
    the chart to see -- it is not the page size the tables elsewhere use. #}
 {% macro limit_select(name, current) %}
-<div class="rankings-controls">
+<div class="is-flex is-align-items-center is-gap-1 mt-2 mb-5">
 	<span class="is-flex-grow-1"></span>
 	{# MSG: Label before the dropdown choosing how many ranked rows to show. #}
 	<label class="is-size-7" for="limit-{{ name }}">{% trans %}Show{% endtrans %}</label>
@@ -52,23 +52,6 @@
 
 {% block header %}
 <style>
-	/* The global `table` rule already fixes the layout, which is what lines the
-	   play counts up down the page across both tables. */
-	.rankings-table {
-		margin-bottom: 0;
-	}
-	/* The row-count control sits just under its table and is pushed to the
-	   right. Its bottom margin is what separates one chart from the next. */
-	.rankings-controls {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-top: 8px;
-		margin-bottom: 25px;
-	}
-	.rankings-table td {
-		word-wrap: break-word;
-	}
 	/* Wide enough for the headers above them -- "Rank" and "Plays" are single
 	   words and cannot wrap -- and no wider, so the song column takes the rest. */
 	.rankings-table .col-rank {
@@ -84,19 +67,14 @@
 		margin-left: 0;
 		margin-right: 0.4em;
 	}
-	/* Dimmed rather than recoloured on hover: has-text-success is a Bulma helper
-	   and therefore !important, and green is the point of the control. */
-	.rankings-table .add-song-link:hover {
-		opacity: 0.75;
-	}
 	/* On a phone the desktop column widths would leave too little for the song
 	   title, so they tighten to what the headers still need. */
 	@media screen and (max-width: 600px) {
 		.rankings-table {
 			font-size: 0.9rem;
 		}
-		.rankings-table th,
-		.rankings-table td {
+		.table.rankings-table th,
+		.table.rankings-table td {
 			padding-left: 4px;
 			padding-right: 4px;
 		}
@@ -117,7 +95,7 @@
 {# MSG: Heading for the list of songs that have been sung the most times. #}
 <h2>{% trans %}Top songs{% endtrans %}</h2>
 {% if top_songs %}
-<table class="rankings-table">
+<table class="table is-striped rankings-table mb-0">
 	<colgroup>
 		<col class="col-rank" />
 		<col />
@@ -165,7 +143,7 @@
 {# MSG: Heading for the list of people who have sung the most songs. #}
 <h2>{% trans %}Top performers{% endtrans %}</h2>
 {% if top_performers %}
-<table class="rankings-table">
+<table class="table is-striped rankings-table mb-0">
 	<colgroup>
 		<col class="col-rank" />
 		<col />

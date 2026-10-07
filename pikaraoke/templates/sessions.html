@@ -146,7 +146,7 @@
 						"</td>" +
 						whenCell(session.started_at) +
 						'<td class="has-text-right">' + session.play_count + "</td>" +
-						'<td class="has-text-right options-cell">' +
+						'<td class="has-text-right is-vcentered">' +
 							'<a class="has-text-grey-light row-options-btn" data-uuid="' +
 								escapedUuid + '" data-label="' + escapeHtml(label) +
 								'" data-unnamed="' + (isUnnamed ? "1" : "") +
@@ -156,8 +156,8 @@
 					"</tr>" +
 					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
 						'" data-uuid="' + escapedUuid + '">' +
-						'<td colspan="4"><div class="singers-panel">' +
-							'<div class="singers-list"></div>' +
+						'<td colspan="4"><div class="singers-panel is-flex is-flex-wrap-wrap is-align-items-baseline is-column-gap-1.5">' +
+							'<div class="singers-list tags mb-0"></div>' +
 							'<a class="is-size-7" href="' + historyUrl(session.uuid) + '">' +
 								{# MSG: Link inside an expanded session which opens the play log filtered to it. #}
 								"{{ _('Show these plays') | forceescape }}" +
@@ -183,7 +183,7 @@
 		$list.append(
 			singers.map(function (singer) {
 				return $("<a>")
-					.addClass("tag singer-tag")
+					.addClass("tag")
 					.attr("href", historySingerUrl(uuid, singer.performer))
 					.text(singer.performer + " (" + singer.play_count + ")")[0];
 			})
@@ -454,11 +454,7 @@
 		align-items: center;
 		padding-bottom: 12px;
 		margin-bottom: 25px;
-		border-bottom: 1px solid rgba(128, 128, 128, 0.35);
-	}
-	.current-session-name {
-		flex-grow: 1;
-		font-weight: 600;
+		border-bottom: 1px solid var(--bulma-border);
 	}
 	.session-buttons {
 		display: flex;
@@ -490,13 +486,13 @@
 		cursor: pointer;
 	}
 	.session-row:hover > td {
-		background-color: rgba(128, 128, 128, 0.15);
+		background-color: var(--bulma-background);
 	}
 	/* One triangle rotated rather than two icons swapped, turning on the row's
 	   aria-expanded so open/shut is held in one place. */
 	.session-chevron {
 		font-size: 0.7em;
-		color: var(--dark-link);
+		color: var(--bulma-grey-light);
 	}
 	/* Fontello puts the glyph and its margins on the ::before, so the rotation
 	   goes there: turning the element would swing the spacing round with it and
@@ -510,17 +506,15 @@
 		transform: rotate(90deg);
 	}
 	.session-row:hover .session-chevron {
-		color: var(--dark-link-hover);
+		color: var(--bulma-text-strong);
 	}
 	/* The active session gets a standing accent. Every row reserves the same 3px
-	   so names stay aligned, and the bar runs on down the panel: the pair is one
-	   block. */
-	.session-row > td:first-child,
-	.singers-row > td {
+	   so names stay aligned. */
+	.session-row > td:first-child {
 		border-left: 3px solid transparent;
 	}
 	.is-active-session > td:first-child {
-		border-left-color: var(--dark-success);
+		border-left-color: var(--bulma-success);
 	}
 	.is-active-session .session-name {
 		font-weight: 600;
@@ -530,28 +524,25 @@
 	   success one, so the list never implies the room can see a name that is not
 	   there. Naming it turns it green. */
 	.is-active-session.is-unnamed-session > td:first-child {
-		border-left-color: var(--dark-warning);
+		border-left-color: var(--bulma-warning);
 	}
 	/* The row label is a number PiKaraoke assigned, not a name anyone chose. */
 	.is-unnamed-session .session-name {
 		font-style: italic;
-		color: #a7a7a7;
+		color: var(--bulma-grey-light);
 	}
-	/* The panel belongs to the row above it: no separating border, an inset
-	   background, and an indent that lines it up under the session name. */
+	/* The panel belongs to the row above it, on an inset background. */
 	.singers-row > td {
-		padding: 0 12px 2px 22px;
-		border-top: none;
-		background-color: rgba(0, 0, 0, 0.15);
+		background-color: var(--bulma-dark);
 	}
 	/* Last of the washes, so the active session's panel takes the same tint as
 	   its row rather than the inset grey. */
 	.is-active-session > td {
-		background-color: rgba(46, 204, 113, 0.07);
+		background-color: color-mix(in srgb, var(--bulma-success) 7%, transparent);
 	}
 	/* Matching the warning accent above, so the wash and the bar agree. */
 	.is-active-session.is-unnamed-session > td {
-		background-color: rgba(241, 183, 14, 0.07);
+		background-color: color-mix(in srgb, var(--bulma-warning) 7%, transparent);
 	}
 	/* The name column is deliberately unsized, so it takes whatever the three
 	   beside it do not need: it is the column worth reading, and a timestamp
@@ -564,18 +555,6 @@
 	}
 	#session-list .col-options {
 		width: 3em;
-	}
-	/* The link sits beside the singers rather than out at the table edge, and
-	   drops to its own line only once the tags fill the width. */
-	.singers-panel {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0 12px;
-	}
-	.singer-tag {
-		margin-right: 6px;
-		margin-bottom: 6px;
 	}
 	@media screen and (max-width: 600px) {
 		/* A phone has no room to put the name box and its button side by side with
@@ -612,7 +591,7 @@
 			width: 2em;
 		}
 		#session-list td.when {
-			color: #a7a7a7;
+			color: var(--bulma-grey-light);
 		}
 	}
 </style>
@@ -623,7 +602,7 @@
 {# MSG: Heading for the section showing the session currently being recorded. #}
 <h2>{% trans %}Current Session{% endtrans %}</h2>
 <div class="current-session">
-	<span class="current-session-name">
+	<span class="is-flex-grow-1 has-text-weight-semibold">
 		<i class="icon icon-mic-1"></i>
 		<span id="current-session"></span>
 	</span>
@@ -660,16 +639,16 @@
 
 {# Above the table it filters. Nothing sits on the left here, but the row still
    holds the checkbox to the right edge. #}
-<div class="table-toggle-row">
+<div class="is-flex is-align-items-center is-flex-wrap-wrap is-row-gap-1 is-column-gap-1.5 mb-2">
 	{# Off by default, so the list shows every night on record. See hideAutoStarted. #}
-	<label class="checkbox is-size-7 table-toggle">
+	<label class="checkbox is-size-7 is-inline-flex is-align-items-center is-gap-0.5 ml-auto has-text-grey-light">
 		<input type="checkbox" id="hide-auto-started" />
 		{# MSG: Checkbox which hides the sessions PiKaraoke started on its own, which the host never named. #}
 		{% trans %}Hide auto-started{% endtrans %}
 	</label>
 </div>
 
-<table class="history-table" id="session-list">
+<table class="table is-striped history-table" id="session-list">
 	{# The name column is deliberately unsized: it takes whatever the others do
 	   not need, on a phone as much as on a desktop. #}
 	<colgroup>
@@ -696,12 +675,12 @@
 
 <div class="modal" id="session-options-modal">
 	<div class="modal-background"></div>
-	<div class="modal-card" style="width: 90%; max-width: 400px;">
-		<header class="modal-card-head" style="padding: 15px;">
-			<p class="modal-card-title is-size-6" id="session-modal-title" style="max-width: 95%"></p>
+	<div class="modal-card">
+		<header class="modal-card-head">
+			<p class="modal-card-title is-size-6 mb-0" id="session-modal-title"></p>
 			<button class="delete modal-close-btn" aria-label="close"></button>
 		</header>
-		<section class="modal-card-body" style="padding: 0;">
+		<section class="modal-card-body">
 			<a id="opt-activate" class="panel-block py-3" href="#" data-action="activate">
 				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
 				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}

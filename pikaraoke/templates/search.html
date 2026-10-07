@@ -13,8 +13,8 @@
 		gap: 0.75rem;
 		padding: 0.75rem;
 	}
-	ul.search_result_items li:nth-child(odd) {
-		background-color: rgb(50, 55, 55);
+	ul.search_result_items li:nth-child(even) {
+		background-color: var(--bulma-scheme-main-ter);
 	}
 	@media screen and (min-width: 768px) {
 		ul.search_result_items li {
@@ -48,23 +48,6 @@
 		transition: opacity 0.3s ease;
 	}
 
-	/* Options row: one setting on the left, the two text actions on the right */
-	#search-options {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem 1.5rem;
-		margin-bottom: 0.75rem;
-	}
-	.search-options-links {
-		display: inline-flex;
-		align-items: center;
-		gap: 1.25rem;
-		/* Auto margin rather than space-between on the row: once the links wrap
-		   onto their own line on mobile, space-between would leave them flush
-		   left. This keeps them right-aligned at every width. */
-		margin-left: auto;
-	}
 	/* Neither has an href -- they are JS actions, so the cursor needs saying */
 	#clear-search,
 	#show-advanced {
@@ -97,7 +80,7 @@
 
 	#search-results .img-wrapper:hover img {
 		opacity: 0.7;
-		box-shadow: 0px 0px 3px 1px #878787;
+		box-shadow: 0px 0px 3px 1px var(--bulma-text-weak);
 	}
 
 	/* Semi-transparent circle behind the play icon */
@@ -109,7 +92,7 @@
 		transform: translate(-50%, -50%);
 		width: 80px;
 		height: 80px;
-		background-color: rgba(0, 0, 0, 0.6);
+		background-color: color-mix(in srgb, var(--bulma-black) 60%, transparent);
 		border-radius: 50%;
 		opacity: 0.7;
 		transition: opacity 0.3s ease;
@@ -126,10 +109,10 @@
 		left: 51%;
 		transform: translate(-50%, -50%);
 		font-size: 2rem;
-		color: white;
+		color: var(--bulma-white);
 		opacity: 0.9;
 		transition: all 0.3s ease;
-		text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+		text-shadow: 0 0 10px color-mix(in srgb, var(--bulma-black) 80%, transparent);
 		pointer-events: none;
 		z-index: 2;
 	}
@@ -166,11 +149,11 @@
 	.duration-badge,
 	.library-badge {
 		position: absolute;
-		background: rgba(0, 0, 0, 0.8);
-		color: #fff;
+		background: color-mix(in srgb, var(--bulma-black) 80%, transparent);
+		color: var(--bulma-white);
 		font-size: 0.75rem;
 		padding: 2px 4px;
-		border-radius: 3px;
+		border-radius: var(--bulma-radius);
 		pointer-events: none;
 		z-index: 3; /* above the play-icon overlays (z-index 1 and 2) */
 	}
@@ -181,7 +164,8 @@
 	.library-badge {
 		top: 4px;
 		left: 4px;
-		background: hsl(204, 71%, 39%);
+		background: var(--bulma-info);
+		color: var(--bulma-info-invert);
 		font-weight: 600;
 	}
 
@@ -195,7 +179,7 @@
 		content: "";
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
+		background: color-mix(in srgb, var(--bulma-black) 60%, transparent);
 		z-index: 10;
 	}
 	.modal-content.is-loading::after {
@@ -207,15 +191,11 @@
 		height: 2.5rem;
 		margin-top: -1.25rem;
 		margin-left: -1.25rem;
-		border: 3px solid rgba(255, 255, 255, 0.3);
-		border-top-color: #fff;
+		border: 3px solid color-mix(in srgb, var(--bulma-white) 30%, transparent);
+		border-top-color: var(--bulma-white);
 		border-radius: 50%;
 		animation: spinAround 0.6s linear infinite;
 		z-index: 11;
-	}
-	@keyframes spinAround {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
 	}
 </style>
 <script>
@@ -364,7 +344,7 @@
 		// add-song-link clicks from the document and reads the path from data-song.
 		function showInLibrary($row, path) {
 			$row.find(".search_result_items_actions").html(
-				'<a class="button is-info add-song-link" href="#" data-song="' + encodeURIComponent(path) + '">' +
+				'<a class="button is-success add-song-link" href="#" data-song="' + encodeURIComponent(path) + '">' +
 					'<span class="icon"><i class="icon-list-add"></i></span>' +
 					// {# MSG: Button which adds an already-downloaded song to the queue. #}
 					'<span>{{ _("Add to queue") | forceescape }}</span>' +
@@ -540,13 +520,13 @@
 		{# Only one setting left: each result row carries its own queue-or-not
 		   buttons, so no global toggle is needed. Advanced reveals the direct-URL
 		   form -- a disclosure rather than a setting, so it is a link, not a tickbox. #}
-		<div id="search-options">
+		<div id="search-options" class="is-flex is-flex-wrap-wrap is-align-items-center is-row-gap-1 is-column-gap-3 mb-3">
 			<label class="checkbox">
 				<input type="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
 				{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
 				have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
 			</label>
-			<span class="search-options-links">
+			<span class="is-inline-flex is-align-items-center is-gap-2.5 ml-auto">
 				{# MSG: Link which clears the text from the search box. #}
 				<a id="clear-search" class="has-text-danger">{% trans %}Clear{% endtrans %}</a>
 				{# MSG: Link which reveals the direct-URL download form. #}
@@ -554,7 +534,7 @@
 			</span>
 		</div>
 
-		<div id="advanced-settings" class="box has-background-black-bis mt-2" style="display: none">
+		<div id="advanced-settings" class="box has-background-dark mt-2" style="display: none">
 			<div class="control">
 				<div class="label">
 					{# MSG: Label for an input which takes a YouTube url directly instead of searching titles. #}
@@ -571,7 +551,7 @@
 					/>
 					<div class="has-text-right mt-2">
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
-						<button class="button is-info direct-download" disabled data-queue="1">
+						<button class="button is-success direct-download" disabled data-queue="1">
 							<span class="icon"><i class="icon-list-add"></i></span>
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</button>
@@ -612,7 +592,7 @@
 		<ul id="search-results" class="search_result_items">
 			{% for result in search_results %}
 			{% set local_path = library_matches.get(result.video_id) %}
-			<li data-ytID="{{result.video_id}}" data-ytTitle="{{result.title}}" value="{{result.url}}" data-index="{{loop.index0}}">
+			<li class="mt-0" data-ytID="{{result.video_id}}" data-ytTitle="{{result.title}}" value="{{result.url}}" data-index="{{loop.index0}}">
 				<div class="img-wrapper" data-url="{{result.url}}">
 					<div class="img-frame">
 						<img src="https://img.youtube.com/vi/{{result.video_id}}/mqdefault.jpg" />
@@ -628,14 +608,14 @@
 				<div class="search_result_items_meta">
 					<div>
 						{{result.title}}
-						{% if result.channel %}<div class="is-size-7 has-text-grey">{{ result.channel }}</div>{% endif %}
+						{% if result.channel %}<div class="is-size-7 has-text-grey-light">{{ result.channel }}</div>{% endif %}
 						<a href="{{result.url}}" target="_blank" rel="noopener noreferrer" class="is-size-7 has-text-info">YouTube ↗</a>
 					</div>
 					<div class="search_result_items_actions">
 						{% if local_path %}
 						{# Already downloaded, so queue it rather than fetching a second copy. #}
 						<a
-							class="button is-info add-song-link"
+							class="button is-success add-song-link"
 							href="#"
 							data-song="{{url_escape(local_path.encode('utf-8','surrogateescape'))}}"
 						>
@@ -649,7 +629,7 @@
 						   only element child, and Bulma's icon-only-button rule then applies
 						   negative margins that pull the text over the glyph. #}
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
-						<button class="button is-info search_result_items_download" data-queue="1">
+						<button class="button is-success search_result_items_download" data-queue="1">
 							<span class="icon"><i class="icon-list-add"></i></span>
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</button>

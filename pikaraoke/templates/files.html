@@ -243,13 +243,24 @@
 <style>
 	#alpha-bar {
 		padding: 5px 10px;
-		border-radius: 4px;
+		border-radius: var(--bulma-radius);
 		margin-bottom: 10px;
 		position: sticky;
 		display: flex;
 		justify-content: space-between;
 		top: 3px;
 		z-index: 20;
+	}
+	/* Each letter's hit area reaches into the gaps on either side so the whole
+	   strip is tappable, not just the glyph. The negative margin offsets the
+	   padding, so space-between still spaces the letters as it did before. */
+	#alpha-bar > a,
+	#alpha-bar > span {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding-inline: 10px;
+		margin-inline: -10px;
 	}
 	/* Held in the layout rather than hidden, so the strip keeps the same 27 slots in
 	   every folder. Dim enough to read as unavailable, but still legible: it is the
@@ -260,11 +271,7 @@
 		user-select: none;
 	}
 	table {
-		width: 100%;
 		table-layout: auto; /* Allows columns to adjust based on content */
-	}
-	td {
-		word-wrap: break-word; /* Ensures long words break to fit within the cell */
 	}
 	/* `anywhere`, not `break-all`: break-all splits every title mid-word. This breaks
 	   a word only when it cannot fit on a line alone, and unlike the `break-word` in
@@ -280,39 +287,13 @@
 		white-space: nowrap;
 	}
 
-	/* The view toggle sits left, the sort toggle right. The left slot is rendered
-	   even when empty so that space-between keeps sort against the right edge on a
-	   library with no subfolders. */
-	#browse-controls {
-		display: flex;
-		justify-content: space-between;
-		flex-wrap: wrap;
-	}
-	/* Bulma gives a non-last .buttons a full block of spacing; these controls belong
-	   close to the table they act on. */
-	#browse-controls .buttons {
-		margin-bottom: 0.5rem;
-	}
-
-	.folder-item {
-		/* Pushes the chevron to the right edge; panel-block is flex already. */
-		justify-content: space-between;
-	}
-
-	/* Bulma ships the breadcrumb list as align-items: flex-start, which only shows
-	   when the items are unequal heights -- here the root crumb carries a folder
-	   icon and the rest are plain text, so they hang from the top instead of
-	   sharing a centre line. */
-	.breadcrumb ul {
-		align-items: center;
-	}
-
 	@media screen and (max-width: 500px) {
 		#alpha-bar {
 			font-size: 13px;
 			position: fixed;
-			display: flex;
-			align-items: center;
+			/* No horizontal padding and no align-items, so slots fill the 22px strip
+			   and the whole column is tappable, not just the glyph. */
+			padding: 5px 0;
 			/* Flush with the navbar and the box, which both stop at the container's
 			   5px padding. Any further in covers song titles, page links and edit
 			   icons; any further out and the blue navbar looks clipped beside it. */
@@ -327,6 +308,14 @@
 			bottom: 8px;
 			flex-direction: column;
 			max-width: 22px;
+		}
+		/* Equal-height slots fill the strip, since a phone's height varies and no
+		   fixed gap padding would cover it; the desktop gap padding is reset. */
+		#alpha-bar > a,
+		#alpha-bar > span {
+			flex: 1;
+			margin-inline: 0;
+			padding-inline: 0;
 		}
 		/* The strip is an overlay, so the content has to give up the width it sits
 		   in. Bulma's 20px of box padding is not enough on its own: it leaves the
@@ -350,7 +339,7 @@
 
 {% if breadcrumbs %}
 <nav class="breadcrumb is-small" aria-label="breadcrumbs">
-	<ul>
+	<ul class="ml-0">
 		<li>
 			<a href="{{ url_for('files.browse', view='folders') }}">
 				{# The glyph class alone -- adding Bulma's `icon` to the inner element
@@ -362,7 +351,7 @@
 			</a>
 		</li>
 		{% for crumb in breadcrumbs %}
-		<li{% if loop.last %} class="is-active"{% endif %}>
+		<li class="mt-0{% if loop.last %} is-active{% endif %}">
 			<a href="{{ url_for('files.browse', view='folders', folder=crumb.folder) }}">{{ crumb.name }}</a>
 		</li>
 		{% endfor %}
@@ -431,7 +420,7 @@
    listing, not a filtered continuation of the one being left. #}
 <div class="panel">
 	{% for name in subfolders %}
-	<a class="panel-block py-3 folder-item"
+	<a class="panel-block py-3 is-justify-content-space-between"
 		href="{{ url_for('files.browse', view='folders', folder=(folder ~ '/' ~ name) if folder else name) }}">
 		<span><span class="icon mr-2"><i class="icon-folder-open-empty"></i></span>{{ name }}</span>
 		<span class="icon"><i class="icon-right-big"></i></span>
@@ -444,8 +433,8 @@
    and each shows its options at once so the active one is visible without reading a
    sentence. Sorting and the view are orthogonal to filtering, so both carry the
    active query through -- the alpha bar above is the one control that clears it. #}
-<div id="browse-controls">
-	<div class="buttons has-addons are-small">
+<div id="browse-controls" class="is-flex is-justify-content-space-between is-flex-wrap-wrap">
+	<div class="buttons has-addons are-small mb-2">
 		{% if has_subfolders %}
 		<a class="button {% if not view %}is-info is-selected{% endif %}"
 			href="{{ url_for('files.browse', q=q or None, sort=sort_param) }}">
@@ -459,7 +448,7 @@
 		</a>
 		{% endif %}
 	</div>
-	<div class="buttons has-addons are-small">
+	<div class="buttons has-addons are-small mb-2">
 		{% if not folder_landing %}
 		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
 		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}
