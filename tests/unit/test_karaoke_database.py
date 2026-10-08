@@ -42,6 +42,7 @@ _NEW_IN_V2 = {
     "audio_track",
     "audio_channel",
     "loudness_lufs",
+    "duration",
 }
 
 

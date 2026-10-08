@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS songs (
     file_path TEXT UNIQUE NOT NULL,
     youtube_id TEXT,
     format TEXT NOT NULL,
+    -- Whole seconds, from the container header; NULL until a file is probed.
+    duration INTEGER,
     artist TEXT,
     title TEXT,
     variant TEXT,
@@ -186,6 +188,7 @@ class KaraokeDatabase:
                     ("songs", "audio_track", "INTEGER"),
                     ("songs", "audio_channel", "TEXT"),
                     ("songs", "loudness_lufs", "REAL"),
+                    ("songs", "duration", "INTEGER"),
                     ("plays", "semitones", "INTEGER DEFAULT 0"),
                     # singers is created after this; the reference resolves on write.
                     ("plays", "singer_id", "INTEGER REFERENCES singers(id)"),
