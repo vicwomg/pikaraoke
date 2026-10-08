@@ -311,6 +311,7 @@ class MockKaraoke:
     is_song_in_use = Karaoke.is_song_in_use
     rename_song = Karaoke.rename_song
     reset_now_playing = Karaoke.reset_now_playing
+    _recue_current = Karaoke._recue_current
     transpose_current = Karaoke.transpose_current
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send

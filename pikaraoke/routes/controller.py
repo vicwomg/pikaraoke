@@ -52,9 +52,13 @@ def transpose(semitones):
 
 @controller_bp.route("/api/restart", methods=["POST"])
 def restart():
-    """Restart the current song from the beginning."""
+    """Restart the current song, or re-cue it to wait when autoplay is off."""
     k = get_karaoke_instance()
-    broadcast_event("restart")
+    # Autoplay off re-cues to the waiting state (a skip-like stop); on replays in place.
+    if k.preferences.get_or_default("autoplay"):
+        broadcast_event("restart")
+    else:
+        broadcast_event("skip", "restart")
     k.restart()
     return jsonify({"success": True})
 

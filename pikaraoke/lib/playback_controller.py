@@ -278,7 +278,7 @@ class PlaybackController:
 
         if reason:
             logging.info(f"Reason: {reason}")
-            if reason not in ("complete", "skip", "transpose"):
+            if reason not in ("complete", "skip", "transpose", "restart"):
                 # MSG: Message shown when the song ends abnormally
                 self.events.emit("notification", _("Song ended abnormally: %s") % reason, "danger")
 

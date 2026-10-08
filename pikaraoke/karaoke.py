@@ -534,32 +534,37 @@ class Karaoke:
             self.events.emit("queue_update")
         return new_path
 
+    def _recue_current(self, semitones: int, reason: str) -> bool:
+        """Re-enqueue the playing song at the head and end its stream.
+
+        The skip reason holds the play-history row open so this is not logged as
+        a second play. Returns False if nothing is playing or the queue refused it.
+        """
+        filename = self.playback_controller.now_playing_filename
+        user = self.playback_controller.now_playing_user
+        if filename is None or user is None:
+            return False
+        queued, message = self.queue_manager.enqueue(filename, user, semitones, True)
+        if not queued:
+            # Skipping a refused requeue would strand the singer with nothing to restart.
+            self.log_and_send(str(message), "danger")
+            return False
+        self.playback_controller.skip(log_action=False, reason=reason)
+        return True
+
     def transpose_current(self, semitones: int) -> None:
         """Restart the current song with a new transpose value.
 
         Args:
             semitones: Number of semitones to transpose.
         """
-        filename = self.playback_controller.now_playing_filename
-        user = self.playback_controller.now_playing_user
         now_playing = self.playback_controller.now_playing
-
-        if filename is None or user is None:
+        if now_playing is None:
             logging.warning("Cannot transpose: no song currently playing")
             return
-        # Insert the same song at the top of the queue with transposition.
-        # The stream ends but the performance does not, so play history keeps
-        # the existing play open rather than logging a second one.
-        queued, message = self.queue_manager.enqueue(filename, user, semitones, True)
-        if not queued:
-            # Skipping now would end the song with nothing to restart it: the
-            # singer loses their turn, and play history holds the play open
-            # waiting for a restart that is never coming.
-            self.log_and_send(str(message), "danger")
-            return
-        # MSG: Message shown after the song is transposed, first is the semitones and then the song name
-        self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
-        self.playback_controller.skip(log_action=False, reason="transpose")
+        if self._recue_current(semitones, "transpose"):
+            # MSG: Message shown after the song is transposed, first is the semitones and then the song name
+            self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
 
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.
@@ -589,20 +594,21 @@ class Karaoke:
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
 
     def restart(self) -> bool:
-        """Restart the current song from the beginning.
+        """Restart the current song, or re-cue it to wait when autoplay is off.
 
-        Returns:
-            True if successful, False if nothing playing.
+        Returns True if an action was taken, False if nothing is playing.
         """
-        if self.playback_controller.is_playing:
-            now_playing = self.playback_controller.now_playing
+        if not self.playback_controller.is_playing:
+            logging.warning("Tried to restart, but no file is playing!")
+            return False
+        now_playing = self.playback_controller.now_playing
+        if self.preferences.get_or_default("autoplay"):
             logging.info("Restarting: " + (now_playing or "unknown song"))
             self.playback_controller.restart()
             self.update_now_playing_socket()
             return True
-        else:
-            logging.warning("Tried to restart, but no file is playing!")
-            return False
+        logging.info("Re-cueing to wait: " + (now_playing or "unknown song"))
+        return self._recue_current(self.playback_controller.now_playing_transpose, "restart")
 
     def stop(self) -> None:
         """Stop the karaoke run loop."""
