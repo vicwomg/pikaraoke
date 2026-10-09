@@ -11,6 +11,7 @@ from flask_babel import Babel
 
 from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.auth import install_auth_gate, public
+from pikaraoke.lib.login_throttle import LoginThrottle
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.admin import admin_bp, delayed_halt
 from pikaraoke.routes.auth_api import auth_api_bp
@@ -31,6 +32,7 @@ def app(auth):
     test_app = Flask(__name__)
     test_app.secret_key = auth.secret_key
     test_app.config["ADMIN_AUTH"] = auth
+    test_app.config["LOGIN_THROTTLE"] = LoginThrottle()
     test_app.config["SESSION_COOKIE_HTTPONLY"] = True
     test_app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     test_app.permanent_session_lifetime = datetime.timedelta(days=90)
@@ -158,6 +160,43 @@ class TestApiLogin:
         auth.set_password(None)
 
         assert client.post("/api/auth", json={"admin_password": ""}).status_code == 200
+
+
+class TestLoginThrottling:
+    """Repeated wrong guesses from one caller lock it out, both doors."""
+
+    def _guess_wrong(self, client, times):
+        for _ in range(times):
+            client.post("/api/auth", json={"admin_password": "wrong"})
+
+    def test_too_many_failures_answer_429_with_retry_after(self, client):
+        for _ in range(5):
+            assert client.post("/api/auth", json={"admin_password": "wrong"}).status_code == 401
+        response = client.post("/api/auth", json={"admin_password": "wrong"})
+
+        assert response.status_code == 429
+        assert int(response.headers["Retry-After"]) > 0
+
+    def test_a_locked_out_caller_is_refused_even_the_correct_password(self, client):
+        self._guess_wrong(client, 6)
+
+        assert client.post("/api/auth", json={"admin_password": PASSWORD}).status_code == 429
+        with client.session_transaction() as session:
+            assert "admin" not in session
+
+    def test_a_correct_password_clears_the_count(self, client):
+        self._guess_wrong(client, 4)
+
+        assert client.post("/api/auth", json={"admin_password": PASSWORD}).status_code == 200
+        assert client.post("/api/auth", json={"admin_password": "wrong"}).status_code == 401
+
+    def test_the_browser_door_is_throttled_too(self, client):
+        for _ in range(6):
+            _login(client, "wrong")
+        _login(client, PASSWORD)
+
+        with client.session_transaction() as session:
+            assert "admin" not in session
 
 
 POWEROFF = ["systemctl", "poweroff"]

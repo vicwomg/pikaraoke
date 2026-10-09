@@ -4,6 +4,8 @@ The browser's `POST /auth` answers in flashes and redirects, which a script
 cannot read; this one answers in status codes.
 """
 
+import math
+
 from flask import jsonify
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
@@ -39,6 +41,12 @@ def login(credentials):
     if not get_admin_auth().is_password_set():
         # Everyone is an admin already; a 401 here would read as a locked door.
         return jsonify({"authenticated": True})
-    if not log_in(credentials["admin_password"]):
-        return jsonify({"error": "Incorrect admin password"}), 401
-    return jsonify({"authenticated": True})
+    outcome = log_in(credentials["admin_password"])
+    if outcome.granted:
+        return jsonify({"authenticated": True})
+    if outcome.throttled:
+        response = jsonify({"error": "Too many attempts"})
+        response.status_code = 429
+        response.headers["Retry-After"] = str(math.ceil(outcome.retry_after))
+        return response
+    return jsonify({"error": "Incorrect admin password"}), 401

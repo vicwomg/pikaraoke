@@ -5,13 +5,14 @@ validation -- an unauthenticated malformed POST gets a 403, not a 422.
 """
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import flask_babel
 from flask import Flask, flash, jsonify, redirect, request, session, url_for
 from flask.typing import ResponseReturnValue
 from flask_smorest import Api
 
-from pikaraoke.lib.current_app import get_admin_auth, is_admin
+from pikaraoke.lib.current_app import get_admin_auth, get_login_throttle, is_admin
 
 _ = flask_babel.gettext
 
@@ -39,16 +40,36 @@ def grant_admin_session() -> None:
     session.permanent = True
 
 
-def log_in(password: str) -> bool:
-    """Establish an admin session if the password is right, and report whether it was.
+@dataclass(frozen=True)
+class LoginOutcome:
+    """The result of a login attempt, in the three states a caller must tell apart."""
 
-    Each caller says so in its own medium: the browser flashes, the API answers
-    in a status code.
+    granted: bool
+    # Seconds to wait when the caller is throttled; None when it is not.
+    retry_after: float | None = None
+
+    @property
+    def throttled(self) -> bool:
+        return self.retry_after is not None
+
+
+def log_in(password: str) -> LoginOutcome:
+    """Establish an admin session if the password is right, else say why it was not.
+
+    Each caller says so in its own medium: the browser flashes, the API answers in a
+    status code. The throttle is consulted before the password hash, so a locked-out
+    flood costs a dict lookup rather than the deliberately slow PBKDF2 per attempt.
     """
+    throttle = get_login_throttle()
+    key = f"admin:{request.remote_addr or 'unknown'}"
+    retry_after = throttle.retry_after(key)
+    if retry_after is not None:
+        return LoginOutcome(granted=False, retry_after=retry_after)
     if not get_admin_auth().verify(password):
-        return False
+        return LoginOutcome(granted=False, retry_after=throttle.record_failure(key))
+    throttle.record_success(key)
     grant_admin_session()
-    return True
+    return LoginOutcome(granted=True)
 
 
 def document_auth(app: Flask, api: Api) -> None:
