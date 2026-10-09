@@ -8,6 +8,7 @@ from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.admin_auth import AdminAuth
+from pikaraoke.lib.login_throttle import LoginThrottle
 
 
 def is_admin() -> bool:
@@ -32,6 +33,11 @@ def get_karaoke_instance() -> Karaoke:
 def get_admin_auth() -> AdminAuth:
     """Get the current app's admin authentication store."""
     return current_app.config["ADMIN_AUTH"]
+
+
+def get_login_throttle() -> LoginThrottle:
+    """Get the current app's login brute-force throttle."""
+    return current_app.config["LOGIN_THROTTLE"]
 
 
 def get_site_name() -> str:
