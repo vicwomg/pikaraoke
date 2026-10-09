@@ -6,6 +6,9 @@ import threading
 
 from pikaraoke.lib.get_platform import get_data_directory
 
+# Bump when the schema changes and add a branch to _migrate().
+_SCHEMA_VERSION = 2
+
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
 
@@ -14,14 +17,33 @@ CREATE TABLE IF NOT EXISTS songs (
     file_path TEXT UNIQUE NOT NULL,
     youtube_id TEXT,
     format TEXT NOT NULL,
+    -- Whole seconds, from the container header; NULL until a file is probed.
+    duration INTEGER,
     artist TEXT,
     title TEXT,
     variant TEXT,
     year INTEGER,
     genre TEXT,
+    -- Detected from the audio in a future update: "A", "F#m".
+    musical_key TEXT,
+    -- Which track of a multi-track file is the backing track; NULL for the
+    -- file's default.
+    audio_track INTEGER,
+    -- "left" or "right" when the other side carries the vocals; NULL for stereo.
+    audio_channel TEXT,
+    -- Measured once, so playback can be levelled without analysing it live.
+    loudness_lufs REAL,
     metadata_status TEXT DEFAULT 'pending',
     enrichment_attempts INTEGER DEFAULT 0,
     last_enrichment_attempt TEXT,
+    -- Disposable: cleared whenever suggestions are re-run, unlike the durable
+    -- year/genre above. suggested_score is the API's 0-100 match confidence.
+    suggested_genre TEXT,
+    suggested_year INTEGER,
+    suggested_score INTEGER,
+    -- Storefront the suggestions came from, so a country change re-enriches
+    -- only the rows matched against a different one.
+    metadata_country TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -45,6 +67,15 @@ CREATE TABLE IF NOT EXISTS sessions (
     name TEXT,
     started_at TEXT DEFAULT CURRENT_TIMESTAMP,
     ended_at TEXT
+);
+
+-- NOCASE so "Mike" and "mike" are one singer.
+CREATE TABLE IF NOT EXISTS singers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    -- Optional name-lock hash, NULL until a singer protects their name; unused yet.
+    secret_hash TEXT
 );
 
 -- Three ways of saying "which song", each for a different job:
@@ -71,11 +102,19 @@ CREATE TABLE IF NOT EXISTS plays (
     youtube_id TEXT,
     song_title TEXT NOT NULL,
     performer TEXT NOT NULL,
+    -- NULL until play history writes it; queries still read performer.
+    singer_id INTEGER,
+    -- The shift the singer settled on, not the key the song is in: that is
+    -- songs.musical_key. Written when the play ends, because it can change
+    -- while the song runs.
+    semitones INTEGER DEFAULT 0,
     played_at TEXT DEFAULT CURRENT_TIMESTAMP,
     ended_at TEXT,
     completed INTEGER DEFAULT 0,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
-    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
+    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL,
+    -- No ON DELETE: a singer with plays cannot be deleted.
+    FOREIGN KEY (singer_id) REFERENCES singers(id)
 );
 
 -- Composite rather than session_id alone: the play log filters by session and
@@ -90,6 +129,8 @@ CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer COLLATE NOCASE
 -- song delete. Without this, a library sync that drops songs scans the whole
 -- plays table once per deleted row.
 CREATE INDEX IF NOT EXISTS idx_plays_song ON plays(song_id);
+-- Likewise for a singer delete.
+CREATE INDEX IF NOT EXISTS idx_plays_singer ON plays(singer_id);
 """
 
 
@@ -122,9 +163,50 @@ class KaraokeDatabase:
         return conn
 
     def _create_schema(self) -> None:
+        # user_version 0 is a fresh DB: no table to alter, just run the schema.
+        version = self._conn.execute("PRAGMA user_version").fetchone()[0]
+        if version and version < _SCHEMA_VERSION:
+            self._migrate(version)
         self._conn.executescript(_SCHEMA)
         with self._conn:
-            self._conn.execute("PRAGMA user_version = 1")
+            # Never a literal: re-stamping the old version would re-run the
+            # migration and crash on the next launch.
+            self._conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+
+    def _migrate(self, from_version: int) -> None:
+        """Add columns to an existing database, preserving its rows.
+
+        The songs table shipped in 1.20.0 as version 1, and CREATE TABLE IF NOT
+        EXISTS is a no-op once it exists, so new columns need ALTER TABLE.
+        """
+        with self._conn:
+            if from_version < 2:
+                for table, column, coltype in (
+                    ("songs", "suggested_genre", "TEXT"),
+                    ("songs", "suggested_year", "INTEGER"),
+                    ("songs", "suggested_score", "INTEGER"),
+                    ("songs", "metadata_country", "TEXT"),
+                    ("songs", "musical_key", "TEXT"),
+                    ("songs", "audio_track", "INTEGER"),
+                    ("songs", "audio_channel", "TEXT"),
+                    ("songs", "loudness_lufs", "REAL"),
+                    ("songs", "duration", "INTEGER"),
+                    ("plays", "semitones", "INTEGER DEFAULT 0"),
+                    # singers is created after this; the reference resolves on write.
+                    ("plays", "singer_id", "INTEGER REFERENCES singers(id)"),
+                ):
+                    # 1.20.0 stamped version 1 before `plays` existed, so a
+                    # database can report 1 and not have the table. _SCHEMA
+                    # creates it complete straight after this runs.
+                    if not self._table_exists(table):
+                        continue
+                    self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+
+    def _table_exists(self, name: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+        ).fetchone()
+        return row is not None
 
     # ------------------------------------------------------------------
     # Read operations

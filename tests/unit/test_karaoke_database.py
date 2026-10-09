@@ -32,6 +32,50 @@ CREATE TABLE IF NOT EXISTS metadata (
 );
 """
 
+# Added by the v2 migration.
+_NEW_IN_V2 = {
+    "suggested_genre",
+    "suggested_year",
+    "suggested_score",
+    "metadata_country",
+    "musical_key",
+    "audio_track",
+    "audio_channel",
+    "loudness_lufs",
+    "duration",
+}
+
+
+_PLAY_HISTORY_PRE_V2 = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE NOT NULL,
+    name TEXT,
+    started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS plays (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    song_id INTEGER,
+    youtube_id TEXT,
+    song_title TEXT NOT NULL,
+    performer TEXT NOT NULL,
+    played_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT,
+    completed INTEGER DEFAULT 0
+);
+"""
+
+
+def _song_columns(conn):
+    return {row[1] for row in conn.execute("PRAGMA table_info(songs)").fetchall()}
+
+
+def _play_columns(conn):
+    return {row[1] for row in conn.execute("PRAGMA table_info(plays)").fetchall()}
+
 
 @pytest.fixture
 def db(tmp_path):
@@ -54,7 +98,13 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 1
+        assert ver == 2
+
+    def test_fresh_schema_has_the_new_v2_columns(self, db):
+        assert _NEW_IN_V2 <= _song_columns(db._conn)
+
+    def test_fresh_schema_keeps_the_durable_year_and_genre(self, db):
+        assert {"year", "genre"} <= _song_columns(db._conn)
 
     def test_songs_table_exists(self, db):
         tables = {
@@ -103,6 +153,154 @@ class TestUpgradeFromExistingDatabase:
         paths = db.get_all_song_paths()
         db.close()
         assert paths == ["/songs/existing.mp4"]
+
+
+class TestSchemaV2Migration:
+    """CREATE TABLE IF NOT EXISTS cannot add a column to a table that already
+    exists, so a 1.20.0 songs table can only gain the staging columns by
+    ALTER TABLE."""
+
+    @pytest.fixture
+    def legacy_db_path(self, tmp_path):
+        path = str(tmp_path / "pikaraoke.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(_SCHEMA_1_20_0)
+        conn.execute(
+            "INSERT INTO songs (file_path, youtube_id, format, artist, title) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("/songs/existing.mp4", "dQw4w9WgXcQ", "mp4", "Beyonce", "Halo"),
+        )
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_v1_database_gains_the_columns(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        columns = _song_columns(db._conn)
+        db.close()
+        assert _NEW_IN_V2 <= columns
+
+    def test_version_is_stamped_to_2(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
+        db.close()
+        assert ver == 2
+
+    def test_existing_row_survives_with_nulls_in_the_new_columns(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        row = db._conn.execute(
+            "SELECT file_path, youtube_id, artist, title, suggested_genre, "
+            "suggested_year, suggested_score, metadata_country, musical_key, "
+            "audio_track, audio_channel, loudness_lufs FROM songs"
+        ).fetchone()
+        db.close()
+        assert tuple(row) == ("/songs/existing.mp4", "dQw4w9WgXcQ", "Beyonce", "Halo", *[None] * 8)
+
+    def test_reopening_does_not_re_run_the_migration(self, legacy_db_path):
+        # Catches a literal PRAGMA user_version = 1: the second open would
+        # re-run ALTER TABLE and die with "duplicate column name".
+        for _ in range(3):
+            db = KaraokeDatabase(legacy_db_path)
+            db.close()
+
+    def test_play_history_tables_are_created_when_absent(self, legacy_db_path):
+        db = KaraokeDatabase(legacy_db_path)
+        tables = {
+            row[0]
+            for row in db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        db.close()
+        assert {"sessions", "plays"} <= tables
+
+    def test_fresh_database_has_the_plays_key_column(self, tmp_path):
+        db = KaraokeDatabase(str(tmp_path / "fresh.db"))
+        columns = _play_columns(db._conn)
+        db.close()
+        assert "semitones" in columns
+
+    def test_a_fresh_database_does_not_enter_the_migration(self, tmp_path, monkeypatch):
+        # user_version 0 means there is no songs table to ALTER yet.
+        def fail(*args):
+            raise AssertionError("_migrate ran on a fresh database")
+
+        monkeypatch.setattr(KaraokeDatabase, "_migrate", fail)
+        db = KaraokeDatabase(str(tmp_path / "fresh.db"))
+        db.close()
+
+
+class TestSchemaV2PlaysMigration:
+    """1.20.0 stamped version 1 before play history existed, so a version 1
+    database may or may not have the plays table. The migration has to add the
+    key column when it is there and skip it when it is not."""
+
+    @pytest.fixture
+    def legacy_db_with_play_history(self, tmp_path):
+        path = str(tmp_path / "pikaraoke.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(_SCHEMA_1_20_0)
+        conn.executescript(_PLAY_HISTORY_PRE_V2)
+        conn.execute("INSERT INTO sessions (uuid, name) VALUES ('abc', 'Friday')")
+        conn.execute(
+            "INSERT INTO plays (session_id, song_title, performer) VALUES (1, ?, ?)",
+            ("Halo", "Beyonce"),
+        )
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_existing_plays_table_gains_the_key_column(self, legacy_db_with_play_history):
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        columns = _play_columns(db._conn)
+        db.close()
+        assert "semitones" in columns
+
+    def test_existing_play_rows_survive_and_default_to_no_shift(self, legacy_db_with_play_history):
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        row = db._conn.execute("SELECT song_title, performer, semitones FROM plays").fetchone()
+        db.close()
+        assert tuple(row) == ("Halo", "Beyonce", 0)
+
+    def test_reopening_does_not_re_run_the_migration(self, legacy_db_with_play_history):
+        for _ in range(3):
+            db = KaraokeDatabase(legacy_db_with_play_history)
+            db.close()
+
+    def test_existing_play_rows_gain_an_unset_singer(self, legacy_db_with_play_history):
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        row = db._conn.execute("SELECT performer, singer_id FROM plays").fetchone()
+        db.close()
+        assert tuple(row) == ("Beyonce", None)
+
+    def test_migrated_singer_column_is_a_foreign_key(self, legacy_db_with_play_history):
+        # The column is added before the singers table exists.
+        db = KaraokeDatabase(legacy_db_with_play_history)
+        singer_id = db.execute("INSERT INTO singers (name) VALUES ('Beyonce')").lastrowid
+        db.execute("UPDATE plays SET singer_id = ?", (singer_id,))
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("UPDATE plays SET singer_id = 999")
+        db.close()
+
+
+class TestSingers:
+    def test_a_name_is_one_singer_whatever_its_casing(self, db):
+        db.execute("INSERT INTO singers (name) VALUES ('Mike')")
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("INSERT INTO singers (name) VALUES ('mike')")
+
+    def test_a_singer_with_plays_cannot_be_deleted(self, db):
+        singer_id = db.execute("INSERT INTO singers (name) VALUES ('Mike')").lastrowid
+        session_id = db.execute("INSERT INTO sessions (uuid) VALUES ('s1')").lastrowid
+        db.execute(
+            "INSERT INTO plays (session_id, song_title, performer, singer_id) "
+            "VALUES (?, 'A Song', 'Mike', ?)",
+            (session_id, singer_id),
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("DELETE FROM singers WHERE id = ?", (singer_id,))
 
 
 class TestGetSongIdentity:
