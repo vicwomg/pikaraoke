@@ -73,7 +73,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS singers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    -- Optional name-lock hash, NULL until a singer protects their name; unused yet.
+    secret_hash TEXT
 );
 
 -- Three ways of saying "which song", each for a different job:
