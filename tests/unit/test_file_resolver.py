@@ -231,6 +231,21 @@ class TestDeleteStreamFiles:
         assert (tmp_path / f"{longer}.m3u8").exists()
         assert (tmp_path / f"{longer}_init.mp4").exists()
 
+    def test_removes_the_streams_extraction_dir(self, tmp_path):
+        """A zipped-CDG song's uid-scoped extraction dir is cleaned, not just files."""
+        uid = "456"
+        extracted = tmp_path / f"{uid}_extracted"
+        extracted.mkdir()
+        (extracted / "track.mp3").write_text("x")
+        (extracted / "track.cdg").write_text("x")
+        (tmp_path / f"{uid}.m3u8").write_text("x")
+
+        with patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value=str(tmp_path)):
+            delete_stream_files(uid)
+
+        assert not extracted.exists()
+        assert not (tmp_path / f"{uid}.m3u8").exists()
+
     def test_none_uid_is_noop(self, tmp_path):
         """A missing uid deletes nothing rather than guessing."""
         (tmp_path / "333.m3u8").write_text("keep")
@@ -426,10 +441,9 @@ class TestFileResolverHandleZippedCdg:
     @patch("pikaraoke.lib.file_resolver.get_media_duration", return_value=180)
     @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
     def test_extracts_valid_zip(self, mock_create, mock_duration, tmp_path):
-        """Test extracting valid CDG zip file."""
+        """Test extracting valid CDG zip into a uid-scoped directory."""
         # Create a valid CDG zip
         zip_path = tmp_path / "song.zip"
-        extracted_dir = tmp_path / "extracted"
 
         with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("track.mp3", b"fake mp3 data")
@@ -442,6 +456,8 @@ class TestFileResolverHandleZippedCdg:
         assert "track.mp3" in fr.file_path
         assert fr.cdg_file_path is not None
         assert "track.cdg" in fr.cdg_file_path
+        # Extraction is scoped to the stream, so scoped cleanup removes it.
+        assert f"{fr.stream_uid}_extracted" in fr.file_path
 
     @patch("pikaraoke.lib.file_resolver.create_tmp_dir")
     def test_raises_when_zip_missing_cdg(self, mock_create, tmp_path):
