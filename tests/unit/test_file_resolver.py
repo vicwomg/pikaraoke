@@ -216,6 +216,21 @@ class TestDeleteStreamFiles:
         assert (tmp_path / f"{starting}.m3u8").exists()
         assert (tmp_path / f"{starting}_init.mp4").exists()
 
+    def test_leaves_a_longer_uid_that_contains_this_one(self, tmp_path):
+        """A uid matches on its boundary, not as a bare substring of a longer uid."""
+        ending = "12"
+        longer = "123"
+        (tmp_path / f"{ending}.m3u8").write_text("old")
+        (tmp_path / f"{longer}.m3u8").write_text("keep")
+        (tmp_path / f"{longer}_init.mp4").write_text("keep")
+
+        with patch("pikaraoke.lib.file_resolver.get_tmp_dir", return_value=str(tmp_path)):
+            delete_stream_files(ending)
+
+        assert not (tmp_path / f"{ending}.m3u8").exists()
+        assert (tmp_path / f"{longer}.m3u8").exists()
+        assert (tmp_path / f"{longer}_init.mp4").exists()
+
     def test_none_uid_is_noop(self, tmp_path):
         """A missing uid deletes nothing rather than guessing."""
         (tmp_path / "333.m3u8").write_text("keep")

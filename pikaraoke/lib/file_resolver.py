@@ -60,7 +60,9 @@ def delete_stream_files(stream_uid: str | None) -> None:
     if not os.path.exists(tmp_dir):
         return
     for name in os.listdir(tmp_dir):
-        if stream_uid not in name:
+        # Match on a uid boundary, not a bare substring: a shorter uid can sit
+        # inside a longer one, and deleting across streams is the 254 this avoids.
+        if not (name.startswith(f"{stream_uid}.") or name.startswith(f"{stream_uid}_")):
             continue
         path = os.path.join(tmp_dir, name)
         try:
