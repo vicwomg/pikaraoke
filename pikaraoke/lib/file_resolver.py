@@ -66,8 +66,11 @@ def delete_stream_files(stream_uid: str | None) -> None:
             continue
         path = os.path.join(tmp_dir, name)
         try:
-            os.remove(path)
-        except (PermissionError, OSError) as e:
+            if os.path.isdir(path):
+                shutil.rmtree(path)  # a zipped CDG's {uid}_extracted dir
+            else:
+                os.remove(path)
+        except OSError as e:
             _log_remove_error(path, e)
 
 
@@ -147,10 +150,12 @@ class FileResolver:
         """
         create_tmp_dir()
         self.tmp_dir = get_tmp_dir()
-        self.process_file(file_path)
+        # Mint the uid before processing: a zipped CDG extracts into a dir named
+        # for it, so the scoped cleanup can remove that dir with the stream.
         # Include timestamp to ensure unique stream UIDs for repeated plays
         unique_string = f"{file_path}_{time.time()}"
         self.stream_uid = string_to_hash(unique_string)
+        self.process_file(file_path)
         self.streaming_format = streaming_format
 
         # Set output file extension based on streaming format
@@ -209,9 +214,10 @@ class FileResolver:
         Raises:
             Exception: If the zip doesn't contain matching CDG and MP3 files.
         """
-        extracted_dir = os.path.join(self.tmp_dir, "extracted")
-        if os.path.exists(extracted_dir):
-            shutil.rmtree(extracted_dir)  # clears out any previous extractions
+        # Scope the extraction to this stream's uid so delete_stream_files
+        # removes it, and a concurrently starting song gets its own dir instead
+        # of clearing this one out from under a still-reading ffmpeg.
+        extracted_dir = os.path.join(self.tmp_dir, f"{self.stream_uid}_extracted")
         with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(extracted_dir)
 
