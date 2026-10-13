@@ -289,7 +289,7 @@ class TestPlaybackControllerEndSong:
     """Tests for PlaybackController.end_song method."""
 
     @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("pikaraoke.lib.playback_controller.delete_stream_files")
     def test_end_song_cleans_up(self, mock_delete, mock_sleep, test_prefs):
         """Test that end_song cleans up resources."""
         events = EventSystem()
@@ -310,12 +310,13 @@ class TestPlaybackControllerEndSong:
         assert pc.is_playing is False
         assert pc.now_playing is None
         pc.stream_manager.kill_ffmpeg.assert_called_once()
-        mock_delete.assert_called_once()
+        # Only the ended stream's files are removed, not the whole directory.
+        mock_delete.assert_called_once_with(PLAYBACK_UID)
         mock_sleep.assert_called_once()
         assert emitted_reasons == [None]
 
     @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("pikaraoke.lib.playback_controller.delete_stream_files")
     def test_end_song_emits_reason(self, mock_delete, mock_sleep, test_prefs):
         """The end reason reaches listeners; play history derives 'completed' from it."""
         events = EventSystem()
@@ -333,7 +334,7 @@ class TestPlaybackControllerEndSong:
         assert emitted_reasons == ["complete"]
 
     @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("pikaraoke.lib.playback_controller.delete_stream_files")
     def test_end_song_ignores_stale_playback_id(self, mock_delete, mock_sleep, test_prefs):
         """A player ending the previous song must not tear down its successor."""
         events = EventSystem()
@@ -353,7 +354,7 @@ class TestPlaybackControllerEndSong:
         mock_delete.assert_not_called()
 
     @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("pikaraoke.lib.playback_controller.delete_stream_files")
     def test_end_song_is_idempotent(self, mock_delete, mock_sleep, test_prefs):
         """A second end for an already-ended song is a no-op, not another teardown."""
         events = EventSystem()
@@ -376,7 +377,7 @@ class TestPlaybackControllerSkip:
     """Tests for PlaybackController.skip method."""
 
     @patch("pikaraoke.lib.playback_controller.time.sleep")
-    @patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+    @patch("pikaraoke.lib.playback_controller.delete_stream_files")
     @patch("flask_babel._", side_effect=lambda x: x)
     def test_skip_when_playing(self, mock_gettext, mock_delete, mock_sleep, test_prefs):
         """Test skip when a song is playing."""
@@ -443,7 +444,7 @@ class TestPlaybackControllerPause:
 
 
 @patch("pikaraoke.lib.playback_controller.time.sleep")
-@patch("pikaraoke.lib.playback_controller.delete_tmp_dir")
+@patch("pikaraoke.lib.playback_controller.delete_stream_files")
 @patch("pikaraoke.lib.playback_controller.time.monotonic")
 class TestPlaybackControllerDeadline:
     """The server ends a song no player reported ending, once it has overrun."""
