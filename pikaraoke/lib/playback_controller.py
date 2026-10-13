@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable
 from flask_babel import _
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.file_resolver import delete_tmp_dir
+from pikaraoke.lib.file_resolver import delete_stream_files
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager
 
@@ -217,6 +217,8 @@ class PlaybackController:
             return
 
         logging.info(f"Song ending: {self.now_playing}")
+        # Read before reset_now_playing clears it; the scoped cleanup below needs it.
+        stream_uid = self.playback_id
         # Claim the playback before anything that yields to another greenlet, so
         # a second caller arriving mid-cleanup is rejected by the guard above.
         self.reset_now_playing()
@@ -231,7 +233,7 @@ class PlaybackController:
         # Small delay to ensure FFmpeg fully terminates and file handles close
         # Critical on Raspberry Pi with slow SD cards and hardware encoder cleanup
         time.sleep(0.3)
-        delete_tmp_dir()
+        delete_stream_files(stream_uid)
         logging.debug("Cleanup complete")
 
         self.events.emit("song_ended", reason)
