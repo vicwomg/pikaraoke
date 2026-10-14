@@ -132,3 +132,25 @@ def test_a_guest_splash_registers_and_reports_position():
 
     assert any(m["name"] == "splash_role" for m in client.get_received())
     assert karaoke.playback_controller.now_playing_position == 12.5
+
+
+def test_a_client_cannot_force_a_failed_to_start():
+    """'failed to start' is decided server-side, so a client emitting it - e.g. a
+    splash running an older script with a blind start timer - must not end the
+    song."""
+    app, socketio, karaoke = make_socket_app(admin=False)
+    client = socketio.test_client(app)
+
+    client.emit("end_song", "failed to start", "123")
+
+    karaoke.playback_controller.end_song.assert_not_called()
+
+
+def test_a_client_can_still_end_a_song_naturally():
+    """Real end reasons keep reaching the controller."""
+    app, socketio, karaoke = make_socket_app(admin=False)
+    client = socketio.test_client(app)
+
+    client.emit("end_song", "complete", "123")
+
+    karaoke.playback_controller.end_song.assert_called_once_with("complete", "123")

@@ -60,6 +60,16 @@ def setup_socket_events(socketio):
             reason: Reason for ending the song (e.g., 'complete', 'error').
             playback_id: Playback the player is reporting on.
         """
+        # "failed to start" is decided server-side (the progress-aware start
+        # watchdog), so a client cannot force it. A splash running an older
+        # script - e.g. a kiosk tab restored from cache - still carries a blind
+        # start timer and would otherwise kill a song that started and is merely
+        # buffering through a long transcode.
+        if reason == "failed to start":
+            logging.info(
+                "Ignoring client 'failed to start'; start failures are decided server-side"
+            )
+            return
         k = get_karaoke_instance()
         k.playback_controller.end_song(reason, playback_id)
 
