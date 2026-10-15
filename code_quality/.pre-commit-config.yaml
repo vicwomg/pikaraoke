@@ -86,3 +86,15 @@ repos:
   - id: no-commit-to-branch
     name: No Commit to master
     args: [--branch, master]
+
+# The JS unit suite. Runs under the machine's node (the toolchain is pinned
+# in package.json and package-lock.json); the script installs node_modules
+# with `npm ci` when absent, so the machine itself needs node and npm.
+- repo: local
+  hooks:
+  - id: js-unit-tests
+    name: JavaScript Unit Tests
+    entry: scripts/run_js_tests.sh
+    language: system
+    pass_filenames: false
+    require_serial: true

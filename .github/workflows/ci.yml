@@ -100,6 +100,29 @@ jobs:
     - name: Run tests
       run: uv run pytest tests/ -v --cov=pikaraoke --cov-report=term-missing --cov-report=xml:coverage.xml
 
+  # Sibling of the Python unit tests: a Node toolchain failure does not
+  # mask a green Python suite, and the two run in parallel. Coverage is
+  # collected only here; the local pre-commit hook and `npm run test`
+  # run the suite without it.
+  js-unit-tests:
+    runs-on: ubuntu-latest
+    name: JS Unit Tests
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Set up Node
+      # Node 18 - the most widely deployed runtime - is the oldest
+      # runtime the suite supports, so CI verifies that floor.
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Run JS tests with coverage
+      run: |
+        npm ci --no-audit --no-fund
+        npm run test:coverage
+
   docker-smoketest:
     runs-on: ubuntu-latest
     name: Docker Build Smoketest (amd64)
