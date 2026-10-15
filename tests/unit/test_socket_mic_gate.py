@@ -45,6 +45,17 @@ def reset_splash_state():
     yield
     socket_events.splash_connections.clear()
     socket_events.master_splash_id = None
+    socket_events.splash_liveness.clear()
+    socket_events.splash_last_playback.clear()
+
+
+def elect_master(socketio, app, karaoke):
+    """Register a splash and make it the master, so end_song reaches the gate."""
+    karaoke.playback_controller.playback_id = None
+    client = socketio.test_client(app)
+    client.emit("register_splash")
+    client.emit("playback_position", 0.0)
+    return client
 
 
 def make_socket_app(admin: bool):
@@ -138,23 +149,24 @@ def test_a_guest_splash_registers_and_reports_position():
     assert karaoke.playback_controller.now_playing_position == 12.5
 
 
-def test_a_client_cannot_force_a_failed_to_start():
-    """'failed to start' is decided server-side, so a client emitting it - e.g. a
-    splash running an older script with a blind start timer - must not end the
+def test_the_master_cannot_force_a_failed_to_start():
+    """'failed to start' is decided server-side, so even the master emitting it -
+    e.g. a splash on an older script with a blind start timer - must not end the
     song."""
     app, socketio, karaoke = make_socket_app(admin=False)
-    client = socketio.test_client(app)
+    master = elect_master(socketio, app, karaoke)
 
-    client.emit("end_song", "failed to start", "123")
+    master.emit("end_song", "failed to start", "123")
 
     karaoke.playback_controller.end_song.assert_not_called()
 
 
-def test_a_client_can_still_end_a_song_naturally():
-    """Real end reasons keep reaching the controller."""
+def test_the_master_ends_a_song_naturally_without_an_admin_session():
+    """A real end from the master reaches the controller: end_song is gated on
+    the master seat, not on admin."""
     app, socketio, karaoke = make_socket_app(admin=False)
-    client = socketio.test_client(app)
+    master = elect_master(socketio, app, karaoke)
 
-    client.emit("end_song", "complete", "123")
+    master.emit("end_song", "complete", "123")
 
     karaoke.playback_controller.end_song.assert_called_once_with("complete", "123")
