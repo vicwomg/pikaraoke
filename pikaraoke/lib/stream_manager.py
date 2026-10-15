@@ -97,6 +97,9 @@ class StreamManager:
         self.ffmpeg_process = None
         self.ffmpeg_log: Queue | None = None
         self.base_path = normalize_url_base_path(base_path)
+        # FileResolver of the transcode currently in flight, so the start
+        # watchdog can probe whether FFmpeg is still producing segments.
+        self._current_fr: FileResolver | None = None
 
     def _with_base_path(self, path: str) -> str:
         """Prefix relative app paths when PiKaraoke is mounted under a subpath."""
@@ -211,6 +214,8 @@ class StreamManager:
             Tuple of (is_transcoding_complete, is_buffering_complete).
         """
         self.kill_ffmpeg()
+        # The old transcode is gone; this one is now the one in flight.
+        self._current_fr = fr
 
         normalize_audio = self.preferences.get_or_default("normalize_audio")
         complete_transcode_before_play = self.preferences.get_or_default(
@@ -335,6 +340,34 @@ class StreamManager:
 
         return False
 
+    def transcode_progress(self, playback_id: str | None) -> tuple[int, int] | None:
+        """How much of the active transcode has been written so far.
+
+        Returns (segment_count, total_bytes) for the transcode in flight, so the
+        start watchdog can tell a stalled FFmpeg from one that is still
+        producing. Reports growth in whichever form the transcode writes: HLS
+        counts its .m4s segments, progressive MP4 its single .mp4 - so both
+        streaming formats show real progress. Returns None when there is no
+        transcode for this playback (nothing to watch, or it has ended).
+        """
+        fr = self._current_fr
+        if fr is None or str(fr.stream_uid) != str(playback_id):
+            return None
+        try:
+            stream_uid_str = str(fr.stream_uid)
+            if self.streaming_format == "hls":
+                names = [
+                    f for f in os.listdir(fr.tmp_dir) if stream_uid_str in f and f.endswith(".m4s")
+                ]
+                total = sum(os.path.getsize(os.path.join(fr.tmp_dir, n)) for n in names)
+                return (len(names), total)
+            # Progressive MP4 writes a single file, so its size is the progress.
+            out = os.path.join(fr.tmp_dir, f"{stream_uid_str}.mp4")
+            return (1 if os.path.exists(out) else 0, os.path.getsize(out))
+        except (FileNotFoundError, OSError):
+            # Temp dir not created yet, or already cleaned up.
+            return (0, 0)
+
     def _check_mp4_buffer(self, fr: FileResolver, buffer_size: int) -> bool:
         """Check if MP4 buffer is ready for playback.
 
@@ -390,3 +423,4 @@ class StreamManager:
                 logging.debug(f"FFmpeg termination exception: {e}")
             finally:
                 self.ffmpeg_process = None
+        self._current_fr = None

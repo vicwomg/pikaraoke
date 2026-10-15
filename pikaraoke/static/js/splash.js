@@ -8,7 +8,6 @@ let showMenu = false;
 let menuButtonVisible = false;
 let autoplayConfirmed = false;
 let volume = 0.85;
-const playbackStartTimeout = 10000;
 const bgMediaResumeDelay = 2000;
 const bgVideoChoices = PikaraokeConfig.bgVideoChoices;
 let currentVideoUrl = null;
@@ -421,15 +420,12 @@ const handleNowPlayingUpdate = (np) => {
       setTimeout(() => video.play(), 1000);
     });
 
-    const loadedPlaybackId = currentPlaybackId;
-    setTimeout(() => {
-      // Only the master ends a song, and only the one this timer was armed for.
-      if (!isMaster || loadedPlaybackId !== currentPlaybackId) return;
-      // A paused video is a failure too: a blocked autoplay stays silent forever.
-      if (!isMediaPlaying(video) && !nowPlaying.is_paused) {
-        endSong("failed to start");
-      }
-    }, playbackStartTimeout);
+    // Start-failure detection is server-side and progress-aware (the server ends
+    // a song that never confirms a start while the transcode has stalled). A
+    // client timer that fires "failed to start" whenever the video is not playing
+    // at that instant used to kill a song that had started and was merely
+    // buffering during a long transcode, and a restored or stale tab could fire it
+    // for the whole kiosk - so it is gone.
   }
 }
 
