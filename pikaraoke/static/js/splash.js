@@ -1,5 +1,5 @@
 const withBasePath = (path) => `${window.pikaraokeConfig.basePath}${path}`;
-let socket = io({ path: window.pikaraokeConfig.socketioPath });
+const socket = io({ path: window.pikaraokeConfig.socketioPath });
 let mouseTimer = null;
 let cursorVisible = false;
 let nowPlaying = {};
@@ -504,10 +504,15 @@ const setupVideoPlayer = () => {
     }
   });
 
-  // Master reports playback position to server
+  // Every playing tab beacons its position (with the playback it is on) once a
+  // second. The server uses these beacons both to keep the position current and
+  // to elect the master: the master must be a tab that is actually playing the
+  // current playback, so a dead or restored tab that merely registered cannot
+  // hold the seat. The server accepts the position only from the master and
+  // ignores beacons for a playback other than the one loaded.
   setInterval(() => {
-    if (isMaster && isMediaPlaying(video)) {
-      socket.emit("playback_position", video.currentTime);
+    if (isMediaPlaying(video)) {
+      socket.emit("playback_position", video.currentTime, currentPlaybackId);
     }
   }, 1000);
 
@@ -720,15 +725,14 @@ const setupSocketEvents = () => {
 }
 
 const handleSocketRecovery = () => {
-  // A socket may disconnect if the tab is backgrounded for a while
-  // Reconnect and configure event listeners when tab becomes visible again
+  // A socket may disconnect if the tab is backgrounded for a while.
+  // Reconnect when the tab becomes visible again, but do not set the listeners
+  // up again: io() multiplexes, so it hands back this same socket, and a second
+  // setupSocketEvents() would leave every event handled twice over.
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === 'visible') {
       autoplayConfirmed && loadNowPlaying();
-      if (!socket.connected) {
-        socket = io({ path: window.pikaraokeConfig.socketioPath });
-        setupSocketEvents();
-      }
+      if (!socket.connected) socket.connect();
     }
   });
 }

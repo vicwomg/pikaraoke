@@ -125,6 +125,10 @@ def test_public_handler_is_not_refused(event, args, caplog):
 def test_a_guest_splash_registers_and_reports_position():
     """Election and position in one test: only the elected master is heard."""
     app, socketio, karaoke = make_socket_app(admin=False)
+    # Real values, not MagicMocks: the position assertion would otherwise pass
+    # against a field the handler never set.
+    karaoke.playback_controller.playback_id = None
+    karaoke.playback_controller.now_playing_position = None
     client = socketio.test_client(app)
 
     client.emit("register_splash")
