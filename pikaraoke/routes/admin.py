@@ -2,6 +2,7 @@
 
 import getpass
 import logging
+import math
 import shutil
 import subprocess
 import sys
@@ -172,9 +173,19 @@ def expand_fs():
 @admin_bp.arguments(AuthForm, location="form")
 def auth(form):
     """Authenticate as admin from the browser form."""
-    if log_in(form["admin_password"]):
+    outcome = log_in(form["admin_password"])
+    if outcome.granted:
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
+    elif outcome.throttled:
+        # MSG: Message shown after too many failed admin login attempts.
+        flash(
+            _(
+                "Too many attempts. Try again in %(seconds)d seconds.",
+                seconds=math.ceil(outcome.retry_after),
+            ),
+            "is-danger",
+        )
     else:
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
