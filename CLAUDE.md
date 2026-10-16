@@ -39,6 +39,11 @@ PiKaraoke is a karaoke system for Raspberry Pi, Windows, macOS, and Linux. Web i
 - Concise docstrings for public APIs - explain "why", not "how"
 - No emoji or unicode emoji substitutes
 
+## Styling
+
+- Style with Bulma's own helper classes and modifiers in the markup; theme with Bulma CSS variables (`--bulma-*`) in `static/custom.css`
+- Write bespoke CSS only where Bulma offers no equivalent
+
 ## Filename Conventions
 
 YouTube video filenames use exactly 11-character IDs:

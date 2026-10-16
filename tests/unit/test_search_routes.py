@@ -15,7 +15,7 @@ MISSING = SearchResult(
 
 # The rendered elements, not the bare class name -- that also appears in the page's CSS.
 # The row carries the queue-or-not intent, so there is no global toggle to read.
-QUEUE_BUTTON = 'class="button is-info search_result_items_download" data-queue="1"'
+QUEUE_BUTTON = 'class="button is-success search_result_items_download" data-queue="1"'
 SAVE_BUTTON = 'class="button search_result_items_download" data-queue=""'
 
 

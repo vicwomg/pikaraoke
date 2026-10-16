@@ -129,13 +129,6 @@
     }
   };
 
-  // Column width constants
-  var COL_WIDTH = {
-    number: '35px',
-    drag: '44px',
-    options: '50px'
-  };
-
   // Generate now-playing row HTML
   function generateNowPlayingRow(np) {
     var iconSrc = np.is_paused
@@ -143,24 +136,24 @@
       : '{{ url_for("static", filename="images/now-playing.gif") }}';
 
     var html = '<tr class="disabled-sort has-background-dark">';
-    html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">';
-    html += '<img src="' + iconSrc + '" alt="Now Playing" style="width: 35px; height: auto;">';
+    html += '<td class="is-vcentered has-text-centered">';
+    html += '<img src="' + iconSrc + '" alt="Now Playing">';
     html += '</td>';
 
     if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.drag + '; padding: 5px 0px; vertical-align: middle;"></td>';
+      html += '<td></td>';
     }
 
-    html += '<td style="padding: 8px 10px; vertical-align: middle;">';
+    html += '<td class="is-vcentered">';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span class="has-text-success">' + np.now_playing_user + '</span>';
-    html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + np.now_playing + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
+    html += '<span>' + np.now_playing_user + '</span>';
+    html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
+    html += '<span class="has-text-weight-bold has-text-white is-hidden-mobile">' + np.now_playing + '</span>';
+    html += '<span class="is-size-7 has-text-weight-bold has-text-white is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
     html += '</div></td>';
 
     if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right;">';
+      html += '<td class="is-vcentered has-text-right">';
       html += '<a class="has-text-grey-light row-options-btn now-playing-options-btn" title="{{ _("Options") | forceescape }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
@@ -205,12 +198,12 @@
           host.setAttribute('data-url', d.url);
           host.innerHTML = `
               <div class="box mb-4 has-background-dark">
-                  <h4 class="title is-5 mb-2 dl-title"></h4>
+                  <h4 class="mb-2 dl-title"></h4>
                   <div class="dl-bar"><div class="dl-bar-fill"></div></div>
                   <div class="dl-meta is-size-7">
-                      <span class="dl-phase-group">
+                      <span class="is-flex is-align-items-center is-gap-1 mr-auto">
                           <span class="dl-phase"></span>
-                          <span class="tag is-info is-light is-rounded dl-attempt is-hidden"></span>
+                          <span class="tag is-info is-light dl-attempt is-hidden"></span>
                       </span>
                       <span class="dl-percent"></span>
                       <span class="dl-meta-rate">
@@ -267,15 +260,15 @@
           var html = "";
 
           if (status.pending && status.pending.length > 0) {
-              html += `<div class="content"><h5 class="title is-6 mb-2">{{ _('Pending downloads') | forceescape }}</h5>`;
+              html += `<div class="content"><h5 class="mb-2">{{ _('Pending downloads') | forceescape }}</h5>`;
               status.pending.forEach(function(d) {
                   // A re-queued download has to be distinguishable from a fresh one
                   var tag = d.attempts > 0
-                      ? `<span class="tag is-info is-light is-rounded ml-auto">{{ _('Retrying') | forceescape }}&nbsp;${d.attempts + 1}/${status.max_attempts}</span>`
-                      : `<span class="tag is-light is-rounded ml-auto">{{ _('Queued') | forceescape }}</span>`;
+                      ? `<span class="tag is-info is-light ml-auto">{{ _('Retrying') | forceescape }}&nbsp;${d.attempts + 1}/${status.max_attempts}</span>`
+                      : `<span class="tag is-light ml-auto">{{ _('Queued') | forceescape }}</span>`;
                   html += `
                       <div class="box mb-2 p-3 has-background-dark is-flex is-align-items-center">
-                          <span class="has-text-grey">${d.display_title || d.video_url}</span>
+                          <span class="has-text-grey-light">${d.display_title || d.video_url}</span>
                           ${tag}
                       </div>
                   `;
@@ -284,17 +277,17 @@
           }
 
           if (status.errors && status.errors.length > 0) {
-              html += `<div class="content"><h5 class="title is-6 mb-2 has-text-danger">{{ _('Download Errors') | forceescape }}</h5>`;
+              html += `<div class="content"><h5 class="mb-2 has-text-danger">{{ _('Download Errors') | forceescape }}</h5>`;
               status.errors.forEach(function(d) {
                   html += `
-                      <div class="box mb-2 p-3 has-background-white-ter is-flex is-align-items-center" style="border-left: 4px solid #f14668;">
+                      <div class="box mb-2 p-3 is-flex is-align-items-center" style="border-left: 4px solid var(--bulma-danger);">
                           <span class="icon has-text-danger mr-2"><i class="icon-cancel"></i></span>
                           <div class="is-flex-grow-1" style="min-width: 0;">
-                              <p class="has-text-grey mb-0 is-truncated" title="${d.title || d.url}">${d.title || d.url}</p>
-                              <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
+                              <p class="has-text-grey-light mb-0" title="${d.title || d.url}">${d.title || d.url}</p>
+                              <p class="help is-danger mb-0" title="${d.error}">${d.error}</p>
                           </div>
-                          <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') | forceescape }}</span>
-                          <button class="button is-small is-info is-light ml-2" onclick="retryDownloadError('${d.id}')">{{ _('Retry') | forceescape }}</button>
+                          <span class="tag is-danger is-light ml-2">{{ _('Failed') | forceescape }}</span>
+                          <button class="button is-small is-info ml-2" onclick="retryDownloadError('${d.id}')">{{ _('Retry') | forceescape }}</button>
                           <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') | forceescape }}"></button>
                       </div>
                   `;
@@ -364,24 +357,24 @@
   // Generate queue row HTML
   function generateQueueRow(e, index) {
     var html = '<tr data-index="' + index + '">';
-    html += '<td style="width: ' + COL_WIDTH.number + '; padding: 8px 8px; vertical-align: middle; text-align: center;">' + (index + 1) + '</td>';
+    html += '<td class="is-vcentered has-text-centered">' + (index + 1) + '</td>';
 
     if (isAdmin) {
-      html += '<td class="drag-handle" style="width: ' + COL_WIDTH.drag + '; vertical-align: middle; text-align: center; cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") | forceescape }}">';
+      html += '<td class="drag-handle is-vcentered has-text-centered" style="cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") | forceescape }}">';
       html += '<i class="icon icon-braille has-text-grey-light"></i>';
       html += '</td>';
     }
 
-    html += '<td style="padding: 8px 10px; vertical-align: middle;">';
+    html += '<td class="is-vcentered">';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span class="has-text-success">' + e.user + '</span>';
-    html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold is-hidden-mobile">' + e.title + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
+    html += '<span>' + e.user + '</span>';
+    html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
+    html += '<span class="is-hidden-mobile">' + e.title + '</span>';
+    html += '<span class="is-size-7 is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
     html += '</div></td>';
 
     if (isAdmin) {
-      html += '<td style="width: ' + COL_WIDTH.options + '; vertical-align: middle; text-align: right; padding-right: 10px;">';
+      html += '<td class="is-vcentered has-text-right">';
       html += '<a class="has-text-grey-light row-options-btn queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") | forceescape }}">';
       html += '<i class="icon-cog is-size-5"></i></a>';
       html += '</td>';
@@ -392,7 +385,15 @@
   }
 
   window.queuePage_generateHTML = function() {
-    var html = "<tbody>";
+    var html = '<colgroup><col class="col-number">';
+    if (isAdmin) {
+      html += '<col class="col-drag">';
+    }
+    html += '<col>';
+    if (isAdmin) {
+      html += '<col class="col-options">';
+    }
+    html += '</colgroup><tbody>';
     var queue = window.queuePageState.queue;
     var np = window.queuePageState.nowPlaying;
     var colSpan = isAdmin ? 4 : 2;
@@ -550,6 +551,21 @@
   // ... (Keep existing visibility logic here if needed) ...
 </script>
 
+<style>
+	/* The song column takes the slack. The number column holds two digits and
+	   the now-playing image is two digits wide, so starting a song moves nothing. */
+	#auto-refresh .col-number {
+		width: calc(2ch + 1.5em);
+	}
+	#auto-refresh .col-drag,
+	#auto-refresh .col-options {
+		width: 3em;
+	}
+	#auto-refresh img {
+		width: 2ch;
+	}
+</style>
+
 {% endblock %}
 
 {% block content %}
@@ -572,12 +588,12 @@
 
 <div class="modal" id="song-options-modal">
   <div class="modal-background"></div>
-  <div class="modal-card" style="width: 90%; max-width: 400px;">
-    <header class="modal-card-head" style="padding: 15px;">
-      <p class="modal-card-title is-size-6" id="modal-song-title" style="max-width: 95%">Song Options</p>
+  <div class="modal-card">
+    <header class="modal-card-head">
+      <p class="modal-card-title is-size-6 mb-0" id="modal-song-title">Song Options</p>
       <button class="delete" aria-label="close" onclick="closeSongOptions()"></button>
     </header>
-    <section class="modal-card-body" style="padding: 0;">
+    <section class="modal-card-body">
         <a id="opt-top" class="panel-block py-3" href="#" onclick="executeQueueAction('top'); return false;">
             <span class="icon has-text-info mr-2"><i class="icon-angle-double-up"></i></span>
             <b>{% trans %}Play Next{% endtrans %}</b>&nbsp;({% trans %}Move to Top{% endtrans %})
@@ -608,12 +624,12 @@
 
 <div class="modal" id="now-playing-options-modal">
   <div class="modal-background"></div>
-  <div class="modal-card" style="width: 90%; max-width: 400px;">
-    <header class="modal-card-head" style="padding: 15px;">
-      <p class="modal-card-title is-size-6" id="np-modal-song-title" style="max-width: 95%">Now Playing</p>
+  <div class="modal-card">
+    <header class="modal-card-head">
+      <p class="modal-card-title is-size-6 mb-0" id="np-modal-song-title">Now Playing</p>
       <button class="delete" aria-label="close" onclick="closeNowPlayingOptions()"></button>
     </header>
-    <section class="modal-card-body" style="padding: 0;">
+    <section class="modal-card-body">
         <a class="panel-block py-3" href="#" onclick="executePlaybackAction('restart'); return false;">
             <span class="icon mr-2"><i class="icon-to-start"></i></span>
             {% trans %}Restart{% endtrans %}
@@ -631,8 +647,8 @@
 </div>
 {% endif %}
 
-<div id="downloads-section" style="display:none; margin-top: 30px; border-top: 1px solid var(--dark-border); padding-top: 20px;">
-    <h3 class="title is-4">{{ _('Download queue') }}</h3>
+<div id="downloads-section" style="display:none; margin-top: 30px; border-top: 1px solid var(--bulma-border); padding-top: 20px;">
+    <h3>{{ _('Download queue') }}</h3>
     <div id="downloads-active"></div>
     <div id="downloads-rest"></div>
 </div>

@@ -37,9 +37,9 @@ table_lines_template = """
 
 {% for song in songs %}
 <tr>
-    <td class="vertical-align-middle col-num px-2">{{ loop.index + skip }}</td>
-    <td class="vertical-align-middle col-old-name px-1 old-name">{{ song.name }}</td>
-    <td class="vertical-align-middle col-new-name pr-0"><input class="input new-name
+    <td class="is-vcentered col-num px-2">{{ loop.index + skip }}</td>
+    <td class="is-vcentered col-old-name px-1 old-name">{{ song.name }}</td>
+    <td class="is-vcentered col-new-name pr-0"><input class="input is-small new-name
         {% if song.correct_name and song.is_equal %}
             is-success
         {% elif song.correct_name and not song.is_equal %}
@@ -47,9 +47,9 @@ table_lines_template = """
         {% else %}
             is-danger
         {% endif %}" type="text" value="{{ song.correct_name or 'N/A' }}" data-new-name="{{ song.correct_name or 'N/A' }}" data-old-name="{{ song.name }}" /></td>
-    <td class="vertical-align-middle col-btn pr-2">
+    <td class="is-vcentered col-btn pr-2">
     <div class="buttons are-small is-flex-wrap-nowrap">
-		  <a class="accept-change button has-text-weight-bold has-text-success is-small "
+		  <a class="accept-change button has-text-weight-bold has-text-success is-small"
     			href="#" data-old-name="{{ song.file }}"
 				title="{% trans %}Accept suggested name{% endtrans %}"
             {{ 'disabled' if song.is_equal or song.correct_name == none else '' }}>
@@ -71,7 +71,7 @@ all_songs_template = """
 		</p>
 	</div>
 </div>
-<table id="results-table" class="songs-table">
+<table id="results-table" class="table is-striped songs-table">
 <tbody>
 {{ table_lines|safe }}
 </tbody>
@@ -81,7 +81,7 @@ all_songs_template = """
 
 songs_to_rename_template = """
 {% if page|int == 1 %}
-<table id="results-table" class="songs-table">
+<table id="results-table" class="table is-striped songs-table">
 <tbody>
 {% endif %}
 
@@ -100,7 +100,7 @@ songs_to_rename_template = """
 		</p>
 	</div>
 </div>
-<button id="load-more-songs" class="button is-fullwidth has-text-primary" data-page="{{ page }}" data-last-song-index="{{ song_index }}">{# MSG: Label of the button to load more songs #} {% trans %}Load more songs{% endtrans %}</button>
+<button id="load-more-songs" class="button is-fullwidth" data-page="{{ page }}" data-last-song-index="{{ song_index }}">{# MSG: Label of the button to load more songs #} {% trans %}Load more songs{% endtrans %}</button>
 """
 
 
