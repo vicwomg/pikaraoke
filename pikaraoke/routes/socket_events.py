@@ -127,12 +127,12 @@ def setup_socket_events(socketio):
 
     @open_to_room("end_song")
     def end_song(reason: str, playback_id: str | None = None) -> None:
-        """Handle end_song WebSocket event from client.
-
-        Args:
-            reason: Reason for ending the song (e.g., 'complete', 'error').
-            playback_id: Playback the player is reporting on.
-        """
+        """End the current song. /splash is public, so the master seat - not an
+        admin session - is the authority: a non-master emit is dropped."""
+        sid = request.sid
+        if sid != master_splash_id:
+            logging.warning(f"Ignoring end_song ({reason}) from non-master splash {sid}")
+            return
         # "failed to start" is decided server-side (the progress-aware start
         # watchdog), so a client cannot force it. A splash running an older
         # script - e.g. a kiosk tab restored from cache - still carries a blind

@@ -283,6 +283,51 @@ class TestRegistrationGate:
         assert a_sid in socket_events.splash_liveness
 
 
+class TestEndSongMasterGate:
+    """Only the master splash may end the current song over the public /splash
+    namespace; a guest's console emit is dropped. (The master's own end and the
+    'failed to start' rule are covered in test_socket_mic_gate.)"""
+
+    def test_non_master_end_song_is_ignored(self):
+        app, socketio, karaoke = make_socket_app()
+        karaoke.playback_controller.playback_id = "PB1"
+        master, _ = register(socketio, app)
+        master.emit("playback_position", 10.0, "PB1")
+
+        guest, _ = register(socketio, app)
+        guest.emit("end_song", "complete", "PB1")
+
+        karaoke.playback_controller.end_song.assert_not_called()
+
+    def test_no_master_means_no_client_end(self):
+        app, socketio, karaoke = make_socket_app()
+        karaoke.playback_controller.playback_id = "PB1"
+        a, _ = register(socketio, app)  # registered but never beacons
+
+        a.emit("end_song", "complete", "PB1")
+
+        assert socket_events.master_splash_id is None
+        karaoke.playback_controller.end_song.assert_not_called()
+
+    def test_demoted_master_can_no_longer_end(self):
+        app, socketio, karaoke = make_socket_app()
+        karaoke.playback_controller.playback_id = "PB1"
+        a, a_sid = register(socketio, app)
+        a.emit("playback_position", 5.0, "PB1")
+        assert socket_events.master_splash_id == a_sid
+
+        karaoke.playback_controller.playback_id = "PB2"
+        b, b_sid = register(socketio, app)
+        b.emit("playback_position", 1.0, "PB2")
+        assert socket_events.master_splash_id == b_sid
+
+        a.emit("end_song", "complete", "PB2")
+        karaoke.playback_controller.end_song.assert_not_called()
+
+        b.emit("end_song", "complete", "PB2")
+        karaoke.playback_controller.end_song.assert_called_once_with("complete", "PB2")
+
+
 class TestQuietSidsAreReaped:
     """Bookkeeping for sids that stop beaming is dropped, so a churn of restored
     tabs that never deliver a clean disconnect cannot grow the state without
