@@ -1,4 +1,6 @@
-FROM alpine:edge
+# Pinned to a stable release: alpine:edge is rolling, so a mid-flight ABI bump
+# (e.g. a simdutf soname change) can leave a package temporarily unsatisfiable.
+FROM alpine:3.24
 
 WORKDIR /app
 
@@ -10,8 +12,10 @@ ENV UV_BREAK_SYSTEM_PACKAGES=1
 # Copy static ffmpeg binaries. 7.0 is a bit old, but significantly smaller while supporting librubberband
 COPY --from=mwader/static-ffmpeg:7.0 /ffprobe /ffmpeg /usr/local/bin/
 
+# node, not deno: deno's aarch64 apk build lags badly (an old arm64 Pi target),
+# while nodejs ships current in main on every arch. yt-dlp uses either.
 # tzdata: without the zoneinfo files, musl ignores a TZ zone name and stays on UTC
-RUN apk add --no-cache python3 deno curl tzdata
+RUN apk add --no-cache python3 nodejs curl tzdata
 
 # Copy dependency and metadata files first for better caching
 COPY pyproject.toml uv.lock ./
