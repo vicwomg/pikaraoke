@@ -803,3 +803,35 @@ if (socket.connected) {
   console.log('Socket already connected, registering splash...');
   socket.emit("register_splash");
 }
+
+// Test exports. In the browser this is a no-op: `module` is not defined
+// there. Under the test runner's CommonJS load, the functions and the
+// module state become importable.
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    isMediaPlaying, formatTime, parsePreferenceValue,
+    handleNowPlayingUpdate, endSong, flashNotification,
+    applyPreferenceUpdate, applyPreferencesReset,
+    applyUIScale, effectiveUIScale,
+    shouldBackgroundMediaPlay, getNextBgMusicSong,
+    PREFERENCE_EFFECTS,
+    // The let-bound module state, so tests read and write the same
+    // storage the code uses, not a copy.
+    get state() {
+      return {
+        get isMaster() { return isMaster; },
+        set isMaster(v) { isMaster = v; },
+        get currentPlaybackId() { return currentPlaybackId; },
+        set currentPlaybackId(v) { currentPlaybackId = v; },
+        get currentVideoUrl() { return currentVideoUrl; },
+        set currentVideoUrl(v) { currentVideoUrl = v; },
+        get nowPlaying() { return nowPlaying; },
+        set nowPlaying(v) { nowPlaying = v; },
+        get autoplayConfirmed() { return autoplayConfirmed; },
+        set autoplayConfirmed(v) { autoplayConfirmed = v; },
+        get bgPlaylist() { return bg_playlist; },
+        set bgPlaylist(v) { bg_playlist = v; },
+      };
+    },
+  };
+}
