@@ -26,7 +26,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Install pip into the venv so that python -m pip works for yt-dlp self-upgrade
 RUN uv pip install pip
 
-COPY docs ./docs
+COPY README.md ./
 COPY pikaraoke ./pikaraoke
 
 # Final install of the package itself (fast)

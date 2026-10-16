@@ -26,8 +26,8 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 - [Usage](#usage)
 - [Docker](#docker-instructions)
 - [Screenshots](#screenshots)
-- [Developing pikaraoke](#developing-pikaraoke)
-- [Troubleshooting](#troubleshooting-and-guides)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
 
 ## Supported Devices / OS / Platforms
 
@@ -125,33 +125,19 @@ To run under a path prefix (e.g., `/karaoke`), add `--base-path /your-path` and 
 ## Screenshots
 
 <div style="display: flex; flex-wrap: wrap;">
-<img width="250" alt="pikaraoke-nowplaying" src="images/screenshot-now-playing.png">
-<img width="250" alt="pikaraoke-queue" src="images/screenshot-queue.png">
-<img width="250" alt="pikaraoke-browse" src="images/screenshot-songs-all.png">
-<img width="250" alt="pikaraoke-search" src="images/screenshot-songs-search.png">
-<img width="250" alt="pikaraoke-add-new" src="images/screenshot-add-new.png">
-<img width="250" alt="pikaraoke-play-history" src="images/screenshot-play-history.png">
+<img width="250" alt="pikaraoke-nowplaying" src="docs/images/screenshot-now-playing.png">
+<img width="250" alt="pikaraoke-queue" src="docs/images/screenshot-queue.png">
+<img width="250" alt="pikaraoke-browse" src="docs/images/screenshot-songs-all.png">
+<img width="250" alt="pikaraoke-search" src="docs/images/screenshot-songs-search.png">
+<img width="250" alt="pikaraoke-add-new" src="docs/images/screenshot-add-new.png">
+<img width="250" alt="pikaraoke-play-history" src="docs/images/screenshot-play-history.png">
 <img width="400" height="300" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
 </div>
 
-## Developing pikaraoke
+## Contributing
 
-The Pikaraoke project utilizes `uv` for dependency management and local development.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first; the [development guide](docs/development.md) covers setup, tests and the PR conventions.
 
-- Install [uv](https://github.com/astral-sh/uv)
-- Git clone this repo
+## Documentation
 
-From the pikaraoke directory:
-
-```sh
-# install dependencies and run pikaraoke from local code
-uv run pikaraoke
-```
-
-See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
-
-## Troubleshooting and guides
-
-See the [Troubleshooting wiki](https://github.com/vicwomg/pikaraoke/wiki/Troubleshooting) for help with issues.
-
-There are also some great guides [on the wiki](https://github.com/vicwomg/pikaraoke/wiki/) to running pikaraoke in all manner of bizarre places including Android, Chromecast, and embedded TVs!
+The [wiki](https://github.com/vicwomg/pikaraoke/wiki) is the full manual: the [FAQ](https://github.com/vicwomg/pikaraoke/wiki/FAQ), [troubleshooting](https://github.com/vicwomg/pikaraoke/wiki/Troubleshooting), and guides for running pikaraoke in all manner of bizarre places including Android, Chromecast, and embedded TVs.
