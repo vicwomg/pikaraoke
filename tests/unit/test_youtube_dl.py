@@ -34,7 +34,7 @@ def _module_ytdlp_command():
             "pikaraoke.lib.youtube_dl.ytdlp_command",
             return_value=[sys.executable, "-m", "yt_dlp"],
         ),
-        patch("pikaraoke.lib.youtube_dl.ensure_ytdlp_binary", return_value=None),
+        patch("pikaraoke.lib.youtube_dl.ensure_ytdlp_binary", return_value=(None, False)),
     ):
         yield
 
@@ -455,10 +455,28 @@ class TestUpgradeYoutubedl:
             assert result == "2024.01.01"
             mock_version.assert_called_once_with()
 
-    def test_managed_binary_self_update_succeeds_without_pip(self):
-        """A standalone binary's `-U` is the whole upgrade; pip is never touched."""
+    def test_fresh_binary_download_skips_redundant_self_update(self):
+        """A just-downloaded binary is already current, so `-U` is not run."""
         with (
-            patch("pikaraoke.lib.youtube_dl.ensure_ytdlp_binary", return_value="/data/yt-dlp"),
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", True),
+            ),
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.08.19"),
+            patch("subprocess.check_output") as mock_check,
+        ):
+            result = upgrade_youtubedl()
+
+            assert result == "2026.08.19"
+            mock_check.assert_not_called()
+
+    def test_managed_binary_self_update_succeeds_without_pip(self):
+        """An existing binary's `-U` is the whole upgrade; pip is never touched."""
+        with (
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", False),
+            ),
             patch("pikaraoke.lib.youtube_dl.ytdlp_command", return_value=["/data/yt-dlp"]),
             patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.09.01"),
             patch(
@@ -477,7 +495,10 @@ class TestUpgradeYoutubedl:
         error = subprocess.CalledProcessError(1, "yt-dlp", b"ERROR: unable to download")
         error.output = b"ERROR: unable to download"
         with (
-            patch("pikaraoke.lib.youtube_dl.ensure_ytdlp_binary", return_value="/data/yt-dlp"),
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", False),
+            ),
             patch("pikaraoke.lib.youtube_dl.ytdlp_command", return_value=["/data/yt-dlp"]),
             patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.08.19"),
             patch("subprocess.check_output", side_effect=error) as mock_check,
@@ -490,7 +511,10 @@ class TestUpgradeYoutubedl:
     def test_managed_binary_already_up_to_date(self):
         """`-U` reporting up to date returns the current version, no pip."""
         with (
-            patch("pikaraoke.lib.youtube_dl.ensure_ytdlp_binary", return_value="/data/yt-dlp"),
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", False),
+            ),
             patch("pikaraoke.lib.youtube_dl.ytdlp_command", return_value=["/data/yt-dlp"]),
             patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.09.01"),
             patch(

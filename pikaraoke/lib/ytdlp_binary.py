@@ -88,11 +88,6 @@ def binary_path() -> str:
     return os.path.join(get_data_directory(), name)
 
 
-# Announce the yt-dlp source once, and again only when it flips (module ->
-# binary after a download), never per call.
-_last_logged_command: list[str] | None = None
-
-
 def ytdlp_command() -> list[str]:
     """Return the command to invoke yt-dlp.
 
@@ -100,35 +95,31 @@ def ytdlp_command() -> list[str]:
     back to the pinned module. Resolved per call so a download that lands after
     startup is picked up without a restart.
     """
-    global _last_logged_command
     path = binary_path()
-    using_binary = os.path.exists(path)
-    command = [path] if using_binary else [sys.executable, "-m", "yt_dlp"]
-    if command != _last_logged_command:
-        source = "managed yt-dlp binary" if using_binary else "pinned yt-dlp module"
-        logging.info(f"Using {source}")
-        _last_logged_command = command
-    return command
+    if os.path.exists(path):
+        return [path]
+    return [sys.executable, "-m", "yt_dlp"]
 
 
-def ensure_ytdlp_binary() -> str | None:
+def ensure_ytdlp_binary() -> tuple[str | None, bool]:
     """Make sure a managed yt-dlp binary is present, downloading it if absent.
 
-    Returns the binary path, or None when this platform has no self-updating
-    build or the download could not be verified. Never raises: a failure just
-    leaves the caller on the pinned module.
+    Returns (path, downloaded): the binary's path and whether this call fetched
+    it fresh. path is None when this platform has no self-updating build or the
+    download could not be verified. Never raises: a failure just leaves the
+    caller on the pinned module.
     """
     asset = _asset_name()
     if asset is None:
-        return None
+        return None, False
 
     path = binary_path()
     if os.path.exists(path):
-        return path
+        return path, False
 
     if _download_and_verify(asset, path):
-        return path
-    return None
+        return path, True
+    return None, False
 
 
 def _expected_hash(sums_text: str, asset: str) -> str | None:
@@ -174,7 +165,9 @@ def _download_and_verify(asset: str, dest: str) -> bool:
         if not is_windows():
             os.chmod(tmp, 0o755)
         os.replace(tmp, dest)
-        logging.info(f"Installed self-updating yt-dlp binary at {dest}")
+        # The user-facing install line is logged by the caller, which also has
+        # the resolved version to report alongside the path.
+        logging.debug(f"Downloaded yt-dlp binary to {dest}")
         return True
     except (requests.RequestException, OSError) as e:
         logging.warning(f"Could not acquire yt-dlp binary, staying on the pinned module: {e}")

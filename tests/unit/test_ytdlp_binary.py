@@ -92,7 +92,7 @@ class TestEnsureBinary:
 
     def test_no_asset_returns_none(self, monkeypatch):
         monkeypatch.setattr(ytdlp_binary, "_asset_name", lambda: None)
-        assert ytdlp_binary.ensure_ytdlp_binary() is None
+        assert ytdlp_binary.ensure_ytdlp_binary() == (None, False)
 
     def test_existing_binary_is_not_redownloaded(self, monkeypatch, tmp_path):
         monkeypatch.setattr(ytdlp_binary, "_asset_name", lambda: "yt-dlp_linux")
@@ -101,7 +101,7 @@ class TestEnsureBinary:
         (tmp_path / "yt-dlp").write_text("binary")
         download = MagicMock()
         monkeypatch.setattr(ytdlp_binary, "_download_and_verify", download)
-        assert ytdlp_binary.ensure_ytdlp_binary() == os.path.join(str(tmp_path), "yt-dlp")
+        assert ytdlp_binary.ensure_ytdlp_binary() == (os.path.join(str(tmp_path), "yt-dlp"), False)
         download.assert_not_called()
 
     def test_missing_binary_triggers_download(self, monkeypatch, tmp_path):
@@ -109,14 +109,14 @@ class TestEnsureBinary:
         monkeypatch.setattr(ytdlp_binary, "get_data_directory", lambda: str(tmp_path))
         monkeypatch.setattr(ytdlp_binary, "is_windows", lambda: False)
         monkeypatch.setattr(ytdlp_binary, "_download_and_verify", lambda asset, dest: True)
-        assert ytdlp_binary.ensure_ytdlp_binary() == os.path.join(str(tmp_path), "yt-dlp")
+        assert ytdlp_binary.ensure_ytdlp_binary() == (os.path.join(str(tmp_path), "yt-dlp"), True)
 
     def test_failed_download_returns_none(self, monkeypatch, tmp_path):
         monkeypatch.setattr(ytdlp_binary, "_asset_name", lambda: "yt-dlp_linux")
         monkeypatch.setattr(ytdlp_binary, "get_data_directory", lambda: str(tmp_path))
         monkeypatch.setattr(ytdlp_binary, "is_windows", lambda: False)
         monkeypatch.setattr(ytdlp_binary, "_download_and_verify", lambda asset, dest: False)
-        assert ytdlp_binary.ensure_ytdlp_binary() is None
+        assert ytdlp_binary.ensure_ytdlp_binary() == (None, False)
 
 
 class TestExpectedHash:

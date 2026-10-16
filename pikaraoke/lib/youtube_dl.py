@@ -91,7 +91,15 @@ def upgrade_youtubedl() -> str:
     Returns:
         The new version string after upgrade.
     """
-    binary = ensure_ytdlp_binary()
+    binary, downloaded = ensure_ytdlp_binary()
+
+    if binary is not None and downloaded:
+        # The binary was just fetched at the latest release, so it is already
+        # current. Running `-U` now would be a redundant network check that
+        # logs a confusing "already up to date" right after the install.
+        version = get_youtubedl_version()
+        logging.info(f"Installed yt-dlp {version} at {binary}")
+        return version
 
     try:
         output = (
@@ -114,13 +122,14 @@ def upgrade_youtubedl() -> str:
 
     if "is up to date" in output.lower():
         version = get_youtubedl_version()
-        logging.info(f"yt-dlp is already up to date (version {version})")
+        source = "binary" if binary is not None else "module"
+        logging.info(f"yt-dlp {source} is already up to date (version {version})")
         return version
 
     if binary is not None:
         # `-U` on the standalone binary already downloaded and replaced itself.
         version = get_youtubedl_version()
-        logging.info(f"Upgraded yt-dlp to version {version}")
+        logging.info(f"Upgraded yt-dlp binary to version {version}")
         return version
 
     # Pinned module: `-U` cannot replace a pip install, so it reports back to pip.
