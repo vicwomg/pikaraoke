@@ -491,13 +491,13 @@
 
 					<div id="mic-settings-panel" style="display: none;">
 					<div class="is-flex is-align-items-center mt-3 mb-2">
-						<label class="label mr-2 mb-0" style="white-space: nowrap; font-size: 0.85rem;">{% trans %}Latency{% endtrans %}</label>
-						<input type="range" id="mic-latency" min="10" max="200" step="10" value="10" style="flex: 1;" />
-						<span id="mic-latency-value" class="ml-2 is-size-7" style="min-width: 45px;">10ms</span>
+						<label class="label mr-2 mb-0 mic-control-label">{% trans %}Latency{% endtrans %}</label>
+						<input type="range" id="mic-latency" min="10" max="200" step="10" value="10" class="is-flex-grow-1" />
+						<span id="mic-latency-value" class="ml-2 is-size-7 mic-latency-value">10ms</span>
 					</div>
 					{% if is_linux %}
 					<div class="is-flex is-align-items-center mb-2">
-						<label class="checkbox" style="font-size: 0.85rem;">
+						<label class="checkbox mic-control-label">
 							<input type="checkbox" id="mic-echo-cancel" class="mr-1" />
 							{% trans %}Echo cancellation{% endtrans %}
 						</label>
@@ -799,14 +799,14 @@
 				{# MSG: Title of the card holding the two destructive reset actions, set apart at the foot of the page. #}
 				<h3 class="m-0">{% trans %}Reset{% endtrans %}</h3>
 			</header>
-			<div class="card-content">
-				<div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+			<div class="panel is-shadowless mb-0">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					{# MSG: Help text explaining what Reset settings does. #}
 					<span>{% trans %}Returns every setting to its default.{% endtrans %}</span>
 					{# MSG: Button which returns every preference to its default. #}
 					<a id="clear-preferences-link" class="button is-danger is-outlined is-flex-shrink-0 ml-4" href="{{ url_for('preferences.clear_preferences') }}">{% trans %}Reset settings{% endtrans %}</a>
 				</div>
-				<div class="is-flex is-justify-content-space-between is-align-items-center">
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					{# MSG: Help text explaining what Reset all history does. #}
 					<span>{% trans %}Deletes every session and every play on record. This cannot be undone.{% endtrans %}</span>
 					{# MSG: Button which deletes the entire play history, every session and every play. #}
@@ -844,12 +844,21 @@
 
 				</div>
 			</div>
+		</div>
 
 	{% endif %}
 
 	<style>
 	input.user-preference-input {
 		width: 80px;
+	}
+	/* Mic control sizes Bulma has no helper for */
+	.mic-control-label {
+		white-space: nowrap;
+		font-size: 0.85rem;
+	}
+	.mic-latency-value {
+		min-width: 45px;
 	}
 	/* Collapsible sections */
 	.collapsible-header {
