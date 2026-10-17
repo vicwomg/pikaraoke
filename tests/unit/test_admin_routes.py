@@ -40,7 +40,7 @@ def app(auth):
     test_app.register_blueprint(admin_bp)
     test_app.register_blueprint(auth_api_bp)
     test_app.register_blueprint(library_bp)
-    test_app.add_url_rule("/info", "info.info", public(lambda: ""))
+    test_app.add_url_rule("/settings", "settings.settings", public(lambda: ""))
     test_app.add_url_rule("/", "home.home", public(lambda: ""))
     # Host-only and free of the Karaoke instance, so a test can watch the gate
     # open rather than a view succeed.

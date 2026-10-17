@@ -36,6 +36,7 @@ EXPECTED_PUBLIC_ENDPOINTS = {
     "sessions.history",
     "sessions.rankings",
     "sessions_api.get_plays",
+    "settings.settings",
     "splash.get_score_phrases",
     "splash.splash",
     "stream.stream_bg_video",
