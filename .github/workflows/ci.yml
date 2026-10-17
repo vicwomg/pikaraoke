@@ -61,6 +61,8 @@ jobs:
         fetch-depth: 0  # Required to get all commits for linting
     - name: Run commitlint
       uses: wagoid/commitlint-github-action@v6
+      with:
+        configFile: code_quality/.commitlintrc.yml
 
   smoketest:
     runs-on: ${{ matrix.os }}
