@@ -102,12 +102,26 @@
     }
 
 
-    function showNotification(message, categoryClass, timeout=3000) {
-      $("#notification-alt").addClass(categoryClass)
-      $("#notification-alt div").text(message)
-      $("#notification-alt").fadeIn()
-      setTimeout(function () {$("#notification-alt").fadeOut()}, timeout)
-      setTimeout(function () {$("#notification-alt").removeClass(categoryClass)}, timeout + 750)
+    // Each toast owns its timer, so a later toast never cuts an earlier one
+    // short and a manual close cannot race the auto-expiry.
+    function bindToastDismiss($toast, timeout) {
+      function dismiss() {
+        clearTimeout(timer);
+        $toast.fadeOut(function () { $toast.remove(); });
+      }
+      var timer = setTimeout(dismiss, timeout);
+      $toast.find(".delete").on("click", dismiss);
+    }
+
+    // Global: templates and spa-navigation.js both fire it.
+    window.showNotification = function (message, categoryClass, timeout = 3000) {
+      var $toast = $('<div class="notification base-notification mb-0"></div>')
+        .addClass(categoryClass)
+        .append($('<button class="delete" aria-label="close"></button>'))
+        .append($('<div class="flash"></div>').text(message));
+      $("#notification-stack").append($toast);
+      $toast.hide().fadeIn();
+      bindToastDismiss($toast, timeout);
     }
 
     function setUserCookie(reload=false) {
@@ -304,17 +318,14 @@
       // in the room sees which session is running.
       bindSessionRibbon();
 
-      $("#notification-close").click(function () {
-        $(".notification").hide();
+      // Give server flashes the same close button and auto-expiry as fired toasts.
+      $("#notification-stack .notification").each(function () {
+        bindToastDismiss($(this), 3000);
       });
-      $("#notification-alt").hide()
 
       // Navbar burger menu is handled by spa-navigation.js
 
       window.spaNavigation.updateNavHighlight(window.location.pathname);
-
-      // handle auto-close flash notifications
-      setTimeout(function() { $("#notification").fadeOut()}, 3000);
 
       // Reveal KJ-only controls when a host has opted into KJ mode.
       if (isKjMode()) {
@@ -352,15 +363,26 @@
   .navbar-link > i::before {
     margin-right: 0;
   }
-  /* Padded to level the first line with Bulma's close button, 1rem from the top. */
-  .base-notification {
-    --bulma-notification-padding: 0.875em 1.5em;
+  /* The stack is the fixed anchor; toasts flow upward from the bottom edge,
+     newest nearest it. pointer-events lets clicks through the gaps between toasts. */
+  .notification-stack {
     position: fixed;
     width: 500px;
     bottom: 5px;
     left: 50%;
     margin-left: -250px;
     z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+  }
+  .notification-stack .notification {
+    pointer-events: auto;
+  }
+  /* Padded to level the first line with Bulma's close button, 1rem from the top. */
+  .base-notification {
+    --bulma-notification-padding: 0.875em 1.5em;
   }
   .session-ribbon {
     display: flex;
@@ -399,10 +421,8 @@
     .navbar-brand > .navbar-item > span {
       display: none;
     }
-    .base-notification {
-      position: fixed;
+    .notification-stack {
       width: 100%;
-      bottom: 5px;
       left: 0px;
       margin-left: 0px;
     }
@@ -518,19 +538,14 @@
       <span class="session-ribbon-text is-truncated">{{ session_name }}</span>
     </div>
 
-    {% if get_flashed_messages() %}
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-    <div id="notification" class="notification base-notification mb-0 {{category}}">
-      <button id="notification-close" class="delete"></button>
-      <div class="flash">{{ message }}</div>
-    </div>
-    {% endfor %}
-    {% endif %}
-
-    <!-- Alternate notification for js-fired notifications using showNotification -->
-    <div id="notification-alt" class="notification base-notification" style="display: none">
-      <button id="notification-close" class="delete"></button>
-      <div class="flash"></div>
+    <!-- Server flashes render into the same stack showNotification appends to. -->
+    <div id="notification-stack" class="notification-stack">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="notification base-notification mb-0 {{ category }}">
+        <button class="delete" aria-label="close"></button>
+        <div class="flash">{{ message }}</div>
+      </div>
+      {% endfor %}
     </div>
 
     <div class="box" style="margin-top: 5px;">
