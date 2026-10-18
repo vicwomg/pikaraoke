@@ -142,13 +142,9 @@
   }
 }
 
-/* Striped tables tell rows apart by the stripe; a rule under each row says it
-   twice. Every table sits in base.html's .content, whose rule draws it. Heading
-   underlines are a separate variable and stay. Bulma's 800 heading weight has no
-   loaded face. */
+/* Tables inside a .content block draw no row rule; the stripe tells rows apart. */
 .content {
   --bulma-content-table-cell-border-width: 0;
-  --bulma-content-heading-weight: var(--bulma-weight-bold);
 }
 
 /* Rows are told apart by the stripe, so the cell border is off. Bulma's stripe,
@@ -395,20 +391,35 @@ input {
   font-size: 16px !important;
 }
 
-/* Sections step down from the page heading rather than matching it: Bulma's
-   own scale starts an h2 at 1.75em. */
-.content h2 {
+/* Section headings: Bulma's document scale, stepped down from the page title
+   and bold (Lato has no 800 face). */
+.box :is(h2, h3, h4, h5, h6) {
+  color: var(--bulma-text-strong);
+  font-weight: var(--bulma-weight-bold);
+  line-height: 1.125;
+}
+.box h2 {
   font-size: 1.5em;
+  margin-bottom: 0.5714em;
 }
-.content h3 {
+.box h2:not(:first-child) {
+  margin-top: 1.1428em;
+}
+.box h3 {
   font-size: 1.25em;
+  margin-bottom: 0.6666em;
 }
-.content h4 {
+.box h3:not(:first-child) {
+  margin-top: 1.3333em;
+}
+.box h4 {
   font-size: 1.125em;
+  margin-bottom: 0.8em;
 }
-.content h5,
-.content h6 {
+.box h5,
+.box h6 {
   font-size: 1em;
+  margin-bottom: 0.8888em;
 }
 
 table {
