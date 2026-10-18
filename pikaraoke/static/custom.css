@@ -142,11 +142,6 @@
   }
 }
 
-/* Tables inside a .content block draw no row rule; the stripe tells rows apart. */
-.content {
-  --bulma-content-table-cell-border-width: 0;
-}
-
 /* Rows are told apart by the stripe, so the cell border is off. Bulma's stripe,
    a step stronger. Any hovered row takes the app's hover step. */
 .table {
