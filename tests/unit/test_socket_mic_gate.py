@@ -32,7 +32,6 @@ ADMIN_EVENTS = [
 PUBLIC_EVENTS = [
     ("end_song", ("complete",)),
     ("start_song", ()),
-    ("clear_notification", ()),
     ("register_splash", ()),
     ("playback_position", (12.5,)),
     ("disconnect", ()),

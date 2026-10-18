@@ -692,9 +692,6 @@ const setupSocketEvents = () => {
     const message = notification[0];
     const categoryClass = notification.length > 1 ? notification[1] : "is-primary";
     flashNotification(message, categoryClass);
-    if (isMaster) {
-      socket.emit("clear_notification");
-    }
   });
   socket.on("now_playing", handleNowPlayingUpdate);
   socket.on("preferences_update", applyPreferenceUpdate);

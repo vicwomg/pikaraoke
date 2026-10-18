@@ -246,7 +246,6 @@ class TestDelayedHalt:
 
         k.queue_manager.queue_clear.assert_not_called()
         k.stop.assert_not_called()
-        k.reset_now_playing_notification.assert_called_once()
         k.send_notification.assert_called_once_with("refused", "danger")
 
     def test_a_sudo_success_logs_what_ran_without_a_warning(self, caplog):

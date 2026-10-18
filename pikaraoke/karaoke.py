@@ -67,7 +67,6 @@ class Karaoke:
     playback_controller: PlaybackController
     play_history: PlayHistoryManager
 
-    now_playing_notification: str | None = None
     volume: float
 
     qr_code_path: str | None = None
@@ -484,16 +483,12 @@ class Karaoke:
             color: Bulma color class (primary, warning, success, danger).
         """
         # Color should be bulma compatible: primary, warning, success, danger
-        hide_notifications = self.preferences.get_or_default("hide_notifications")
-        if not hide_notifications:
-            # don't allow new messages to clobber existing commands, one message at a time
-            # other commands have a higher priority
-            if self.now_playing_notification != None:
-                return
-            self.now_playing_notification = message + "::is-" + color
-            # Emit notification via SocketIO for event-driven architecture
-            if self.socketio:
-                self.socketio.emit("notification", self.now_playing_notification, namespace="/")
+        if self.preferences.get_or_default("hide_notifications"):
+            return
+        # The splash shows one notification at a time and drops overlaps itself,
+        # so the server keeps no slot to hold or clear.
+        if self.socketio:
+            self.socketio.emit("notification", f"{message}::is-{color}", namespace="/")
 
     def log_and_send(self, message: str, category: str = "info") -> None:
         """Log a message and send it as a notification.
@@ -618,10 +613,6 @@ class Karaoke:
     def handle_run_loop(self) -> None:
         """Handle one iteration of the main run loop with a sleep interval."""
         time.sleep(self.loop_interval / 1000)
-
-    def reset_now_playing_notification(self) -> None:
-        """Clear the current notification."""
-        self.now_playing_notification = None
 
     def reset_now_playing(self) -> None:
         """Reset all now playing state to defaults."""

@@ -268,7 +268,6 @@ class MockKaraoke:
         self.play_history = MockPlayHistory()
         self.volume = 0.85
         self.running = True
-        self.now_playing_notification = None
 
         # Set preferences that differ from defaults
         self.preferences.set("enable_fair_queue", True)
@@ -320,7 +319,6 @@ class MockKaraoke:
     vol_down = Karaoke.vol_down
     restart = Karaoke.restart
     stop = Karaoke.stop
-    reset_now_playing_notification = Karaoke.reset_now_playing_notification
 
 
 class MockSongList:

@@ -156,12 +156,6 @@ def setup_socket_events(socketio):
         k = get_karaoke_instance()
         k.playback_controller.start_song(playback_id)
 
-    @open_to_room("clear_notification")
-    def clear_notification() -> None:
-        """Handle clear_notification WebSocket event to dismiss notifications."""
-        k = get_karaoke_instance()
-        k.reset_now_playing_notification()
-
     @open_to_room("register_splash")
     def register_splash() -> None:
         """Handle splash screen registration and note the client as alive.

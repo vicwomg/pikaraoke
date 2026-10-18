@@ -83,8 +83,6 @@ def delayed_halt(k: Karaoke, steps: list[HostStep], refused: str = "") -> None:
     time.sleep(1.5)
     # all() stops at the first refusal, so a failed expand never reboots.
     if not all(_run_as_root(step) for step in steps):
-        # The announcement still holds the room's one notification slot.
-        k.reset_now_playing_notification()
         k.send_notification(refused, "danger")
         return
     k.queue_manager.queue_clear()
