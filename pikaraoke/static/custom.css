@@ -151,8 +151,10 @@
   --bulma-content-heading-weight: var(--bulma-weight-bold);
 }
 
-/* Bulma's stripe, a step stronger. Any hovered row takes the app's hover step. */
+/* Rows are told apart by the stripe, so the cell border is off. Bulma's stripe,
+   a step stronger. Any hovered row takes the app's hover step. */
 .table {
+  --bulma-table-cell-border-width: 0;
   --bulma-table-striped-row-even-background-color: var(--bulma-scheme-main-ter);
   --bulma-table-row-hover-background-color:
     hsl(var(--bulma-scheme-h), var(--bulma-scheme-s),
