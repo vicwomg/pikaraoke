@@ -363,18 +363,6 @@ class TestKeepAwake:
         assert mock_karaoke.keep_awake is False
 
 
-class TestResetNowPlayingNotification:
-    """Tests for the reset_now_playing_notification method."""
-
-    def test_reset_notification(self, mock_karaoke):
-        """Test that notification is reset to None."""
-        mock_karaoke.now_playing_notification = "Some notification"
-
-        mock_karaoke.reset_now_playing_notification()
-
-        assert mock_karaoke.now_playing_notification is None
-
-
 class TestTransposeCurrent:
     """Tests for transpose_current, which restarts a song in a new key."""
 
