@@ -364,19 +364,6 @@ a.navbar-item.is-active {
   margin-left: 0;
   font-size: 12px;
 }
-.pagination-list {
-  margin-top: 0px !important;
-  margin-left: 0px !important;
-  margin-bottom: 0px !important;
-}
-.pagination-list li {
-  margin-top: 0px !important;
-}
-.pagination-previous,
-.pagination-next {
-  margin-top: 0px !important;
-  margin-bottom: 0px !important;
-}
 .pagination-page-info b {
   color: var(--bulma-white);
 }

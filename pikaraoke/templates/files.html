@@ -339,7 +339,7 @@
 
 {% if breadcrumbs %}
 <nav class="breadcrumb is-small" aria-label="breadcrumbs">
-	<ul class="ml-0">
+	<ul>
 		<li>
 			<a href="{{ url_for('files.browse', view='folders') }}">
 				{# The glyph class alone -- adding Bulma's `icon` to the inner element
@@ -351,7 +351,7 @@
 			</a>
 		</li>
 		{% for crumb in breadcrumbs %}
-		<li class="mt-0{% if loop.last %} is-active{% endif %}">
+		<li{% if loop.last %} class="is-active"{% endif %}>
 			<a href="{{ url_for('files.browse', view='folders', folder=crumb.folder) }}">{{ crumb.name }}</a>
 		</li>
 		{% endfor %}
