@@ -377,10 +377,7 @@
 			);
 		});
 
-		// Unbound first: SPA navigation re-executes this script, so a plain bind
-		// would stack and rewrite the same row once per page visited.
-		window.socket.off("song_downloaded");
-		window.socket.on("song_downloaded", function (data) {
+		window.onPageSocket("song_downloaded", function (data) {
 			if (!data || !data.youtube_id) return;
 			const $row = $("#search-results li[data-ytID='" + data.youtube_id + "']");
 			if ($row.length) {
@@ -388,8 +385,7 @@
 			}
 		});
 
-		window.socket.off("download_stopped");
-		window.socket.on("download_stopped", function () {
+		window.onPageSocket("download_stopped", function () {
 			// A failed download emits no song_downloaded, so a row still pending once
 			// the worker has drained is never getting its file. Hand the choice back.
 			$(".search_result_items_pending").each(function () {

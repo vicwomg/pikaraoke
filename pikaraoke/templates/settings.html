@@ -154,7 +154,7 @@
 
 		{% if admin and mic_available %}
 		// Mic settings (latency, echo cancel)
-		window.socket.on("mic_settings_state", function(state) {
+		window.onPageSocket("mic_settings_state", function(state) {
 			$("#mic-latency").val(state.latency_ms);
 			$("#mic-latency-value").text(state.latency_ms + "ms");
 			$("#mic-echo-cancel").prop("checked", state.echo_cancel);
@@ -171,7 +171,7 @@
 		});
 
 		// Mic device list
-		window.socket.on("mic_devices_state", function(devices) {
+		window.onPageSocket("mic_devices_state", function(devices) {
 			var list = $("#mic-list");
 			list.empty();
 			if (devices.length === 0) {
@@ -198,7 +198,7 @@
 			});
 		});
 
-		window.socket.on("mic_update", function(data) {
+		window.onPageSocket("mic_update", function(data) {
 			var toggle = $(".mic-toggle").filter(function() {
 				return $(this).data("device-id") === data.deviceId;
 			});
@@ -292,10 +292,10 @@
 			});
 
 			// SocketIO: manage Sync Now button state
-			window.socket.on("sync_started", function() {
+			window.onPageSocket("sync_started", function() {
 				$("#sync-library-btn").addClass("is-loading").prop("disabled", true);
 			});
-			window.socket.on("sync_finished", function() {
+			window.onPageSocket("sync_finished", function() {
 				$("#sync-library-btn").removeClass("is-loading").prop("disabled", false);
 				$.getJSON("{{ url_for('library.library_stats') }}", function(data) {
 					if (!data.error) $("#library-song-count").text(data.song_count);

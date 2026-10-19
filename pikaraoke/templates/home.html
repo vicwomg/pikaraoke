@@ -159,7 +159,7 @@
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
-		window.socket.on("now_playing", (np) => handleNowPlaying(np));
+		window.onPageSocket("now_playing", (np) => handleNowPlaying(np));
 
 		document.addEventListener("visibilitychange", function () {
 			console.log("on visibility change");
@@ -177,7 +177,7 @@
 
 		{% if admin and mic_available %}
 		// Mic volume controls (live adjustment for enabled mics)
-		window.socket.on("mic_devices_state", function(devices) {
+		window.onPageSocket("mic_devices_state", function(devices) {
 			var enabled = devices.filter(function(d) { return d.enabled; });
 			if (enabled.length === 0) {
 				$("#mic-live-panel").hide();
@@ -200,7 +200,7 @@
 			$("#mic-live-panel").show();
 		});
 
-		window.socket.on("mic_update", function(data) {
+		window.onPageSocket("mic_update", function(data) {
 			if (!data.enabled) {
 				$(".mic-live-volume").filter(function() {
 					return $(this).data("device-id") === data.deviceId;
