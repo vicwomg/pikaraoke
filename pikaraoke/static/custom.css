@@ -434,6 +434,15 @@ td {
 }
 
 @media screen and (max-width: 600px) {
+  /* Every data table tightens its side padding for column room on a phone; the
+     dense report tables also shrink their type. Each owns its column widths. */
+  .table {
+    --bulma-table-cell-padding: 0.5em 4px;
+  }
+  .history-table,
+  .rankings-table {
+    font-size: 0.9rem;
+  }
   /* Headers set smaller than the rows under them. They are single words that
      cannot wrap, so on a phone they, not the data, are what decides how narrow
      a column may be -- and they are read once rather than scanned down the
