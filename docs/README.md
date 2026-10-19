@@ -26,7 +26,7 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 - [Usage](#usage)
 - [Docker](#docker-instructions)
 - [Screenshots](#screenshots)
-- [Developing pikaraoke](#developing-pikaraoke)
+- [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting-and-guides)
 
 ## Supported Devices / OS / Platforms
@@ -134,21 +134,9 @@ To run under a path prefix (e.g., `/karaoke`), add `--base-path /your-path` and 
 <img width="400" height="300" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
 </div>
 
-## Developing pikaraoke
+## Contributing
 
-The Pikaraoke project utilizes `uv` for dependency management and local development.
-
-- Install [uv](https://github.com/astral-sh/uv)
-- Git clone this repo
-
-From the pikaraoke directory:
-
-```sh
-# install dependencies and run pikaraoke from local code
-uv run pikaraoke
-```
-
-See the [Pikaraoke development guide](https://github.com/vicwomg/pikaraoke/wiki/Pikaraoke-development-guide) for more details.
+Contributions are welcome. See the [development guide](development.md) for setup, tests and the PR conventions.
 
 ## Troubleshooting and guides
 
