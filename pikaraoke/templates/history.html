@@ -345,18 +345,9 @@
 	}
 	/* A phone keeps the columns rather than stacking each play into a card: the
 	   header row is the only thing saying what these values are, and sorting
-	   belongs on it. Room comes from a smaller type size and tighter cell
-	   padding; the rest is found by letting the performer and song columns wrap
-	   (the timestamp is already down to a bare time -- see whenLabel). */
+	   belongs on it. Room is found by letting the performer and song columns
+	   wrap (the timestamp is already down to a bare time -- see whenLabel). */
 	@media screen and (max-width: 600px) {
-		#play-log {
-			font-size: 0.9rem;
-		}
-		#play-log th,
-		#play-log td {
-			padding-left: 4px;
-			padding-right: 4px;
-		}
 		#play-log .col-when {
 			width: 4.2em;
 		}
