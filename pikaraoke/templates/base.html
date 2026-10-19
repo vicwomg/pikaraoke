@@ -92,6 +92,11 @@
     }
 
     function connectSocket() {
+      // io() once per tab: the SPA re-runs this script, and a second socket
+      // leaks the first (still connected, still firing its listeners).
+      if (window.socket) {
+        return;
+      }
       window.socket = io({ path: window.pikaraokeConfig.socketioPath });
       window.socket.on('connect', function() {
           console.log('Socket connected');

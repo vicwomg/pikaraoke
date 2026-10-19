@@ -334,16 +334,14 @@
   };
 
    // Socket listeners for download activity
-  window.socket.off("download_started");
-  window.socket.on("download_started", function() {
+  window.onPageSocket("download_started", function() {
       // Start polling if not already running
       if (!window.downloadPollTimer) {
           window.queuePage_getDownloads();
       }
   });
 
-  window.socket.off("download_stopped");
-  window.socket.on("download_stopped", function() {
+  window.onPageSocket("download_stopped", function() {
        // Do one final fetch to show completion/errors then stop
        // The getDownloads function handles stopping if nothing is active
        if (window.downloadPollTimer) {
@@ -485,10 +483,8 @@
 
   // Socket listeners setup (same as before)
   // Socket listeners - refresh on queue or now_playing changes
-  window.socket.off("queue_update");
-  window.socket.on("queue_update", window.queuePage_getQueue);
-  window.socket.off("now_playing");
-  window.socket.on("now_playing", window.queuePage_getQueue);
+  window.onPageSocket("queue_update", window.queuePage_getQueue);
+  window.onPageSocket("now_playing", window.queuePage_getQueue);
   window.queuePageState.previousQueue = null;
   window.queuePageState.previousNowPlaying = null;
 

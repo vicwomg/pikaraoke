@@ -244,26 +244,9 @@
 		// Status column changes without anyone touching this page. play_logged is
 		// emitted after each of those writes, so the row is already in its new
 		// state by the time this refetches.
-		// Re-registered rather than stacked, because SPA navigation re-runs this.
-		if (window.socket) {
-			if (window.historyLogHandler) {
-				window.socket.off("play_logged", window.historyLogHandler);
-			}
-			// Debounced for a splash delay of 0, where a song ending and the
-			// next starting land together and the log reads the same after both.
-			var reloadLog = debounce(loadPlays, 400);
-			window.historyLogHandler = function () {
-				// The socket outlives SPA page swaps, so a handler left bound
-				// would keep re-querying the log for a table that is no longer
-				// on screen. A missing tbody means this page is gone.
-				if (!$("#plays-body").length) {
-					window.socket.off("play_logged", window.historyLogHandler);
-					return;
-				}
-				reloadLog();
-			};
-			window.socket.on("play_logged", window.historyLogHandler);
-		}
+		// Debounced for a splash delay of 0, where a song ending and the
+		// next starting land together and the log reads the same after both.
+		window.onPageSocket("play_logged", debounce(loadPlays, 400));
 
 		$("#plays-body").on("click", ".row-options-btn", function () {
 			openPlayOptions($(this));

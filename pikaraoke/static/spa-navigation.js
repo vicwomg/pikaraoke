@@ -55,6 +55,18 @@
     let loadedResources = new Set(); // Track loaded external resources
     let isInitialized = false; // Prevent multiple initializations
 
+    // Page-scoped socket listeners, dropped on the next navigation. The SPA
+    // re-runs each page's script, so a plain bind would stack duplicates.
+    let pageSocketSubs = [];
+
+    // Subscribe to a socket event for the current page only. base.html's
+    // permanent handlers use window.socket.on instead.
+    window.onPageSocket = function (event, handler) {
+        window.socket.on(event, handler);
+        pageSocketSubs.push([event, handler]);
+        return handler;
+    };
+
     /**
      * Initialize SPA navigation
      */
@@ -541,8 +553,14 @@
         // Remove old event handlers on elements that will be replaced
         $(config.contentSelector).off();
 
-        // Note: We don't disconnect socket.io as it should persist across page changes
-        // The socket connection is maintained globally
+        // Drop this page's socket listeners; the socket itself and base.html's
+        // permanent handlers persist.
+        pageSocketSubs.forEach(function (sub) {
+            if (window.socket) {
+                window.socket.off(sub[0], sub[1]);
+            }
+        });
+        pageSocketSubs = [];
     }
 
     window.spaNavigation = {

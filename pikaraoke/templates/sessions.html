@@ -326,26 +326,9 @@
 		// A play lands against the active session while this page is open, which
 		// moves its play count and its singer list. play_logged is emitted after
 		// the play is written, so the counts below are already the new ones.
-		// Re-registered rather than stacked, because SPA navigation re-runs this.
-		if (window.socket) {
-			if (window.sessionsLogHandler) {
-				window.socket.off("play_logged", window.sessionsLogHandler);
-			}
-			// Debounced for a splash delay of 0, where a song ending and the
-			// next starting land together and the list reads the same after both.
-			var reloadSessions = debounce(loadSessions, 400);
-			window.sessionsLogHandler = function () {
-				// The socket outlives SPA page swaps, so a handler left bound
-				// would keep re-querying for a table that is no longer on screen.
-				// A missing tbody means this page is gone.
-				if (!$("#sessions-body").length) {
-					window.socket.off("play_logged", window.sessionsLogHandler);
-					return;
-				}
-				reloadSessions();
-			};
-			window.socket.on("play_logged", window.sessionsLogHandler);
-		}
+		// Debounced for a splash delay of 0, where a song ending and the
+		// next starting land together and the list reads the same after both.
+		window.onPageSocket("play_logged", debounce(loadSessions, 400));
 
 		// Enter and the button are the same action, and both are governed by the
 		// same emptiness check the button's disabled state shows. The server
