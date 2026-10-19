@@ -1,4 +1,4 @@
-"""System information and settings page route."""
+"""Info page: the QR code to join, and system information."""
 
 import flask_babel
 import psutil
@@ -6,21 +6,9 @@ from flask import jsonify, render_template
 from flask_smorest import Blueprint
 
 from pikaraoke import VERSION
-from pikaraoke.constants import ITUNES_COUNTRIES, LANGUAGES, per_page_options
-from pikaraoke.lib import keep_awake
 from pikaraoke.lib.auth import public
-from pikaraoke.lib.current_app import (
-    get_admin_auth,
-    get_karaoke_instance,
-    get_site_name,
-    is_admin,
-)
-from pikaraoke.lib.get_platform import (
-    get_installed_js_runtime,
-    get_platform,
-    is_linux,
-    is_running_in_docker,
-)
+from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.get_platform import get_installed_js_runtime
 
 _ = flask_babel.gettext
 
@@ -31,80 +19,22 @@ info_bp = Blueprint("info", __name__)
 @info_bp.route("/info")
 @public
 def info():
-    """System information and settings page."""
+    """The QR code to join, and system information."""
     k = get_karaoke_instance()
-    site_name = get_site_name()
-    url = k.url
-    is_linux_platform = is_linux()
-
-    preferred_language = k.preferences.get("preferred_language", "en")
-    itunes_search_country = k.preferences.get_or_default("itunes_search_country")
-    suggestion_name_order = k.preferences.get_or_default("suggestion_name_order")
-    # yt-dlp
-    youtubedl_version = k.youtubedl_version
-
     return render_template(
         "info.html",
-        site_title=site_name,
-        # MSG: Title of the settings and system information page.
-        title=_("Settings"),
-        url=url,
+        site_title=get_site_name(),
+        # MSG: Title of the page with the QR code to join and the system information.
+        title=_("Info"),
+        url=k.url,
         admin=is_admin(),
-        admin_password_set=get_admin_auth().is_password_set(),
         platform=k.platform,
         os_version=k.os_version,
         ffmpeg_version=k.ffmpeg_version,
         is_transpose_enabled=k.is_transpose_enabled,
-        youtubedl_version=youtubedl_version,
+        youtubedl_version=k.youtubedl_version,
         js_runtime=get_installed_js_runtime(),
         pikaraoke_version=VERSION,
-        cpu=None,
-        memory=None,
-        disk=None,
-        is_pi=k.is_raspberry_pi,
-        is_linux=is_linux_platform,
-        is_container=is_running_in_docker(),
-        volume=int(k.volume * 100),
-        bg_music_volume=int(k.bg_music_volume * 100),
-        disable_bg_music=k.disable_bg_music,
-        disable_bg_video=k.disable_bg_video,
-        disable_score=k.disable_score,
-        hide_notifications=k.hide_notifications,
-        show_splash_clock=k.show_splash_clock,
-        hide_url=k.hide_url,
-        hide_qr_code=k.hide_qr_code,
-        hide_session_name=k.hide_session_name,
-        hide_logo=k.hide_logo,
-        hide_overlay=k.hide_overlay,
-        screensaver_timeout=k.screensaver_timeout,
-        splash_scale=k.splash_scale,
-        splash_delay=k.splash_delay,
-        normalize_audio=k.normalize_audio,
-        cdg_pixel_scaling=k.cdg_pixel_scaling,
-        high_quality=k.high_quality,
-        complete_transcode_before_play=k.complete_transcode_before_play,
-        avsync=k.avsync,
-        limit_user_songs_by=k.limit_user_songs_by,
-        enable_fair_queue=k.enable_fair_queue,
-        buffer_size=k.buffer_size,
-        languages=LANGUAGES,
-        preferred_language=preferred_language,
-        itunes_countries=ITUNES_COUNTRIES,
-        itunes_search_country=itunes_search_country,
-        suggestion_name_order=suggestion_name_order,
-        browse_results_per_page=k.browse_results_per_page,
-        per_page_options=per_page_options(k.browse_results_per_page),
-        enable_title_tidy=k.enable_title_tidy,
-        enable_folder_browsing=k.enable_folder_browsing,
-        score_phrases={
-            "low": k.low_score_phrases,
-            "mid": k.mid_score_phrases,
-            "high": k.high_score_phrases,
-        },
-        mic_available=k.sound_manager.available,
-        mic_passthrough_enabled=k.enable_mic_passthrough,
-        keep_awake=k.keep_awake,
-        keep_awake_unsupported=keep_awake.unsupported_reason(),
     )
 
 

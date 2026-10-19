@@ -107,7 +107,7 @@ def update_ytdl():
     )
     th = threading.Thread(target=update_youtube_dl)
     th.start()
-    return redirect(url_for("info.info"))
+    return redirect(url_for("settings.settings"))
 
 
 def _announce_halt(message: str, steps: list[HostStep], refused: str = "") -> Response:
@@ -187,8 +187,8 @@ def auth(form):
     else:
         # MSG: Message shown after failing to login as admin
         flash(_("Incorrect admin password!"), "is-danger")
-    # The login form only renders on the info page, so that is where login ends.
-    return redirect(url_for("info.info"))
+    # The login form only renders on the settings page, so that is where it ends.
+    return redirect(url_for("settings.settings"))
 
 
 @admin_bp.route("/admin_password", methods=["POST"])
@@ -207,7 +207,7 @@ def set_admin_password(form):
     else:
         # MSG: Message shown after clearing the admin password, making everyone an admin.
         flash(_("Admin password cleared. Everyone is an admin again."), "is-warning")
-    return redirect(url_for("info.info"))
+    return redirect(url_for("settings.settings"))
 
 
 @admin_bp.route("/logout", methods=["POST"])
@@ -219,4 +219,4 @@ def logout():
     session.pop("admin", None)
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
-    return redirect(url_for("info.info"))
+    return redirect(url_for("settings.settings"))
