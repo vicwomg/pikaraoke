@@ -251,19 +251,13 @@ const updateBackgroundMediaState = (immediate = false) => {
   }, bgMediaResumeDelay);
 };
 
-const flashNotification = (message, categoryClass) => {
-  const sn = $("#splash-notification");
-  if (sn.html()) return;
-  sn.html(message);
-  sn.addClass(categoryClass);
-  sn.fadeIn();
-  setTimeout(() => {
-    sn.fadeOut();
-    setTimeout(() => {
-      sn.html("");
-      sn.removeClass(categoryClass);
-    }, 450);
-  }, 3000);
+// dedupeKey holds a recurring status to one slot, so a flapping socket does not
+// pile identical connection-lost toasts.
+const flashNotification = (message, categoryClass, { dedupeKey } = {}) => {
+  const $stack = $("#splash-notification");
+  if (dedupeKey && $stack.find(`[data-dedupe="${dedupeKey}"]`).length) return;
+  const $toast = window.addToast($stack, message, categoryClass, { closeable: false });
+  if (dedupeKey) $toast.attr("data-dedupe", dedupeKey);
 }
 
 const setupScreensaver = () => {
@@ -635,11 +629,11 @@ const setupSocketEvents = () => {
   });
   socket.on('connect_error', (error) => {
     console.error('Connection error:', error);
-    flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger");
+    flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger", { dedupeKey: "connection-lost" });
   });
   socket.on('disconnect', (reason) => {
     console.warn('Socket disconnected:', reason);
-    flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger");
+    flashNotification(PikaraokeConfig.translations.socketConnectionLost, "is-danger", { dedupeKey: "connection-lost" });
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
