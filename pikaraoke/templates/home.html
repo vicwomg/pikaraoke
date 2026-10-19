@@ -162,15 +162,11 @@
 		window.onPageSocket("now_playing", (np) => handleNowPlaying(np));
 
 		document.addEventListener("visibilitychange", function () {
-			console.log("on visibility change");
-
 			if (document.visibilityState === "visible") {
 				loadNowPlaying();
-				console.log(window.socket);
 				if (!window.socket.connected) {
-					console.log("Reconnecting socket...");
-					window.socket = io({ path: window.pikaraokeConfig.socketioPath });
-					window.socket.on("now_playing", (np) => handleNowPlaying(np));
+					// Reconnect the existing socket; io() would orphan base.html's handlers.
+					window.socket.connect();
 				}
 			}
 		});
