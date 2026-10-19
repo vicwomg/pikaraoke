@@ -11,8 +11,7 @@ from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
 from pikaraoke.lib.get_platform import get_installed_js_runtime
-
-yt_dlp_cmd = [sys.executable, "-m", "yt_dlp"]
+from pikaraoke.lib.ytdlp_binary import ensure_ytdlp_binary, ytdlp_command
 
 # YouTube video IDs are always exactly 11 characters
 YOUTUBE_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{11}")
@@ -45,7 +44,7 @@ def get_youtubedl_version() -> str:
         Version string of the installed yt-dlp or an error message.
     """
     try:
-        cmd = yt_dlp_cmd + ["--version"]
+        cmd = ytdlp_command() + ["--version"]
         return subprocess.check_output(cmd).strip().decode("utf8")
     except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
         logging.warning(f"Could not get yt-dlp version: {e}")
@@ -85,29 +84,55 @@ def get_youtube_id_from_url(url: str) -> str | None:
 def upgrade_youtubedl() -> str:
     """Upgrade yt-dlp to the latest version.
 
-    Attempts self-upgrade first, then falls back to pip if needed.
+    Acquires the self-updating standalone binary when this platform has one, so
+    the upgrade survives a uv.lock re-sync. Then runs the binary's own `-U`
+    self-update, falling back to pip only when running from the pinned module.
 
     Returns:
         The new version string after upgrade.
     """
+    binary, downloaded = ensure_ytdlp_binary()
+
+    if binary is not None and downloaded:
+        # The binary was just fetched at the latest release, so it is already
+        # current. Running `-U` now would be a redundant network check that
+        # logs a confusing "already up to date" right after the install.
+        version = get_youtubedl_version()
+        logging.info(f"Installed yt-dlp {version} at {binary}")
+        return version
+
     try:
         output = (
-            subprocess.check_output(yt_dlp_cmd + ["-U"], stderr=subprocess.STDOUT)
+            subprocess.check_output(ytdlp_command() + ["-U"], stderr=subprocess.STDOUT)
             .decode("utf8")
             .strip()
         )
         logging.debug(output)
     except subprocess.CalledProcessError as e:
         output = e.output.decode("utf8")
+        # The standalone binary self-updates in place, so a non-zero exit is a
+        # genuine failure. The module always exits non-zero to point at pip, so
+        # there its error output is expected and parsed below.
+        if binary is not None:
+            logging.error(f"yt-dlp self-update failed: {output.strip()}")
+            return get_youtubedl_version()
     except (FileNotFoundError, PermissionError) as e:
         logging.warning(f"Could not run yt-dlp for upgrade: {e}")
         return get_youtubedl_version()
 
-    # Check if already up to date
     if "is up to date" in output.lower():
-        logging.debug("yt-dlp is already up to date")
-        return get_youtubedl_version()
+        version = get_youtubedl_version()
+        source = "binary" if binary is not None else "module"
+        logging.info(f"yt-dlp {source} is already up to date (version {version})")
+        return version
 
+    if binary is not None:
+        # `-U` on the standalone binary already downloaded and replaced itself.
+        version = get_youtubedl_version()
+        logging.info(f"Upgraded yt-dlp binary to version {version}")
+        return version
+
+    # Pinned module: `-U` cannot replace a pip install, so it reports back to pip.
     upgrade_success = False
     if "pip" in output.lower():
         pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"]
@@ -207,7 +232,7 @@ def build_ytdl_download_command(
         "--compat-options",
         "filename-sanitization",
     ]
-    cmd = yt_dlp_cmd + args + _js_runtime_args()
+    cmd = ytdlp_command() + args + _js_runtime_args()
     if youtubedl_proxy:
         cmd += ["--proxy", youtubedl_proxy]
     if additional_args:
@@ -229,7 +254,7 @@ def get_search_results(query: str) -> list[SearchResult]:
     logging.info(f"Searching YouTube for: {query}")
     num_results = 10
     yt_search = f"ytsearch{num_results}:{query}"
-    cmd = yt_dlp_cmd + ["-j", "--no-playlist", "--flat-playlist", yt_search]
+    cmd = ytdlp_command() + ["-j", "--no-playlist", "--flat-playlist", yt_search]
     logging.debug(f"yt-dlp search command: {' '.join(cmd)}")
     try:
         output = subprocess.check_output(cmd).decode("utf-8", "ignore")
@@ -270,7 +295,7 @@ _VERIFY_TIMEOUT_SECONDS = 5
 def _resolve_stream_url(video_url: str) -> str | None:
     """Ask yt-dlp for a progressive stream URL. No guarantee it will serve bytes."""
     # YouTube refuses the stream URLs yt-dlp's default client resolves, but serves android's.
-    cmd = yt_dlp_cmd + [
+    cmd = ytdlp_command() + [
         "-g",
         "-f",
         PREVIEW_FORMAT,

@@ -22,6 +22,23 @@ from pikaraoke.lib.youtube_dl import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _module_ytdlp_command():
+    """Pin yt-dlp invocation to the module so command assertions stay hermetic.
+
+    Binary resolution is covered in test_ytdlp_binary; here every call must see
+    the pinned-module command regardless of what sits in the real data dir.
+    """
+    with (
+        patch(
+            "pikaraoke.lib.youtube_dl.ytdlp_command",
+            return_value=[sys.executable, "-m", "yt_dlp"],
+        ),
+        patch("pikaraoke.lib.youtube_dl.ensure_ytdlp_binary", return_value=(None, False)),
+    ):
+        yield
+
+
 class TestGetYoutubeIdFromUrl:
     """Tests for the get_youtube_id_from_url function."""
 
@@ -437,3 +454,74 @@ class TestUpgradeYoutubedl:
             result = upgrade_youtubedl()
             assert result == "2024.01.01"
             mock_version.assert_called_once_with()
+
+    def test_fresh_binary_download_skips_redundant_self_update(self):
+        """A just-downloaded binary is already current, so `-U` is not run."""
+        with (
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", True),
+            ),
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.08.19"),
+            patch("subprocess.check_output") as mock_check,
+        ):
+            result = upgrade_youtubedl()
+
+            assert result == "2026.08.19"
+            mock_check.assert_not_called()
+
+    def test_managed_binary_self_update_succeeds_without_pip(self):
+        """An existing binary's `-U` is the whole upgrade; pip is never touched."""
+        with (
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", False),
+            ),
+            patch("pikaraoke.lib.youtube_dl.ytdlp_command", return_value=["/data/yt-dlp"]),
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.09.01"),
+            patch(
+                "subprocess.check_output", return_value=b"Updating to 2026.09.01 ..."
+            ) as mock_check,
+        ):
+            result = upgrade_youtubedl()
+
+            assert result == "2026.09.01"
+            # Only the -U call; no pip fallback.
+            assert mock_check.call_count == 1
+            assert mock_check.call_args_list[0][0][0] == ["/data/yt-dlp", "-U"]
+
+    def test_managed_binary_self_update_failure_does_not_fall_back_to_pip(self):
+        """A non-zero exit from the binary is a real failure, not a pip signal."""
+        error = subprocess.CalledProcessError(1, "yt-dlp", b"ERROR: unable to download")
+        error.output = b"ERROR: unable to download"
+        with (
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", False),
+            ),
+            patch("pikaraoke.lib.youtube_dl.ytdlp_command", return_value=["/data/yt-dlp"]),
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.08.19"),
+            patch("subprocess.check_output", side_effect=error) as mock_check,
+        ):
+            result = upgrade_youtubedl()
+
+            assert result == "2026.08.19"
+            assert mock_check.call_count == 1
+
+    def test_managed_binary_already_up_to_date(self):
+        """`-U` reporting up to date returns the current version, no pip."""
+        with (
+            patch(
+                "pikaraoke.lib.youtube_dl.ensure_ytdlp_binary",
+                return_value=("/data/yt-dlp", False),
+            ),
+            patch("pikaraoke.lib.youtube_dl.ytdlp_command", return_value=["/data/yt-dlp"]),
+            patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.09.01"),
+            patch(
+                "subprocess.check_output", return_value=b"yt-dlp is up to date (2026.09.01)"
+            ) as mock_check,
+        ):
+            result = upgrade_youtubedl()
+
+            assert result == "2026.09.01"
+            assert mock_check.call_count == 1
