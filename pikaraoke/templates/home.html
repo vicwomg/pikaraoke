@@ -44,6 +44,10 @@
 			$(".control-box").toggle(pikaWaiting);
 		}
 
+		// The now-playing marker shows only while a song is loaded, not during a
+		// manual-start wait when the control box is up but nothing is playing.
+		$(".playing_gif").toggle(!!np.now_playing);
+
 		if (np.up_next) {
 			$("#up-next").html(`<p class="mb-1">${np.up_next}</p>
           <p class="has-text-text">
@@ -66,9 +70,9 @@
 			$("#volume-slider").val(volume);
 		}
 
-		// A waiting song has not started, so the button plays rather than
-		// pauses and the gif stays still - the same look as a pause.
-		if (pikaWaiting || np.is_paused) {
+		// Not playing (paused or a song waiting to start): the button plays
+		// rather than pauses, and the gif stays still.
+		if (!window.isNowPlaying(np)) {
 			$("#pause-resume").removeClass("icon-pause");
 			$("#pause-resume").addClass("icon-play");
 			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
@@ -249,7 +253,7 @@
 {% endblock %} {% block heading %}{{ title }}
 <img
 	style="display: none"
-	class="playing_gif control-box"
+	class="playing_gif"
 	width="40"
 	src="{{  url_for('static', filename='images/now-playing.png') }}"
 />{% endblock %}

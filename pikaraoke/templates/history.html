@@ -28,9 +28,10 @@
 	var hideSkippedPlays = false;
 	// Deleting an entry is the host's to do; queuing a song back up is anybody's.
 	var isAdmin = {{ admin | tojson }};
-	// The animation the queue and home pages already use for the song in progress,
-	// so "playing now" looks the same wherever it is shown.
 	var nowPlayingGif = "{{ url_for('static', filename='images/now-playing.gif') }}";
+	var nowPlayingPng = "{{ url_for('static', filename='images/now-playing.png') }}";
+	// null until the first read, treated as playing so the log does not flash.
+	var livePlayback = null;
 
 	// Gettext output is Markup, so Jinja never autoescapes it: an apostrophe in a
 	// translation would close the JS string literal and break this whole script.
@@ -45,7 +46,9 @@
 		// {# MSG: Status of a song that was skipped before it finished. #}
 		skipped: {{ _('Skipped') | tojson }},
 		// {# MSG: Status of the song that is playing right now, which has not finished yet. #}
-		playing: {{ _('Playing') | tojson }}
+		playing: {{ _('Playing') | tojson }},
+		// {# MSG: Status of the in-progress song while playback is paused or waiting to start. #}
+		paused: {{ _('Paused') | tojson }}
 	};
 
 	// A play row is written when the song starts and closed when it ends, so an
@@ -60,16 +63,28 @@
 	// The words stay as titles, which is what a screen reader announces.
 	function playStatus(play) {
 		if (!play.has_ended) {
-			var playing = escapeHtml(historyText.playing);
-			return (
-				'<img class="status-playing" src="' + nowPlayingGif +
-				'" alt="' + playing + '" title="' + playing + '">'
-			);
+			return inProgressStatus();
 		}
 		if (!wasSkipped(play)) {
 			return statusIcon("icon-ok", "has-text-success", historyText.played);
 		}
 		return statusIcon("icon-to-end", "has-text-grey-light", historyText.skipped);
+	}
+
+	// The log only knows the song is unended; playing-vs-paused is the live player's.
+	function liveIsPlaying() {
+		return !livePlayback || window.isNowPlaying(livePlayback);
+	}
+
+	// The animated marker when the song is playing, the still one when paused or
+	// waiting - the same gif/png the home and queue pages use.
+	function inProgressStatus() {
+		var playing = liveIsPlaying();
+		var label = escapeHtml(playing ? historyText.playing : historyText.paused);
+		return (
+			'<img class="status-playing" src="' + (playing ? nowPlayingGif : nowPlayingPng) +
+			'" alt="' + label + '" title="' + label + '">'
+		);
 	}
 
 	// The labels are translator-controlled rather than user input, but they land
@@ -174,7 +189,7 @@
 								{ song: play.song, youtube_id: play.youtube_id || "" },
 								historySong || historyYoutubeId
 							) +
-							'<td class="has-text-centered is-vcentered">' + playStatus(play) + "</td>" +
+							'<td class="has-text-centered is-vcentered' + (play.has_ended ? '' : ' js-live-status') + '">' + playStatus(play) + "</td>" +
 							'<td class="has-text-right is-vcentered">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
@@ -247,6 +262,23 @@
 		// Debounced for a splash delay of 0, where a song ending and the
 		// next starting land together and the log reads the same after both.
 		window.onPageSocket("play_logged", debounce(loadPlays, 400));
+
+		// Pause and resume do not log a play, so redraw just the open row's cell
+		// on a play/pause flip rather than refetch the whole log.
+		function refreshLiveStatus() {
+			$("#plays-body .js-live-status").html(inProgressStatus());
+		}
+		$.getJSON("{{ url_for('now_playing.now_playing') }}", function (np) {
+			livePlayback = np;
+			refreshLiveStatus();
+		});
+		window.onPageSocket("now_playing", function (np) {
+			var was = liveIsPlaying();
+			livePlayback = np;
+			if (liveIsPlaying() !== was) {
+				refreshLiveStatus();
+			}
+		});
 
 		$("#plays-body").on("click", ".row-options-btn", function () {
 			openPlayOptions($(this));

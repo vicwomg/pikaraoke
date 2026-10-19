@@ -140,9 +140,9 @@
 
   // Generate now-playing row HTML
   function generateNowPlayingRow(np) {
-    var iconSrc = np.is_paused
-      ? '{{ url_for("static", filename="images/now-playing.png") }}'
-      : '{{ url_for("static", filename="images/now-playing.gif") }}';
+    var iconSrc = window.isNowPlaying(np)
+      ? '{{ url_for("static", filename="images/now-playing.gif") }}'
+      : '{{ url_for("static", filename="images/now-playing.png") }}';
 
     var html = '<tr class="disabled-sort has-background-dark">';
     html += '<td class="is-vcentered has-text-centered">';
