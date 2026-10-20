@@ -1,11 +1,15 @@
 """Tests for the Add New page: it acquires songs and flags ones already held."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from flask import Flask
+from flask_babel import Babel
 
 from pikaraoke.lib.youtube_dl import SearchResult
 from pikaraoke.routes.search import search_bp
+from pikaraoke.routes.search_api import search_api_bp
 from tests.conftest import make_route_app
 
 HELD = SearchResult("Held Song", "https://youtu.be/aaaaaaaaaaa", "aaaaaaaaaaa", "Chan", "3:21")
@@ -124,3 +128,34 @@ class TestLibraryMatches:
         assert "vi/zzzzzzzzzzz/mqdefault.jpg" in rows
         assert "4:05" in rows
         assert "Chan" in rows
+
+
+class TestDownloadRequiresName:
+    """A download must carry a name, the same invariant as the queue add: the
+    song is attributed the moment it is requested."""
+
+    @pytest.fixture
+    def api_client(self):
+        app = Flask(__name__)
+        Babel(app)
+        app.register_blueprint(search_api_bp)
+        return app.test_client()
+
+    def _download(self, client, body):
+        return client.post("/api/download", data=json.dumps(body), content_type="application/json")
+
+    @pytest.mark.parametrize("name", ["", "   ", "\t"])
+    @patch("pikaraoke.routes.search_api.get_karaoke_instance")
+    def test_blank_name_refused(self, mock_get_instance, api_client, name):
+        body = {"song_url": "https://youtu.be/x", "song_title": "T", "song_added_by": name}
+
+        assert self._download(api_client, body).status_code == 422
+        # Validation refuses before the view runs, so no download is queued.
+        mock_get_instance.assert_not_called()
+
+    @patch("pikaraoke.routes.search_api.get_karaoke_instance")
+    def test_absent_name_refused(self, mock_get_instance, api_client):
+        body = {"song_url": "https://youtu.be/x", "song_title": "T"}
+
+        assert self._download(api_client, body).status_code == 422
+        mock_get_instance.assert_not_called()

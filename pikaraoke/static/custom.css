@@ -170,6 +170,16 @@
   max-width: 95%;
 }
 
+/* The text-prompt dialog is a form, not the self-padding option list the shared
+   style zeroes body padding for, so its message and input get the head's inset. */
+#text-prompt-modal .modal-card {
+  --bulma-modal-card-body-padding: 1rem;
+}
+/* Space the Save and Cancel buttons apart; the foot gives them none. */
+#text-prompt-modal .modal-card-foot {
+  gap: 0.75rem;
+}
+
 /* Bulma 1.0 defines a link hover colour but applies it to no plain link, only to its
    own components, which hover their own way. This is the rule bulma-dark.css used
    to carry, for text links only. */
@@ -295,19 +305,31 @@ a.navbar-item.is-active {
   overflow: hidden;
 }
 
-/* The singer's name rides to the right of the bar, just left of the hamburger: its
-   auto-margin takes the free space and the burger tucks in beside it. With no name
-   the item is hidden and takes no space, so the burger keeps its own auto-margin
-   and stays at the far right. A long name is truncated so it cannot push the burger
-   off the bar. */
-#current-user:not(.is-hidden) {
+/* The person item rides to the right of the bar, just left of the hamburger: its
+   auto-margin takes the free space and the burger tucks in beside it. A long name
+   is truncated so it cannot push the burger off the bar. */
+#current-user {
   margin-inline-start: auto;
 }
-#current-user:not(.is-hidden) ~ .navbar-burger {
+#current-user ~ .navbar-burger {
   margin-inline-start: 0;
 }
 #current-user .is-truncated {
   max-width: 8rem;
+}
+/* Avatar slot: today just the user-circle glyph, hugged like the other bar
+   icons; a later PR gives this span a fixed circular size and a cropped photo.
+   The circle fills its box where the line icons leave whitespace, so a little
+   right margin matches their visual gap to the label. */
+.singer-avatar {
+  display: inline-flex;
+  margin-right: 0.2rem;
+}
+.singer-avatar .icon {
+  width: auto;
+}
+.singer-avatar .icon::before {
+  margin: 0;
 }
 
 /* The box and the first navbar icon share one left inset, so the bar icons line

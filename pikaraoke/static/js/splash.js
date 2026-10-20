@@ -470,7 +470,6 @@ const setupOverlayMenus = () => {
       $('#menu-container iframe').attr('src', '');
       showMenu = false;
     } else {
-      setUserCookie();
       $("#menu-container").show();
       $("#menu-container iframe").attr("src", withBasePath("/"));
       showMenu = true;

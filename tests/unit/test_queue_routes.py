@@ -90,6 +90,29 @@ class TestQueueRoutes:
         assert json.loads(response.data)["success"] is False
 
 
+class TestEnqueueRequiresName:
+    """A queue add must carry a name. A blank performer writes a leaderboard row
+    no UI can correct, and nothing legitimate sends one."""
+
+    @pytest.mark.parametrize("name", ["", "   ", "\t"])
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_blank_name_refused(self, mock_get_instance, client, name):
+        response = client.post(
+            "/api/enqueue", data={"song_to_add": "Song.mp4", "song_added_by": name}
+        )
+
+        assert response.status_code == 422
+        # Validation refuses before the view runs, so nothing is queued.
+        mock_get_instance.assert_not_called()
+
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_absent_name_refused(self, mock_get_instance, client):
+        response = client.post("/api/enqueue", data={"song_to_add": "Song.mp4"})
+
+        assert response.status_code == 422
+        mock_get_instance.assert_not_called()
+
+
 class TestQueueApiContract:
     """Tests that verify the queue API returns expected data structure.
 

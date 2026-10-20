@@ -232,9 +232,11 @@
 	function addToQueue(path) {
 		// The same endpoint and response shape the browse page uses: `success` is
 		// [ok, message], the message being what to show either way.
-		$.post("{{ url_for('queue_api.enqueue_form') }}", { song_to_add: path, song_added_by: resolveSinger() }, function (data) {
-			var result = data.success;
-			showNotification(result[1], result[0] ? "is-success" : "is-danger");
+		resolveSinger().done(function (name) {
+			$.post("{{ url_for('queue_api.enqueue_form') }}", { song_to_add: path, song_added_by: name }, function (data) {
+				var result = data.success;
+				showNotification(result[1], result[0] ? "is-success" : "is-danger");
+			});
 		});
 	}
 

@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=2">
+  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=3">
 
   <script>
     window.pikaraokeConfig = {
@@ -33,8 +33,12 @@
     // translation must therefore be filtered by hand: |tojson for a JS value (as below),
     // |forceescape for HTML that JS builds as a string. See tests/unit/test_template_i18n.py.
     window.translations = {
-      // {# MSG: Prompt to change the username displayed next to queued songs. {name} is replaced with the name #}
-      promptChangeUsername: {{ _('Do you want to change the name of the person using this device? This will show up on queued songs. Current: {name}') | tojson }},
+      // {# MSG: Title of the dialog holding the singer's name and, later, their other preferences. #}
+      identityTitle: {{ _('Profile') | tojson }},
+      // {# MSG: Label on the name field in the profile dialog. #}
+      usernameLabel: {{ _('Username') | tojson }},
+      // {# MSG: Hint under the username field noting the name is public. #}
+      usernameHelp: {{ _('This name is visible to everyone.') | tojson }},
       // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
       promptClearQueue: {{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') | tojson }},
       // {# MSG: Confirmation dialog when permanently deleting a song file from the library #}
@@ -52,15 +56,6 @@
       // {# MSG: Generic error prefix shown before an error message. #}
       errorLabel: {{ _("Error") | tojson }}
     };
-
-    function generateRandomString(length) {
-      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let result = '';
-      for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length));
-      }
-      return result;
-    }
 
     function getSemitonesLabel(value) {
       var display = value > 0 ? "+" + value : String(value);
@@ -141,41 +136,43 @@
       window.addToast($("#notification-stack"), message, categoryClass, { timeout });
     }
 
-    function setUserCookie(reload=false) {
-      var user = Cookies.get("user");
-      if (!user) {
-        let name = window.prompt(
-          // {# MSG: Prompt which asks the user their name when they first try to add to the queue. #}
-          {{ _('Please enter your name. This will show up next to the songs you queue up from this device.') | tojson }}
-        );
-        if (name) {
-          Cookies.set("user", name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
-        }
-        else {
-          Cookies.set("user", `Anon-${generateRandomString(4)}`, { expires: 3650 });
-        }
-        reload && location.reload();
-      }
-    }
-
     function getUserCookie() {
       return Cookies.get("user");
     }
 
-    // Who a queue add is attributed to. In KJ mode the visible singer field
-    // names who the host is queuing for; left blank (or hidden outside KJ mode)
-    // it falls back to this device's own cookie name, prompting for one the
-    // first time it is needed. Every page that queues a song resolves it here,
-    // so the fallback rule cannot drift between them.
+    // Shows the device's name in the navbar item, clearing the "Join in" state.
+    window.setCurrentUser = function (name) {
+      $("#current-user .is-truncated").text(name);
+      $("#current-user").attr({ title: name, "aria-label": name }).removeClass("has-text-success");
+    };
+
+    // Who a queue add is attributed to, resolved async so the name can come from
+    // a modal: the KJ singer field, else this device's cookie, else the Join in
+    // dialog (which writes the cookie). Rejects on dismissal, so nothing queues.
     function resolveSinger() {
-      // The field is absent for non-admins, so val() can be undefined. Trimmed
-      // because a stray space would otherwise be stored as a performer name.
+      var d = $.Deferred();
+      // Non-admins have no field; trim guards a stray space stored as a name.
       var singer = ($("#singer-name").val() || "").trim();
       if (singer) {
-        return singer;
+        return d.resolve(singer);
       }
-      setUserCookie();
-      return getUserCookie() || "";
+      var user = getUserCookie();
+      if (user) {
+        return d.resolve(user);
+      }
+      window.promptForIdentity({
+        title: window.translations.identityTitle,
+        label: window.translations.usernameLabel,
+        help: window.translations.usernameHelp,
+        value: ""
+      }).done(function (res) {
+        Cookies.set("user", res.name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
+        window.setCurrentUser(res.name);
+        d.resolve(res.name);
+      }).fail(function () {
+        d.reject();
+      });
+      return d;
     }
 
     // KJ mode is opt-in for a host queuing on behalf of singers. It is not the
@@ -315,14 +312,13 @@
         // The attribute holds the percent-encoded path the href used to carry,
         // and the body is assembled by hand to pass it through untouched: a
         // filename that is not valid UTF-8 cannot survive a decode here.
-        var body =
-          "song_to_add=" +
-          this.getAttribute("data-song") +
-          "&song_added_by=" +
-          encodeURIComponent(resolveSinger());
-        $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
-          // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
-          showNotification(data.success[1], data.success[0] ? "is-success" : "is-danger");
+        var dataSong = this.getAttribute("data-song");
+        resolveSinger().done(function (name) {
+          var body = "song_to_add=" + dataSong + "&song_added_by=" + encodeURIComponent(name);
+          $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
+            // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
+            showNotification(data.success[1], data.success[0] ? "is-success" : "is-danger");
+          });
         });
       });
     }
@@ -350,13 +346,12 @@
         bindSingerFieldToSession();
       }
 
-      // handle current user display
-      var currentUser = Cookies.get("user");
-
+      // Reflect this device's saved name, if any. With none the server-rendered
+      // "Join in" state stands until the guest names themselves.
+      var currentUser = getUserCookie();
       if (currentUser) {
-        $("#current-user span").text(currentUser)
-        $("#current-user").removeClass("is-hidden");
-      };
+        window.setCurrentUser(currentUser);
+      }
 
       // Username change handler is now in spa-navigation.js
 
@@ -435,8 +430,13 @@
     .session-ribbon-dot { animation: none; }
   }
   @media screen and (max-width: 1088px) {
-    .navbar-brand > .navbar-item > span {
+    /* Labels hide at this width; the avatar slot is the item's only signal. */
+    .navbar-brand > .navbar-item > span:not(.singer-avatar) {
       display: none;
+    }
+    /* Name hidden here; trim the trailing padding before the burger. */
+    #current-user {
+      padding-right: 0.5rem;
     }
     .notification-stack {
       width: 100%;
@@ -482,14 +482,13 @@
           {# MSG: Navigation link for the page used to get new songs into the library. #}
           <span>{% trans %}Add New{% endtrans %}</span>
         </a>
-        {# The singer's name, in the bar just left of the hamburger. Hidden until a
-           name is set (JS clears is-hidden); custom.css then gives it the auto-margin
-           that carries it right, with the burger tucked in beside it. Its home is
-           settled here so join-in, which will label and open a modal on it, need
-           not move it. #}
-        <a id="current-user" class="navbar-item is-hidden" href="#">
-          <i class="icon icon-mic-1" title="Current user"></i>
-          <span class="is-truncated"></span>
+        {# The person item: "Join in" (green tint) until named, then the name,
+           set by JS from the cookie with no reload. #}
+        <a id="current-user" class="navbar-item has-text-success" href="#"
+          aria-label="{% trans %}Join in{% endtrans %}">
+          {# Avatar slot: the glyph fills the circle now; a later PR swaps in a photo. #}
+          <span class="singer-avatar"><i class="icon icon-user-circle-o"></i></span>
+          <span class="is-truncated">{% trans %}Join in{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           {# Bulma 1.x's burger needs four bars: the first two stack in the centre
@@ -575,6 +574,32 @@
       </header>
       {% block content %}
       {% endblock %}
+    </div>
+
+    {# Reusable text-prompt dialog, kept outside .box so SPA navigation (which
+       swaps only .box) cannot destroy it. Driven by promptForText(). #}
+    <div class="modal" id="text-prompt-modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title is-size-5 mb-0" id="text-prompt-title"></p>
+          <button class="delete text-prompt-cancel" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-3 is-hidden" id="text-prompt-message"></p>
+          <div class="field">
+            <label class="label is-hidden" id="text-prompt-label" for="text-prompt-input"></label>
+            <div class="control">
+              <input id="text-prompt-input" class="input" type="text" autocomplete="off">
+            </div>
+            <p class="help is-hidden" id="text-prompt-help"></p>
+          </div>
+        </section>
+        <footer class="modal-card-foot is-justify-content-flex-end">
+          <button class="button is-primary" id="text-prompt-ok">{% trans %}Save{% endtrans %}</button>
+          <button class="button text-prompt-cancel">{% trans %}Cancel{% endtrans %}</button>
+        </footer>
+      </div>
     </div>
   </div>
   {% endif %}
