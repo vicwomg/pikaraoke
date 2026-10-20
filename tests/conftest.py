@@ -79,11 +79,14 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
 
     @app.context_processor
     def inject_path_config():
+        # admin_alerts mirrors app.py's context processor: base.html, settings
+        # and info read it on render. Empty unless a test overrides it.
         return {
             "base_path": "",
             "socketio_path": "/socket.io",
             "cookie_path": "/",
             "singer_name_max_length": 30,
+            "admin_alerts": [],
         }
 
     # app.py binds these at import for the same reason: base.html calls them on

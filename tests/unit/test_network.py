@@ -12,7 +12,21 @@ from pikaraoke.lib.network import (
     _get_ip_via_udp_socket,
     _get_ip_windows,
     get_ip,
+    is_youtube_reachable,
 )
+
+
+class TestIsYoutubeReachable:
+    """Distinguishes a broken yt-dlp from an offline box."""
+
+    def test_true_when_connection_opens(self):
+        with patch("socket.create_connection") as conn:
+            conn.return_value.__enter__.return_value = MagicMock()
+            assert is_youtube_reachable() is True
+
+    def test_false_when_connection_refused_or_dns_fails(self):
+        with patch("socket.create_connection", side_effect=OSError("unreachable")):
+            assert is_youtube_reachable() is False
 
 
 class TestGetIpViaUdpSocket:

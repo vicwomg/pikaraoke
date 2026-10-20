@@ -302,6 +302,29 @@
 				});
 				showNotification({{ _('Library sync complete') | tojson }}, "is-success");
 			});
+
+			// Keep the Alerts card live when a condition is raised or cleared.
+			window.onPageSocket("alerts", function() {
+				$.get("{{ url_for('settings.alerts_section') }}", function(html) {
+					$("#alerts").html(html);
+				});
+			});
+
+			// An alert action that jumps to a settings section expands and scrolls to it.
+			function expandSection(id) {
+				var $header = $("#" + id);
+				if (!$header.length) return;
+				if ($header.hasClass("is-collapsed")) {
+					$header.removeClass("is-collapsed");
+					$header.next(".collapsible-content").slideDown(200);
+				}
+				$header[0].scrollIntoView({ behavior: "smooth", block: "start" });
+			}
+			$(document).off("click.alertjump").on("click.alertjump", ".alert-jump", function(e) {
+				e.preventDefault();
+				expandSection(this.getAttribute("href").slice(1));
+			});
+			if (location.hash) expandSection(location.hash.slice(1));
 		{% endif %}
 		});
 	</script>
@@ -338,6 +361,9 @@
 	{% endif %}
 
 	{% if admin %}
+
+		{# Live-refreshed by the alerts socket handler below. #}
+		<div id="alerts">{% include "alerts_section.html" %}</div>
 
 		<div class="card mt-5">
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
@@ -638,7 +664,7 @@
 			   a routine operation; the destructive Reset actions sit at the foot of the
 			   page instead. The iTunes suggestion settings live here, with the rename and
 			   lookup functions they drive. #}
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+			<header id="database" class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div>
 					{# MSG: Header of the settings section for operations on the song database. #}
 					<h3 class="m-0">{% trans %}Database{% endtrans %}</h3>
@@ -683,7 +709,7 @@
 
 			<hr class="my-0">
 
-			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+			<header id="system" class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div>
 					{# MSG: Header of the settings section for the interface language and the computer running Pikaraoke. #}
 					<h3 class="m-0">{% trans %}System{% endtrans %}</h3>
