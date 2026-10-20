@@ -100,6 +100,50 @@ class TestDownloadManagerInit:
         download_manager._worker.kill()
 
 
+class TestDownloadManagerFailedAlert:
+    """The downloads.failed alert mirrors the error list being non-empty."""
+
+    def _error(self, error_id):
+        return {
+            "id": error_id,
+            "title": "T",
+            "url": "https://youtu.be/aaaaaaaaaaa",
+            "user": "U",
+            "enqueue": False,
+            "error": "boom",
+        }
+
+    def _capture(self, events):
+        seen = []
+        events.on("alert", lambda key, *a: seen.append(("alert", key)))
+        events.on("alert_clear", lambda key: seen.append(("alert_clear", key)))
+        return seen
+
+    def test_first_error_raises_the_alert(self, download_manager, events):
+        seen = self._capture(events)
+        download_manager.download_errors.append(self._error("1"))
+        download_manager._sync_download_alert()
+        assert ("alert", "downloads.failed") in seen
+
+    def test_removing_the_last_error_clears(self, download_manager, events):
+        download_manager.download_errors.append(self._error("1"))
+        seen = self._capture(events)
+        download_manager.remove_error("1")
+        assert seen == [("alert_clear", "downloads.failed")]
+
+    def test_removing_one_of_several_keeps_the_alert_raised(self, download_manager, events):
+        download_manager.download_errors += [self._error("1"), self._error("2")]
+        seen = self._capture(events)
+        download_manager.remove_error("1")
+        assert seen == [("alert", "downloads.failed")]
+
+    def test_retrying_the_last_error_clears(self, download_manager, events):
+        download_manager.download_errors.append(self._error("1"))
+        seen = self._capture(events)
+        download_manager.retry_error("1")
+        assert ("alert_clear", "downloads.failed") in seen
+
+
 class TestDownloadManagerQueueDownload:
     """Tests for DownloadManager.queue_download method."""
 
