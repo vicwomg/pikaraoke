@@ -1,0 +1,28 @@
+name: PR Title
+
+# GitHub builds a squash-merge commit's subject from the PR title, so the title
+# must itself be a conventional commit - the per-commit commitlint job cannot
+# catch this, as the squash subject does not exist until merge. 'edited' re-runs
+# the check when the title is corrected.
+# pull_request (not pull_request_target) with a read-only token: this action
+# checks out no code and only reads the title, so the lower-privilege trigger
+# is enough and safer. synchronize keeps the check attached to each new head
+# SHA, so it can serve as a required status check.
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint-title:
+    runs-on: ubuntu-latest
+    name: Lint PR title
+    steps:
+    # Default type list mirrors @commitlint/config-conventional, the same base
+    # code_quality/.commitlintrc.yml extends, so the rules stay in one place.
+    - name: Check PR title is conventional
+      uses: amannn/action-semantic-pull-request@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
