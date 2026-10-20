@@ -38,6 +38,7 @@
 .icon-up-big:before { content: '\e824'; } /* '' */
 .icon-info-circled:before { content: '\e825'; } /* '' */
 .icon-braille:before { content: '\e826'; } /* '' */
+.icon-bell:before { content: '\e827'; } /* '' */
 .icon-left-circled:before { content: '\f0a8'; } /* '' */
 .icon-right-circled:before { content: '\f0a9'; } /* '' */
 .icon-up-circled:before { content: '\f0aa'; } /* '' */
@@ -48,9 +49,12 @@
 .icon-sort-down:before { content: '\f0dd'; } /* '' */
 .icon-sort-up:before { content: '\f0de'; } /* '' */
 .icon-exchange:before { content: '\f0ec'; } /* '' */
+.icon-bell-alt:before { content: '\f0f3'; } /* '' */
 .icon-angle-double-up:before { content: '\f102'; } /* '' */
 .icon-angle-double-down:before { content: '\f103'; } /* '' */
 .icon-angle-up:before { content: '\f106'; } /* '' */
 .icon-angle-down:before { content: '\f107'; } /* '' */
 .icon-folder-open-empty:before { content: '\f115'; } /* '' */
+.icon-user-circle:before { content: '\f2bd'; } /* '' */
+.icon-user-circle-o:before { content: '\f2be'; } /* '' */
 .icon-search-2:before { content: '\f50d'; } /* '' */
