@@ -5,7 +5,7 @@ from urllib.parse import unquote
 import flask_babel
 from flask import Response, jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, fields
+from marshmallow import Schema, ValidationError, fields, validates_schema
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
@@ -27,8 +27,15 @@ class ReorderForm(Schema):
 class EnqueueForm(Schema):
     song_to_add = fields.String(required=True, metadata={"description": "Path to the song file"})
     song_added_by = fields.String(
-        load_default="", metadata={"description": "Name of the user adding the song"}
+        required=True, metadata={"description": "Name of the user adding the song"}
     )
+
+    @validates_schema
+    def check_name(self, data, **kwargs):
+        # Whitespace-only is blank: it would be truthy everywhere the name is read.
+        if not data["song_added_by"].strip():
+            # MSG: Error when a song is queued without a name
+            raise ValidationError(_("A name is required"), "song_added_by")
 
 
 class QueueEditQuery(Schema):

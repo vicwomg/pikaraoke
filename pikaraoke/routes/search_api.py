@@ -1,12 +1,15 @@
 """API for previewing and downloading YouTube results."""
 
+import flask_babel
 from flask import jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, fields
+from marshmallow import Schema, ValidationError, fields, validates_schema
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_stream_url
+
+_ = flask_babel.gettext
 
 search_api_bp = Blueprint("search_api", __name__)
 
@@ -26,6 +29,13 @@ class DownloadBody(Schema):
     queue = fields.Boolean(
         load_default=False, metadata={"description": "Whether to queue the song after download"}
     )
+
+    @validates_schema
+    def check_name(self, data, **kwargs):
+        # Whitespace-only is blank: it would be truthy everywhere the name is read.
+        if not data["song_added_by"].strip():
+            # MSG: Error when a download is requested without a name
+            raise ValidationError(_("A name is required"), "song_added_by")
 
 
 @search_api_bp.route("/api/preview")

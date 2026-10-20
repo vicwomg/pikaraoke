@@ -280,8 +280,6 @@
 			$(".direct-download").attr("disabled", !isYoutubeURL($(this).val()));
 		});
 
-		setUserCookie(); // Don't reload page after setting cookie
-
 		loadSingerList();
 
 		// "Include non-karaoke matches" is the only setting left on this page, so its
@@ -301,18 +299,23 @@
 		// afterwards, so no caller may report that the file has arrived. Completion
 		// comes back later on the song_downloaded socket event.
 		function requestDownload(songUrl, songTitle, addToQueue, onSettled) {
-			$.ajax({
-				url: "{{ url_for('search_api.download') }}",
-				type: "POST",
-				contentType: "application/json",
-				data: JSON.stringify({
-					song_url: songUrl,
-					song_title: songTitle || "",
-					song_added_by: resolveSinger(),
-					queue: addToQueue,
-				}),
-				success: function () { onSettled(true); },
-				error: function () { onSettled(false); },
+			resolveSinger().done(function (name) {
+				$.ajax({
+					url: "{{ url_for('search_api.download') }}",
+					type: "POST",
+					contentType: "application/json",
+					data: JSON.stringify({
+						song_url: songUrl,
+						song_title: songTitle || "",
+						song_added_by: name,
+						queue: addToQueue,
+					}),
+					success: function () { onSettled(true); },
+					error: function () { onSettled(false); },
+				});
+			}).fail(function () {
+				// Dialog dismissed: undo the pending state the caller showed.
+				onSettled(false);
 			});
 		}
 
