@@ -177,11 +177,7 @@
    </div>
 
 
-<div
-  id="splash-notification"
-  class="notification overlay"
-  style="display: none; border: 2px solid black;"
-></div>
+<div id="splash-notification"></div>
 
 <div class="fw-fh-container">
   <div id="screensaver" style="visibility: hidden; --pikaraoke-logo-url: url('{{ url_for("images.logo") }}');">
@@ -374,13 +370,23 @@
   .timestamp {
     font-family: monospace;
   }
+  /* A toast stack anchored top-left over the video. */
   #splash-notification {
     position: absolute;
     top: 15px;
     left: 50px;
     z-index: 6;
-    padding: 5px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
     max-width: 450px;
+  }
+  /* Compact padding for a buttonless TV toast; bordered for legibility over
+     video; no pointer so a toast never blocks the menu overlay. */
+  #splash-notification .notification {
+    --bulma-notification-padding: 0.4em 0.75em;
+    border: 2px solid black;
+    pointer-events: none;
   }
 </style>
 

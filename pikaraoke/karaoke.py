@@ -485,8 +485,8 @@ class Karaoke:
         # Color should be bulma compatible: primary, warning, success, danger
         if self.preferences.get_or_default("hide_notifications"):
             return
-        # The splash shows one notification at a time and drops overlaps itself,
-        # so the server keeps no slot to hold or clear.
+        # The splash stacks notifications client-side, so the server just fires
+        # and keeps no slot to hold or clear.
         if self.socketio:
             self.socketio.emit("notification", f"{message}::is-{color}", namespace="/")
 

@@ -118,15 +118,27 @@
       $toast.find(".delete").on("click", dismiss);
     }
 
-    // Global: templates and spa-navigation.js both fire it.
-    window.showNotification = function (message, categoryClass, timeout = 3000) {
-      var $toast = $('<div class="notification base-notification mb-0"></div>')
-        .addClass(categoryClass)
-        .append($('<button class="delete" aria-label="close"></button>'))
-        .append($('<div class="flash"></div>').text(message));
-      $("#notification-stack").append($toast);
+    // Shared by the management stack and the splash; they differ only in the
+    // target stack and whether the toast carries a close button.
+    window.addToast = function ($stack, message, categoryClass, { timeout = 3000, closeable = true } = {}) {
+      var $toast = $('<div class="notification mb-0"></div>')
+        .addClass(categoryClass);
+      if (closeable) {
+        // base-notification pads the text clear of the close button, so it
+        // belongs only on toasts that carry one.
+        $toast.addClass('base-notification')
+          .append($('<button class="delete" aria-label="close"></button>'));
+      }
+      $toast.append($('<div class="flash"></div>').text(message));
+      $stack.append($toast);
       $toast.hide().fadeIn();
       bindToastDismiss($toast, timeout);
+      return $toast;
+    }
+
+    // Global: templates and spa-navigation.js both fire it.
+    window.showNotification = function (message, categoryClass, timeout = 3000) {
+      window.addToast($("#notification-stack"), message, categoryClass, { timeout });
     }
 
     function setUserCookie(reload=false) {
