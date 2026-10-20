@@ -277,6 +277,11 @@ def main() -> None:
         url_base_path=args.base_path,
     )
 
+    # 'autoplay' defaults on, which the store_true CLI path can't express (it
+    # reads a False as "flag not passed"), so persist the disable directly.
+    if args.disable_autoplay:
+        k.preferences.set("autoplay", False)
+
     # expose karaoke object to the flask app
     with app.app_context():
         app.config["KARAOKE_INSTANCE"] = k

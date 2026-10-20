@@ -389,6 +389,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     queue.add_argument(
+        "--disable-autoplay",
+        action="store_true",
+        help="Wait for a manual start before each song instead of playing the next in the queue automatically. The upcoming song sits on the splash screen with a Play button until an admin starts it.",
+        required=False,
+    )
+    queue.add_argument(
         "--enable-fair-queue",
         action="store_true",
         help="Order the queue round-robin, so that singers take turns rather than the queue running first-come-first-served. Singers are ranked by the turns they have already had tonight.",

@@ -218,9 +218,11 @@ const playBGVideo = async (play) => {
 }
 
 const shouldBackgroundMediaPlay = () => {
-  return autoplayConfirmed &&
-    !nowPlaying.now_playing &&
-    !nowPlaying.up_next;
+  if (!autoplayConfirmed || nowPlaying.now_playing) return false;
+  // A queued song with autoplay on is a brief splash-delay gap before it starts,
+  // so hold the background off. With autoplay off that song waits indefinitely
+  // for its singer, so play the background through the wait rather than go dark.
+  return !nowPlaying.up_next || !nowPlaying.autoplay;
 };
 
 // Asserts both media's desired state rather than acting on the one that moved,

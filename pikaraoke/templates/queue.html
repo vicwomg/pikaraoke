@@ -39,6 +39,8 @@
       var newQueue = queueResp[0];
       var newNowPlaying = nowPlayingResp[0] || null;
 
+      window.queuePage_syncAutoplayToggle(newNowPlaying);
+
       var queueChanged = !isEqual(newQueue, window.queuePageState.previousQueue);
       var npChanged = !isEqual(newNowPlaying, window.queuePageState.previousNowPlaying);
 
@@ -72,6 +74,13 @@
         }
       }
     });
+  };
+
+  // Keep the Autoplay toggle in step with the live preference. The head song's
+  // "Play now" option lives in its row menu, shown from the same state.
+  window.queuePage_syncAutoplayToggle = function(np) {
+    if (!isAdmin) return;
+    $('#queue-autoplay').prop('checked', !np || np.autoplay !== false);
   };
 
   window.initSortable = function() {
@@ -131,9 +140,9 @@
 
   // Generate now-playing row HTML
   function generateNowPlayingRow(np) {
-    var iconSrc = np.is_paused
-      ? '{{ url_for("static", filename="images/now-playing.png") }}'
-      : '{{ url_for("static", filename="images/now-playing.gif") }}';
+    var iconSrc = window.isNowPlaying(np)
+      ? '{{ url_for("static", filename="images/now-playing.gif") }}'
+      : '{{ url_for("static", filename="images/now-playing.png") }}';
 
     var html = '<tr class="disabled-sort has-background-dark">';
     html += '<td class="is-vcentered has-text-centered">';
@@ -446,6 +455,12 @@
       window.closeSongOptions();
   };
 
+  // Start the waiting head song (autoplay off).
+  window.executeManualStart = function() {
+      $.post(window.pikaraokeConfig.basePath + "/api/play");
+      window.closeSongOptions();
+  };
+
   // Open the modal menu
   window.openSongOptions = function(index, file, title) {
       // Store song info for AJAX actions
@@ -463,6 +478,11 @@
 
       // Reset all options to visible first
       $('#opt-up, #opt-top, #opt-down, #opt-bottom').show();
+
+      // "Play now" only for the head song, and only while it waits (autoplay off).
+      var np = window.queuePageState.nowPlaying;
+      var waiting = np && !np.now_playing && np.autoplay === false;
+      $('#opt-play').toggle(index === 0 && !!waiting);
 
       // Hide "Up"/"Play Next" if first in queue (index 0)
       if (index === 0) {
@@ -541,6 +561,20 @@
           e.preventDefault();
           openNowPlayingOptions();
       });
+
+      // Autoplay toggle and manual start
+      $(document).on('change', '#queue-autoplay', function() {
+          $.post("{{ url_for('preferences.change_preferences') }}",
+              { pref: "autoplay", val: this.checked ? "True" : "False" });
+      });
+  });
+
+  // Keep the toggle in step when autoplay is changed from another page.
+  window.onPageSocket("preferences_update", function(data) {
+      if (data && data.key === "autoplay") {
+          window.queuePageState.previousNowPlaying = null;
+          window.queuePage_getQueue();
+      }
   });
 
   // Visibility handler (same as before)
@@ -562,6 +596,12 @@
 	}
 </style>
 
+{% endblock %}
+
+{% block heading_action %}
+{% if admin %}
+<label class="checkbox"><input type="checkbox" id="queue-autoplay"> {% trans %}Autoplay{% endtrans %}</label>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -590,6 +630,10 @@
       <button class="delete" aria-label="close" onclick="closeSongOptions()"></button>
     </header>
     <section class="modal-card-body">
+        <a id="opt-play" class="panel-block py-3" href="#" onclick="executeManualStart(); return false;">
+            <span class="icon has-text-success mr-2"><i class="icon-play"></i></span>
+            <b>{% trans %}Play now{% endtrans %}</b>
+        </a>
         <a id="opt-top" class="panel-block py-3" href="#" onclick="executeQueueAction('top'); return false;">
             <span class="icon has-text-info mr-2"><i class="icon-angle-double-up"></i></span>
             <b>{% trans %}Play Next{% endtrans %}</b>&nbsp;({% trans %}Move to Top{% endtrans %})

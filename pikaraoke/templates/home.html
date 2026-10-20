@@ -2,6 +2,11 @@
 <script>
 	var volume = {{ volume|default(0.85) }};
 
+	// With autoplay off, a song can sit at the head of the queue ready to start.
+	// The control box then starts it and pre-sets its key.
+	var pikaWaiting = false;
+	var pikaWaitingSong = null;
+
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
 		window.socket = io({ path: window.pikaraokeConfig.socketioPath });
@@ -16,6 +21,8 @@
 
 	function handleNowPlaying(np) {
 		console.log(np);
+		pikaWaiting = !np.now_playing && !!np.up_next && !np.autoplay;
+		pikaWaitingSong = np.up_next_file;
 		if (np.now_playing) {
 			var nowPlayingHtml = `<p class="mb-1">${np.now_playing}</p>
           <p class="has-text-text mb-1"><i class="icon icon-mic-1" title="Current singer"></i>${np.now_playing_user}</p>`;
@@ -33,8 +40,13 @@
 		} else {
 			// {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
 			$("#now-playing").html({{ _('Nothing is playing right now.') | tojson }});
-			$(".control-box").hide();
+			// A song waiting for a manual start keeps the control box up.
+			$(".control-box").toggle(pikaWaiting);
 		}
+
+		// The now-playing marker shows only while a song is loaded, not during a
+		// manual-start wait when the control box is up but nothing is playing.
+		$(".playing_gif").toggle(!!np.now_playing);
 
 		if (np.up_next) {
 			$("#up-next").html(`<p class="mb-1">${np.up_next}</p>
@@ -46,13 +58,10 @@
 			$("#up-next").html({{ _('No song is queued.') | tojson }});
 		}
 
-		if (np.now_playing_transpose != 0) {
-			$("#transpose").val(np.now_playing_transpose);
-			$("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
-		} else {
-			$("#transpose").val(0);
-			$("#semitones-label").html(getSemitonesLabel(np.now_playing_transpose));
-		}
+		// While waiting, the slider reflects and sets the upcoming song's key.
+		var shownTranspose = pikaWaiting ? np.up_next_transpose : np.now_playing_transpose;
+		$("#transpose").val(shownTranspose);
+		$("#semitones-label").html(getSemitonesLabel(shownTranspose));
 
 		// set the volume slider to the current volume
 		if (np.volume != volume) {
@@ -61,7 +70,9 @@
 			$("#volume-slider").val(volume);
 		}
 
-		if (np.is_paused) {
+		// Not playing (paused or a song waiting to start): the button plays
+		// rather than pauses, and the gif stays still.
+		if (!window.isNowPlaying(np)) {
 			$("#pause-resume").removeClass("icon-pause");
 			$("#pause-resume").addClass("icon-play");
 			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
@@ -94,11 +105,12 @@
 		);
 
 		$("#submit-transpose").click(function () {
-			var value;
-			if (slider) {
-				value = slider.value;
-			} else {
-				value = 0;
+			var value = slider ? slider.value : 0;
+			if (pikaWaiting) {
+				// Pre-set the waiting song's key; no playing song to restart, so no confirm.
+				$.post(window.pikaraokeConfig.basePath + "/api/queue/pitch?song="
+					+ encodeURIComponent(pikaWaitingSong) + "&semitones=" + value);
+				return;
 			}
 			r = confirm(window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)));
 			if (r) {
@@ -109,6 +121,18 @@
 		});
 
 		$("#pause-resume").click(function () {
+			if (pikaWaiting) {
+				// Apply the slider's key to the waiting song, then start it, so the
+				// one transcode runs in the chosen key.
+				var basePath = window.pikaraokeConfig.basePath;
+				var semitones = slider ? slider.value : 0;
+				$.post(basePath + "/api/queue/pitch?song="
+					+ encodeURIComponent(pikaWaitingSong) + "&semitones=" + semitones)
+					.always(function () {
+						$.post(basePath + "/api/play");
+					});
+				return;
+			}
 			$.post(window.pikaraokeConfig.basePath + "/api/pause");
 			togglePausePlayButton();
 		});
@@ -229,7 +253,7 @@
 {% endblock %} {% block heading %}{{ title }}
 <img
 	style="display: none"
-	class="playing_gif control-box"
+	class="playing_gif"
 	width="40"
 	src="{{  url_for('static', filename='images/now-playing.png') }}"
 />{% endblock %}

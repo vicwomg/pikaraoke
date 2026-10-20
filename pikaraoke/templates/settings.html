@@ -529,10 +529,17 @@
 					{# MSG: Header of the settings section for the rules of the song queue. #}
 					<h3 class="m-0">{% trans %}Queue{% endtrans %}</h3>
 					{# MSG: One-line summary under the Queue heading, naming the controls inside it. #}
-					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Songs per singer and fair queue{% endtrans %}</span>
+					<span class="section-summary is-size-7 has-text-grey-light">{% trans %}Autoplay, songs per singer and fair queue{% endtrans %}</span>
 				</div>
 			</header>
 			<div class="collapsible-content panel is-shadowless mb-0">
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label for playing the next queued song automatically #} {% trans %}Autoplay{% endtrans %}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Play the next song automatically.{% endtrans %}</span>
+					</span>
+					<input id="pref-autoplay" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="autoplay" {% if autoplay == True %}checked{% endif %}>
+				</label>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="pref-limit-user-songs-by">
 						{# MSG: Numberbox label for limitting the number of songs for each player #} {% trans %}Songs per singer{% endtrans %}

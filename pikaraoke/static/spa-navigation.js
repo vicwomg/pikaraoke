@@ -67,6 +67,12 @@
         return handler;
     };
 
+    // One source of truth for the now-playing indicator the home, queue and
+    // history pages each draw: a song is playing when one is loaded and not paused.
+    window.isNowPlaying = function (np) {
+        return !!(np && np.now_playing && !np.is_paused);
+    };
+
     /**
      * Initialize SPA navigation
      */

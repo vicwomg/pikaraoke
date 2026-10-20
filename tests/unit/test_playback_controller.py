@@ -599,6 +599,7 @@ class TestPlaybackControllerResetNowPlaying:
         pc.now_playing_user = "TestUser"
         pc.is_playing = True
         pc.is_paused = False
+        pc.start_requested = True
 
         pc.reset_now_playing()
 
@@ -606,6 +607,8 @@ class TestPlaybackControllerResetNowPlaying:
         assert pc.now_playing_user is None
         assert pc.is_playing is False
         assert pc.is_paused is True
+        # A press during a song must not carry into the next one.
+        assert pc.start_requested is False
 
 
 @patch("pikaraoke.lib.playback_controller.time.sleep")
@@ -693,3 +696,15 @@ class TestPlaybackControllerStartWatchdog:
 
         assert pc.is_playing is True
         assert pc._deadline == 100 + 120 + OVERRUN_MARGIN_S
+
+
+class TestPlaybackControllerManualStart:
+    """Tests for the manual-start flag used when autoplay is off."""
+
+    def test_request_start_arms_flag(self, test_prefs):
+        """request_start sets the flag the run loop consumes."""
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+
+        assert pc.start_requested is False
+        pc.request_start()
+        assert pc.start_requested is True
