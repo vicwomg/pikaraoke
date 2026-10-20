@@ -1,6 +1,7 @@
 """Tests for the Add New page: it acquires songs and flags ones already held."""
 
 import json
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -74,6 +75,57 @@ class TestAcquisitionOnly:
 
     def test_autocomplete_endpoint_is_gone(self, client):
         assert client.get("/autocomplete?q=abba").status_code == 404
+
+
+class TestYtdlBrokenAlert:
+    """A failed search raises ytdl.broken and keeps the page rendering."""
+
+    def _search_raising(self, client, exc, reachable=True):
+        k = MagicMock()
+        with (
+            patch("pikaraoke.routes.search.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.search.get_site_name", return_value="PiKaraoke"),
+            patch("pikaraoke.routes.search.get_search_results", side_effect=exc),
+            patch("pikaraoke.routes.search.is_youtube_reachable", return_value=reachable),
+        ):
+            return client.get("/search?search_string=abba"), k
+
+    def test_search_failure_raises_the_alert_and_renders_the_form(self, client):
+        response, k = self._search_raising(client, subprocess.CalledProcessError(1, "yt-dlp"))
+        assert response.status_code == 200
+        assert "search_string_input" in response.data.decode()
+        raised = [c.args for c in k.events.emit.call_args_list if c.args[0] == "alert"]
+        assert raised and raised[0][1] == "ytdl.broken"
+        assert raised[0][2] == "danger"
+
+    def test_missing_binary_is_caught_too(self, client):
+        _, k = self._search_raising(client, FileNotFoundError("no yt-dlp"))
+        assert any(
+            c.args[0] == "alert" and c.args[1] == "ytdl.broken"
+            for c in k.events.emit.call_args_list
+        )
+
+    def test_corrupt_binary_oserror_is_caught(self, client):
+        # A replaced/garbage binary raises a bare OSError (e.g. WinError 193),
+        # which must still surface as the alert rather than a 500.
+        _, k = self._search_raising(client, OSError(8, "Exec format error"))
+        assert any(
+            c.args[0] == "alert" and c.args[1] == "ytdl.broken"
+            for c in k.events.emit.call_args_list
+        )
+
+    def test_offline_does_not_raise_the_alert(self, client):
+        _, k = self._search_raising(
+            client, subprocess.CalledProcessError(1, "yt-dlp"), reachable=False
+        )
+        assert not any(
+            c.args[0] == "alert" and c.args[1] == "ytdl.broken"
+            for c in k.events.emit.call_args_list
+        )
+
+    def test_successful_search_clears_the_alert(self, client):
+        _, k = _search(client, [MISSING], {})
+        assert ("alert_clear", "ytdl.broken") in [c.args for c in k.events.emit.call_args_list]
 
 
 class TestLibraryMatches:

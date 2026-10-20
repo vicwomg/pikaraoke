@@ -270,6 +270,35 @@
       window.socket.on("now_playing", window.sessionRibbonHandler);
     }
 
+    // The navbar bell, kept live over the ribbon's socket so it survives SPA
+    // swaps. Wired only for admins (see the $() block), so a guest never sees it.
+    function setAlertBell(count, severity) {
+      var $bell = $("#alert-bell");
+      if (!$bell.length) {
+        return;
+      }
+      if (!count) {
+        $bell.addClass("is-hidden");
+        return;
+      }
+      $bell.find(".ph-bell")
+        .removeClass("has-text-danger has-text-warning")
+        .addClass(severity === "danger" ? "has-text-danger" : "has-text-warning");
+      $bell.removeClass("is-hidden");
+    }
+    function bindAlertBell() {
+      if (!window.socket) {
+        return;
+      }
+      if (window.alertBellHandler) {
+        window.socket.off("alerts", window.alertBellHandler);
+      }
+      window.alertBellHandler = function (a) {
+        setAlertBell(a.count, a.severity);
+      };
+      window.socket.on("alerts", window.alertBellHandler);
+    }
+
     // Keeps the singer field in step with the session, over a socket that
     // outlives SPA page swaps. io() hands back the same instance every time, so
     // this script re-running on each navigation would stack another handler
@@ -330,6 +359,12 @@
       // Unlike the singer field, the ribbon is not a KJ-mode control: everyone
       // in the room sees which session is running.
       bindSessionRibbon();
+
+      {% if not blank_page and is_admin() %}
+      // Admin-only: the bell element and its handler exist only for admins, so
+      // an alert broadcast never reveals the bell to a guest.
+      bindAlertBell();
+      {% endif %}
 
       // Give server flashes the same close button and auto-expiry as fired toasts.
       $("#notification-stack .notification").each(function () {
@@ -482,6 +517,19 @@
           <span class="singer-avatar"><i class="ph ph-user-circle"></i></span>
           <span class="is-truncated">{% trans %}Join in{% endtrans %}</span>
         </a>
+        {# Admin-only, shown only when a condition is active. Server renders the
+           initial count and colour; the socket keeps it live. #}
+        {% if is_admin() %}
+        {% set alerts = admin_alerts | default([]) %}
+        {% set alert_danger = alerts | selectattr('severity', 'equalto', 'danger') | list | length > 0 %}
+        <a id="alert-bell" class="navbar-item{% if not alerts %} is-hidden{% endif %}"
+          href="{{ base_path }}/settings#alerts"
+          {# MSG: Accessible label for the navbar bell linking to the admin alerts. #}
+          aria-label="{% trans %}Alerts{% endtrans %}">
+          {# Presence is the signal, colour the severity; detail lives on Settings. #}
+          <span class="icon"><i class="ph ph-bell {% if alert_danger %}has-text-danger{% else %}has-text-warning{% endif %}" title="{% trans %}Alerts{% endtrans %}"></i></span>
+        </a>
+        {% endif %}
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           {# Bulma 1.x's burger needs four bars: the first two stack in the centre
              and rotate into the close (X), the third and fourth are the top and

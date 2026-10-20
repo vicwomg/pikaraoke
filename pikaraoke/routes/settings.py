@@ -81,3 +81,9 @@ def settings():
         keep_awake=k.keep_awake,
         keep_awake_unsupported=keep_awake.unsupported_reason(),
     )
+
+
+@settings_bp.route("/settings/alerts")
+def alerts_section():
+    """The Alerts card, re-fetched live when alert state changes. Host-only."""
+    return render_template("alerts_section.html")
