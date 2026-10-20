@@ -209,6 +209,27 @@ beforeAll(async () => {
   // Helpers defined inline in base.html, not in any static file.
   window.getSemitonesLabel = (value) => `${value > 0 ? "+" : ""}${value}`;
 
+  // base.html's toast builder: splash.js's flashNotification appends through it,
+  // so the splash page has it in production. Mirror it here for the suite.
+  window.addToast = ($stack, message, categoryClass, { timeout = 3000, closeable = true } = {}) => {
+    const $toast = $('<div class="notification mb-0"></div>').addClass(categoryClass);
+    if (closeable) {
+      $toast
+        .addClass("base-notification")
+        .append($('<button class="delete" aria-label="close"></button>'));
+    }
+    $toast.append($('<div class="flash"></div>').text(message));
+    $stack.append($toast);
+    $toast.hide().fadeIn();
+    const dismiss = () => {
+      clearTimeout(timer);
+      $toast.fadeOut(() => $toast.remove());
+    };
+    const timer = setTimeout(dismiss, timeout);
+    $toast.find(".delete").on("click", dismiss);
+    return $toast;
+  };
+
   // Functions from the sibling static scripts: score.js, screensaver.js.
   window.startScore = async (staticPath) => {
     startScoreCalls.push(staticPath);

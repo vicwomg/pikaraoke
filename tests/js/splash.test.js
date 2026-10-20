@@ -557,21 +557,17 @@ describe("socket housekeeping", () => {
     expect(socketStub.emitted).toContainEqual(["register_splash"]);
   });
 
-  it("flashes a notification and the master clears it", () => {
-    state().isMaster = true;
+  it("flashes a notification", () => {
     socketStub.fire("notification", "Song added::is-success");
     const sn = document.getElementById("splash-notification");
     expect(sn.innerHTML).toContain("Song added");
-    expect(sn.classList.contains("is-success")).toBe(true);
-    expect(socketStub.emitted).toContainEqual(["clear_notification"]);
+    expect(sn.querySelector(".notification").classList.contains("is-success")).toBe(true);
   });
 
-  it("does not clear a notification from a slave", () => {
+  it("flashes a notification on a slave too", () => {
     state().isMaster = false;
     socketStub.fire("notification", "Another song::is-primary");
-    expect(
-      socketStub.emitted.some(([e]) => e === "clear_notification"),
-    ).toBe(false);
+    expect(document.getElementById("splash-notification").innerHTML).toContain("Another song");
   });
 
   it("clears the notification after it has shown", () => {
