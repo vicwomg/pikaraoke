@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 
@@ -35,10 +36,10 @@ def search():
         query = search_string if non_karaoke else f'{search_string} "karaoke"'
         try:
             search_results = get_search_results(query)
-        except (subprocess.CalledProcessError, OSError) as e:
+        except (subprocess.CalledProcessError, OSError, json.JSONDecodeError) as e:
             # Any way yt-dlp fails to run or extract (bad exit, missing or corrupt
-            # binary). With YouTube reachable that means extraction is broken;
-            # unreachable means offline, not yt-dlp's fault, so no alert.
+            # binary, unparseable output). With YouTube reachable that means
+            # extraction is broken; unreachable means offline, so no alert.
             logging.error(f"yt-dlp search failed: {e}")
             if is_youtube_reachable():
                 raise_ytdl_broken(k.events)
