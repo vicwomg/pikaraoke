@@ -1,10 +1,17 @@
 """Unit tests for SingerManager."""
 
+import os
+
 import pytest
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.singer_manager import SingerManager
+
+
+def _display_name(path):
+    """Stand in for SongManager.display_name_from_path: stable title per path."""
+    return os.path.splitext(os.path.basename(path))[0]
 
 
 @pytest.fixture
@@ -15,8 +22,13 @@ def db(tmp_path):
 
 
 @pytest.fixture
-def singers(db):
-    return SingerManager(db, EventSystem())
+def events():
+    return EventSystem()
+
+
+@pytest.fixture
+def singers(db, events):
+    return SingerManager(db, events, _display_name)
 
 
 def _performer(db, singer_id):
@@ -112,3 +124,83 @@ class TestBackfill:
     def test_empty_history_is_a_no_op(self, db, singers):
         singers.backfill()
         assert db.query("SELECT COUNT(*) FROM singers")[0][0] == 0
+
+
+class TestFavourites:
+    @pytest.fixture
+    def library(self, db):
+        """A YouTube song (durable id) and a local rip (no id), both in library."""
+        db.insert_songs(
+            [
+                {
+                    "file_path": "/s/Halo---dQw4w9WgXcQ.mp4",
+                    "youtube_id": "dQw4w9WgXcQ",
+                    "format": "mp4",
+                },
+                {"file_path": "/s/Local Rip.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        return {"youtube": "/s/Halo---dQw4w9WgXcQ.mp4", "local": "/s/Local Rip.mp4"}
+
+    def test_starring_lists_the_song(self, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        assert singers.get_favourite_paths("Alice") == {library["youtube"]}
+
+    def test_an_unnamed_or_unknown_singer_has_none(self, singers):
+        assert singers.get_favourite_paths("Nobody") == set()
+
+    def test_starring_twice_leaves_one_row(self, db, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        singers.add_favourite("Alice", library["youtube"])
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 1
+
+    def test_unstarring_removes_the_song(self, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        singers.remove_favourite("Alice", library["youtube"])
+        assert singers.get_favourite_paths("Alice") == set()
+
+    def test_unstarring_a_song_never_starred_creates_no_singer(self, singers, library):
+        singers.remove_favourite("Alice", library["youtube"])
+        assert singers.find("Alice") is None
+
+    def test_favourites_are_per_singer(self, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        assert singers.get_favourite_paths("Bob") == set()
+
+    def test_a_local_rip_is_favourited_by_its_live_link(self, singers, library):
+        singers.add_favourite("Alice", library["local"])
+        assert singers.get_favourite_paths("Alice") == {library["local"]}
+
+    def test_a_youtube_favourite_follows_a_rename(self, db, singers, events, library):
+        singers.add_favourite("Alice", library["youtube"])
+        song_id = db.get_song_identity(library["youtube"])[0]
+        new_path = "/s/Halo (Live)---dQw4w9WgXcQ.mp4"
+        db.update_path(library["youtube"], new_path)
+        events.emit("song_renamed", song_id, "Halo (Live)")
+        assert singers.get_favourite_paths("Alice") == {new_path}
+
+    def test_a_youtube_favourite_returns_after_redownload(self, db, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        db.delete_by_path(library["youtube"])
+        assert singers.get_favourite_paths("Alice") == set()
+        db.insert_songs(
+            [
+                {
+                    "file_path": "/s/Halo again---dQw4w9WgXcQ.mp4",
+                    "youtube_id": "dQw4w9WgXcQ",
+                    "format": "mp4",
+                }
+            ]
+        )
+        assert singers.get_favourite_paths("Alice") == {"/s/Halo again---dQw4w9WgXcQ.mp4"}
+
+    def test_a_renamed_local_rip_unstars_by_its_new_name(self, db, singers, events, library):
+        """The song_renamed subscription keeps the title (a local rip's identity)
+        current, so the star is still reachable after the file is renamed."""
+        singers.add_favourite("Alice", library["local"])
+        song_id = db.get_song_identity(library["local"])[0]
+        new_path = "/s/Local Rip Renamed.mp4"
+        db.update_path(library["local"], new_path)
+        events.emit("song_renamed", song_id, _display_name(new_path))
+        singers.remove_favourite("Alice", new_path)
+        assert singers.get_favourite_paths("Alice") == set()

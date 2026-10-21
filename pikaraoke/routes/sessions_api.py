@@ -9,7 +9,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 
 from pikaraoke.lib.auth import public
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import favourite_paths, get_karaoke_instance
 from pikaraoke.lib.play_history_manager import RESET_SCOPES, SESSION_NAME_MAX_LENGTH
 
 _ = flask_babel.gettext
@@ -181,6 +181,12 @@ def get_plays(query):
         query["direction"],
         **scope,
     )
+    # Whether each play's song is one of this device's singer's favourites, so the
+    # row-options modal opens showing the right star. A gone song (no file_path)
+    # is never starred, matching the hide-when-not-in-library rule.
+    favourites = favourite_paths()
+    for play in plays:
+        play["starred"] = play.get("file_path") in favourites
     total = k.play_history.count_plays(session, **scope)
     return jsonify({"plays": plays, "total": total})
 
