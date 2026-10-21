@@ -191,6 +191,7 @@
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +
+									'" data-starred="' + (play.starred ? "1" : "0") +
 									'" title="{{ _("Options") | forceescape }}">' +
 									'<span class="icon is-medium"><i class="ph ph-dots-three-vertical"></i></span></a>' +
 							"</td>" +
@@ -212,13 +213,17 @@
 
 	function openPlayOptions($btn) {
 		var path = $btn.data("path");
-		$playModal.data({ id: $btn.data("id"), path: path });
+		var starred = $btn.data("starred") == 1;
+		$playModal.data({ id: $btn.data("id"), path: path, starred: starred, trigger: $btn });
 		$("#play-modal-title").text($btn.data("song"));
 		// A song can be played and later deleted from the library, which leaves
 		// the entry in the log with nothing to queue. Saying so is friendlier than
-		// an add that fails.
+		// an add that fails. Favouriting needs the song in the library too, so it
+		// rides the same condition as the queue action.
 		$("#opt-add-queue").toggle(!!path);
+		$("#opt-favourite-play").toggle(!!path);
 		$("#opt-song-gone").toggle(!path);
+		window.setFavouriteItem(starred, $("#opt-favourite-play"));
 		$playModal.addClass("is-active");
 	}
 
@@ -290,9 +295,18 @@
 			var action = $(this).data("action");
 			var id = $playModal.data("id");
 			var path = $playModal.data("path");
+			var starred = $playModal.data("starred");
+			var $trigger = $playModal.data("trigger");
 			closePlayOptions();
 			if (action === "queue") {
 				addToQueue(path);
+			} else if (action === "favourite") {
+				// Shared with Songs and Rankings; the path is raw here, so encode it
+				// to match what those pages send pre-encoded. Keep the row's state in
+				// step so reopening the menu reads true.
+				window.favouriteSong(encodeURIComponent(path), !starred, function (nowStarred) {
+					$trigger.data("starred", nowStarred ? 1 : 0).attr("data-starred", nowStarred ? "1" : "0");
+				});
 			} else {
 				deletePlay(id);
 			}
@@ -494,6 +508,11 @@
 				<span class="icon has-text-success mr-2"><i class="ph ph-plus-circle"></i></span>
 				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
 				{% trans %}Add to queue{% endtrans %}
+			</a>
+			{# Icon and label are set by setFavouriteItem() from the play's starred state. #}
+			<a id="opt-favourite-play" class="panel-block py-3" href="#" data-action="favourite">
+				<span class="icon mr-2"><i class="ph ph-plus"></i></span>
+				<span class="opt-fav-label"></span>
 			</a>
 			<span id="opt-song-gone" class="panel-block py-3 has-text-grey-light">
 				<span class="icon mr-2"><i class="ph ph-info"></i></span>
