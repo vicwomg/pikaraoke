@@ -114,11 +114,10 @@ jobs:
       uses: actions/checkout@v7
 
     - name: Set up Node
-      # Node 18 - the most widely deployed runtime - is the oldest
-      # runtime the suite supports, so CI verifies that floor.
+      # Dev-tooling floor, not the app's: vitest 5 needs node 22+.
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '22'
 
     - name: Run JS tests with coverage
       run: |

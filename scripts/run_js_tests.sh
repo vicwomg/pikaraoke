@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Run the JS unit suite (tests/js/) under the machine's node.
 #
-# The toolchain is pinned in package.json (vitest 3, the node-18 major) and
-# package-lock.json, so every machine gets the same toolchain. The runtime is
-# the node on the machine's PATH - node 18, the most widely deployed
-# runtime, is enough - and this script installs no runtime of its own.
+# The toolchain is pinned in package.json and package-lock.json. The runtime
+# is the node on the machine's PATH; vitest 5 needs node 22 or newer.
 #
 # The script is called from the pre-commit hook and from CI; it is also the
 # direct way to run the JS suite.
