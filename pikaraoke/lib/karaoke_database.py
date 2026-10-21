@@ -122,9 +122,10 @@ CREATE TABLE IF NOT EXISTS plays (
 -- leftmost prefix still covers the session_id lookups on its own.
 CREATE INDEX IF NOT EXISTS idx_plays_session_played_at ON plays(session_id, played_at);
 CREATE INDEX IF NOT EXISTS idx_plays_played_at ON plays(played_at);
--- NOCASE to match the collation every performer query uses; a BINARY index
--- would be written on every play and read by nothing.
-CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer COLLATE NOCASE);
+-- Performer queries now join singers on singer_id, so nothing reads through a
+-- performer index any more. Dropped here rather than merely uncreated, so an
+-- upgraded database stops paying to maintain it on every play.
+DROP INDEX IF EXISTS idx_plays_performer;
 -- Foreign keys are enforced, so SQLite scans for referencing plays on every
 -- song delete. Without this, a library sync that drops songs scans the whole
 -- plays table once per deleted row.
