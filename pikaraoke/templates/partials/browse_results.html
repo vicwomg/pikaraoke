@@ -9,26 +9,23 @@
 	{% set display_name = filename_from_path(song) %}
 	<tr value="{{ song }}">
 		<td class="pl-2 pr-0">{{loop.index + skip}}</td>
-		<td id="{{display_name[0].lower()}}" class="pr-0">
+		<td id="{{display_name[0].lower()}}" class="break-word pr-0">{{display_name}}</td>
+		<td class="pr-0 has-text-right">
+			{# One trigger per row opens the shared options modal (queue, favourite,
+			   and rename for admins). data-starred seeds its favourite state from
+			   this device's favourites, resolved once per render. #}
 			<a
-				class="add-song-link has-text-weight-bold has-text-success"
-				title="Add '{{display_name}}' to queue"
+				class="song-options-trigger has-text-grey"
 				href="#"
 				data-song="{{url_escape(song.encode('utf-8','surrogateescape'))}}"
-				><i class="icon icon-list-add"></i>
+				data-title="{{display_name}}"
+				data-starred="{% if song in favourite_paths() %}1{% else %}0{% endif %}"
+				{% if admin %}data-edit-url="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"{% endif %}
+				title="{{ _('Options') | forceescape }}"
+				aria-label="{{ _('Options') | forceescape }}"
+				><i class="icon icon-menu"></i>
 			</a>
 		</td>
-		<td class="break-word pr-0">{{display_name}}</td>
-		{% if admin %}
-		<td class="pr-0">
-			<a
-				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
-				title="Rename song"
-				><i class="icon icon-edit-1"></i>
-			</a>
-		</td>
-		{% endif %}
 	</tr>
 	{% endfor %}
 </table>

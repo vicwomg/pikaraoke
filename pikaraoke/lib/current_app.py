@@ -2,13 +2,42 @@
 
 import logging
 from typing import Any
+from urllib.parse import unquote
 
-from flask import current_app, request, session
+from flask import current_app, g, request, session
 from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.login_throttle import LoginThrottle
+
+
+def current_singer_name() -> str | None:
+    """The singer named by this device's cookie, or None when unnamed.
+
+    js-cookie percent-encodes what it writes, so the stored value is decoded
+    here; a blank or whitespace-only name counts as none. This is the server's
+    one read of the identity cookie -- favourite stars are drawn from it.
+    """
+    raw = request.cookies.get("user")
+    if not raw:
+        return None
+    return unquote(raw).strip() or None
+
+
+def favourite_paths() -> set[str]:
+    """This device's singer's starred songs that are in the library, cached per request.
+
+    A template global: the song lists call it per row to draw their stars, so it
+    must cost one query per render however many rows ask. Empty when the device
+    has no name, which is what hides stars for an unnamed browser.
+    """
+    if "favourite_paths" not in g:
+        name = current_singer_name()
+        g.favourite_paths = (
+            get_karaoke_instance().singer_manager.get_favourite_paths(name) if name else set()
+        )
+    return g.favourite_paths
 
 
 def is_admin() -> bool:

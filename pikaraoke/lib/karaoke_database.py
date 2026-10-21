@@ -132,6 +132,47 @@ DROP INDEX IF EXISTS idx_plays_performer;
 CREATE INDEX IF NOT EXISTS idx_plays_song ON plays(song_id);
 -- Likewise for a singer delete.
 CREATE INDEX IF NOT EXISTS idx_plays_singer ON plays(singer_id);
+
+-- One row per (singer, song): what this singer has saved about it. The same
+-- three ways of naming a song as plays, for the same reasons -- song_id the
+-- live link, youtube_id the durable identity, song_title the label of last
+-- resort, kept current through renames (SingerManager subscribes to
+-- song_renamed). Either a star or a saved key creates the row.
+CREATE TABLE IF NOT EXISTS singer_songs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    singer_id INTEGER NOT NULL,
+    song_id INTEGER,
+    youtube_id TEXT,
+    song_title TEXT NOT NULL,
+    -- Starred: the singer marked this a favourite. One preference, not the
+    -- row's only reason to exist.
+    starred INTEGER NOT NULL DEFAULT 0,
+    -- Saved key: the shift this singer wants this song in. NULL = none saved.
+    -- Present but unwritten until a pitch UI exists, as plays.singer_id shipped.
+    semitones INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (singer_id) REFERENCES singers(id) ON DELETE CASCADE,
+    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
+);
+-- Identity, not row: a second star on the same song is an upsert, keyed the
+-- way _SONG_KEY groups plays so a youtube song is one favourite across its
+-- redownloads and a local rip one across renames.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_singer_songs_identity
+    ON singer_songs(singer_id, COALESCE('y:' || youtube_id, 't:' || LOWER(song_title)));
+-- As idx_plays_song: foreign keys are enforced, so a library sync that drops a
+-- song would otherwise scan this table once per deleted row.
+CREATE INDEX IF NOT EXISTS idx_singer_songs_song ON singer_songs(song_id);
+
+-- Singer-level preferences as key/value, the shape the metadata table already
+-- uses for the same open-ended reason. Created here; first written in stage E
+-- (a saved language), so nothing reads it yet.
+CREATE TABLE IF NOT EXISTS singer_preferences (
+    singer_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (singer_id, key),
+    FOREIGN KEY (singer_id) REFERENCES singers(id) ON DELETE CASCADE
+);
 """
 
 

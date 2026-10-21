@@ -105,12 +105,18 @@
 			<td>
 				{% if song.file_path %}
 				{# A bare fontello glyph, not a Bulma .icon: this one sits inline with
-				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
-				<a class="add-song-link has-text-success"
-					title="{{ _('Add to queue') | forceescape }}"
+				   the title, and .icon is a 1.5rem flex box that would ride above it.
+				   The three-dots trigger opens the shared options modal (queue and
+				   favourite); a song no longer in the library has no path and so no
+				   trigger, which is how the star stays hidden for a gone song. #}
+				<a class="song-options-trigger has-text-grey mr-1"
+					title="{{ _('Options') | forceescape }}"
+					aria-label="{{ _('Options') | forceescape }}"
 					href="#"
 					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
-					><i class="icon-list-add"></i
+					data-title="{{ song.song }}"
+					data-starred="{% if song.file_path in favourite_paths() %}1{% else %}0{% endif %}"
+					><i class="icon-menu"></i
 				></a>
 				{% endif %}
 				{# Through to every play of this song, and so to who sang it. The id
@@ -163,4 +169,5 @@
 <p>{% trans %}Nobody has sung yet.{% endtrans %}</p>
 {% endif %}
 
+{% include 'partials/song_options_modal.html' %}
 {% endblock %}

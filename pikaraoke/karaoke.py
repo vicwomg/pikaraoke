@@ -307,7 +307,11 @@ class Karaoke:
 
         # Singers own the one row per performer that plays and favourites hang
         # off; play history resolves names through it and backfills it on start.
-        self.singer_manager = SingerManager(db=self.db, events=self.events)
+        self.singer_manager = SingerManager(
+            db=self.db,
+            events=self.events,
+            song_display_name=self.song_manager.display_name_from_path,
+        )
 
         # Play history recording and reporting (subscribes to song_ended itself)
         self.play_history = PlayHistoryManager(

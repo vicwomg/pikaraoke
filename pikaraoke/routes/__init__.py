@@ -25,6 +25,7 @@ from pikaraoke.routes.search_api import search_api_bp
 from pikaraoke.routes.sessions import sessions_bp
 from pikaraoke.routes.sessions_api import sessions_api_bp
 from pikaraoke.routes.settings import settings_bp
+from pikaraoke.routes.singers_api import singers_api_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
 
@@ -41,6 +42,7 @@ API_BLUEPRINTS = [
     nowplaying_bp,
     metadata_bp,
     sessions_api_bp,
+    singers_api_bp,
 ]
 
 # Hidden from /apidocs: pages, media byte streams, and the JSON only this app's

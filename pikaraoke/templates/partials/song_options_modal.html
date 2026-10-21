@@ -1,0 +1,30 @@
+{# One row-options modal per page, populated by bindSongOptions() in base.html
+   from the three-dots trigger that opened it. Included by the song lists that
+   use it (Songs, Rankings). The Rename item is shown only when the trigger
+   carries an edit URL, which the template emits for admins alone. #}
+<div class="modal" id="song-options-modal">
+	<div class="modal-background"></div>
+	<div class="modal-card">
+		<header class="modal-card-head">
+			<p class="modal-card-title is-size-6 mb-0" id="song-options-title"></p>
+			<button class="delete modal-close-btn" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<a id="opt-add-queue" class="panel-block py-3" href="#">
+				<span class="icon has-text-success mr-2"><i class="icon-list-add"></i></span>
+				{# MSG: Row-options menu item which adds the song to the queue. #}
+				{% trans %}Add to queue{% endtrans %}
+			</a>
+			<a id="opt-favourite" class="panel-block py-3" href="#" data-starred="0">
+				{# Icon and label are set by setFavouriteItem() from the current state. #}
+				<span class="icon mr-2"><i class="icon-plus"></i></span>
+				<span class="opt-fav-label"></span>
+			</a>
+			<a id="opt-edit" class="panel-block py-3" href="#">
+				<span class="icon mr-2"><i class="icon-edit-1"></i></span>
+				{# MSG: Row-options menu item, admin only, which opens the rename page. #}
+				{% trans %}Rename{% endtrans %}
+			</a>
+		</section>
+	</div>
+</div>
