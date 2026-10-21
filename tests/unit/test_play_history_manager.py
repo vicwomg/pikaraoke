@@ -7,6 +7,7 @@ import pytest
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.play_history_manager import STALE_SESSION_HOURS, PlayHistoryManager
+from pikaraoke.lib.singer_manager import SingerManager
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def events():
 
 @pytest.fixture
 def history(db, events):
-    return PlayHistoryManager(db=db, events=events)
+    return PlayHistoryManager(db=db, events=events, singers=SingerManager(db, events))
 
 
 @pytest.fixture
@@ -658,8 +659,8 @@ class TestGetSingers:
 
         assert len(history.get_singers(limit=50)) == 2
 
-    def test_limit_still_resolves_latest_casing(self, history, song_id):
-        """Casing is resolved after the cap is applied, so it must survive it."""
+    def test_capped_ranking_shows_the_latest_casing(self, history, song_id):
+        """A later casing of a name wins, and survives the cap being applied."""
         history.record_play(song_id, None, "mike", "A Song")
         history.record_play(song_id, None, "Mike", "A Song")
 
@@ -857,11 +858,12 @@ class TestOrphanedPlays:
     as playing for ever."""
 
     def test_startup_closes_a_play_left_open(self, db, events, song_id):
-        first = PlayHistoryManager(db=db, events=events)
+        first = PlayHistoryManager(db=db, events=events, singers=SingerManager(db, events))
         first.record_play(song_id, None, "Alice", "A Song")
         assert first.get_plays()[0]["has_ended"] == 0
 
-        restarted = PlayHistoryManager(db=db, events=EventSystem())
+        events2 = EventSystem()
+        restarted = PlayHistoryManager(db=db, events=events2, singers=SingerManager(db, events2))
 
         # Marked the same way as a skip, so reaching it takes the same opt-in.
         play = restarted.get_plays(include_skipped=True)[0]
@@ -870,16 +872,38 @@ class TestOrphanedPlays:
         assert play["completed"] == 0
 
     def test_startup_leaves_resolved_plays_alone(self, db, events, song_id):
-        first = PlayHistoryManager(db=db, events=events)
+        first = PlayHistoryManager(db=db, events=events, singers=SingerManager(db, events))
         first.record_play(song_id, None, "Alice", "A Song")
         events.emit("song_ended", "complete")
         before = first.get_plays()[0]
 
-        restarted = PlayHistoryManager(db=db, events=EventSystem())
+        events2 = EventSystem()
+        restarted = PlayHistoryManager(db=db, events=events2, singers=SingerManager(db, events2))
 
         after = restarted.get_plays()[0]
         assert after["completed"] == 1
         assert after["played_at"] == before["played_at"]
+
+
+class TestStartupBackfill:
+    """Starting up must give a pre-singers history its singer rows, or the
+    joins every report now runs would silently drop the unlinked plays."""
+
+    def _legacy_play(self, db, performer):
+        session_id = db.execute("INSERT INTO sessions (uuid) VALUES ('s1')").lastrowid
+        db.execute(
+            "INSERT INTO plays (session_id, song_title, performer) VALUES (?, 'A Song', ?)",
+            (session_id, performer),
+        )
+
+    def test_startup_links_plays_recorded_before_singers_existed(self, db, events):
+        self._legacy_play(db, "Beyonce")
+
+        history = PlayHistoryManager(db=db, events=events, singers=SingerManager(db, events))
+
+        # The join would hide an unlinked play, so its presence here is the proof.
+        assert [p["performer"] for p in history.get_plays()] == ["Beyonce"]
+        assert [s["performer"] for s in history.get_singers()] == ["Beyonce"]
 
 
 class TestGetPlays:
