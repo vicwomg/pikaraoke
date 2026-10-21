@@ -114,6 +114,14 @@ class TestYtdlBrokenAlert:
             for c in k.events.emit.call_args_list
         )
 
+    def test_unparseable_output_is_caught_too(self, client):
+        # yt-dlp exits clean but emits non-JSON: must raise the alert, not 500.
+        _, k = self._search_raising(client, json.JSONDecodeError("bad", "", 0))
+        assert any(
+            c.args[0] == "alert" and c.args[1] == "ytdl.broken"
+            for c in k.events.emit.call_args_list
+        )
+
     def test_offline_does_not_raise_the_alert(self, client):
         _, k = self._search_raising(
             client, subprocess.CalledProcessError(1, "yt-dlp"), reachable=False
