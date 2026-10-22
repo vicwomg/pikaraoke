@@ -222,12 +222,18 @@ def delete_file(query):
             "is-danger",
         )
     else:
-        k.song_manager.delete(song_path)
-        # MSG: Message shown after deleting a song. Followed by the song path
-        flash(
-            _("Song deleted: %s") % k.song_manager.display_name_from_path(song_path),
-            "is-warning",
-        )
+        try:
+            k.song_manager.delete(song_path)
+        except OSError as e:
+            logging.error(f"Error deleting file: {e}")
+            # MSG: Message shown after a delete failed. Followed by the system error.
+            flash(_("Error deleting file: %s") % e, "is-danger")
+        else:
+            # MSG: Message shown after deleting a song. Followed by the song path
+            flash(
+                _("Song deleted: %s") % k.song_manager.display_name_from_path(song_path),
+                "is-warning",
+            )
     return redirect(referrer)
 
 
@@ -292,7 +298,13 @@ def rename_file(form):
         return _render_edit_page(k, old_name, new_name, referrer, error)
 
     new_name_full = new_name + youtube_id_suffix(old_name)
-    target = k.song_manager.rename_target(old_name, new_name_full)
+    try:
+        target = k.song_manager.rename_target(old_name, new_name_full)
+    except OSError as e:
+        # The path is outside the library; refuse on the same page, no 500.
+        logging.error(f"Refused rename target: {e}")
+        error = _("Error renaming file: %s") % e
+        return _render_edit_page(k, old_name, new_name, referrer, error)
     # A song already named what you asked for is done, not a collision with itself.
     if target == old_name:
         return redirect(referrer)

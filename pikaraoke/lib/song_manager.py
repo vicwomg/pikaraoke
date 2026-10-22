@@ -262,8 +262,27 @@ class SongManager:
                 companions.append(os.path.join(dirpath, f))
         return companions
 
+    def _require_library_path(self, song_path: str) -> str:
+        """Resolve `song_path` and require it to live under `download_path`.
+
+        The file routes pass user-supplied paths here; without this check a
+        caller can remove or rename any file the process can write. realpath
+        also collapses symlinks so a symlink inside the library cannot smuggle
+        an outside target back in.
+        """
+        base = os.path.realpath(self.download_path)
+        real = os.path.realpath(song_path)
+        if real != base and not real.startswith(base + os.sep):
+            raise PermissionError(f"Path outside song library refused: {song_path}")
+        return real
+
     def delete(self, song_path: str) -> None:
         """Delete a song from disk, SongList, and DB."""
+        # Validate only: SongList and the DB key on the path as stored, which
+        # may differ textually from its realpath when download_path has
+        # symlink components. The original path is safe to use once the check
+        # proves it resolves inside the library.
+        self._require_library_path(song_path)
         logging.info(f"Deleting song: {song_path}")
         companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
@@ -281,6 +300,7 @@ class SongManager:
         built by hand skips the sanitizing, so the real target moves out from
         under the check and os.rename replaces the clashing song without a word.
         """
+        song_path = self._require_library_path(song_path)
         _, ext = os.path.splitext(song_path)
         # The song's own directory, not download_path: the scanner walks
         # recursively, so a renamed song stays in the subfolder it was filed in.
