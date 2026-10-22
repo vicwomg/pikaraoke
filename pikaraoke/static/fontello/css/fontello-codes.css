@@ -39,6 +39,11 @@
 .icon-info-circled:before { content: '\e825'; } /* '' */
 .icon-braille:before { content: '\e826'; } /* '' */
 .icon-bell:before { content: '\e827'; } /* '' */
+.icon-star:before { content: '\f005'; } /* '' */
+.icon-star-empty:before { content: '\f006'; } /* '' */
+.icon-video:before { content: '\f03d'; } /* '' */
+.icon-move:before { content: '\f047'; } /* '' */
+.icon-stop:before { content: '\f04d'; } /* '' */
 .icon-left-circled:before { content: '\f0a8'; } /* '' */
 .icon-right-circled:before { content: '\f0a9'; } /* '' */
 .icon-up-circled:before { content: '\f0aa'; } /* '' */
@@ -55,6 +60,8 @@
 .icon-angle-up:before { content: '\f106'; } /* '' */
 .icon-angle-down:before { content: '\f107'; } /* '' */
 .icon-folder-open-empty:before { content: '\f115'; } /* '' */
+.icon-ellipsis-vert:before { content: '\f142'; } /* '' */
+.icon-wifi:before { content: '\f1eb'; } /* '' */
 .icon-user-circle:before { content: '\f2bd'; } /* '' */
 .icon-user-circle-o:before { content: '\f2be'; } /* '' */
 .icon-search-2:before { content: '\f50d'; } /* '' */
