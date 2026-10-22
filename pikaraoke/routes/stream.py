@@ -148,7 +148,11 @@ def stream_progressive_mp4(id):
         chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
         with open(file_path, "rb") as file:
             # Keep yielding file chunks as long as ffmpeg process is transcoding
-            while k.playback_controller.ffmpeg_process.poll() is None:
+            # (a None process means transcoding already finished or never started)
+            while (
+                k.playback_controller.ffmpeg_process is not None
+                and k.playback_controller.ffmpeg_process.poll() is None
+            ):
                 file.seek(position)  # Move to the last read position
                 chunk = file.read(chunk_size)
                 if chunk is not None and len(chunk) > 0:
@@ -172,6 +176,10 @@ def stream_file_path_full(file_path):
             return Response(file_content, mimetype="video/mp4")
         # Extract range start and end from Range header (e.g., "bytes=0-499")
         range_match = re.search(r"bytes=(\d+)-(\d*)", range_header)
+        if range_match is None:
+            # Suffix ranges ("bytes=-500") and non-byte units reach here and
+            # would otherwise crash on range_match.groups().
+            return Response("Requested Range Not Satisfiable", status=416)
         start, end = range_match.groups()
         start = int(start)
         end = int(end) if end else file_size - 1
