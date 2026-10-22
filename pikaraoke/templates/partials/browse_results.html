@@ -7,20 +7,43 @@
 <table class="table is-striped">
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
+	{% set is_fav = song in favourite_paths() %}
+	{% set encoded = url_escape(song.encode('utf-8','surrogateescape')) %}
 	<tr value="{{ song }}">
-		<td class="pl-2 pr-0">{{loop.index + skip}}</td>
-		<td id="{{display_name[0].lower()}}" class="break-word pr-0">{{display_name}}</td>
-		<td class="pr-0 has-text-right">
+		<td id="{{display_name[0].lower()}}" class="action-cell">
+			<a
+				class="add-song-link has-text-weight-bold has-text-success"
+				title="Add '{{display_name}}' to queue"
+				href="#"
+				data-song="{{encoded}}"
+				><span class="icon"><i class="ph ph-plus-circle"></i></span>
+			</a>
+		</td>
+		<td class="break-word px-0">{{display_name}}</td>
+		<td class="action-cell">
+			{# setRowStar() keeps this and the trigger in step. #}
+			<a
+				class="song-favourite-toggle"
+				href="#"
+				data-song="{{encoded}}"
+				data-title="{{display_name}}"
+				data-starred="{% if is_fav %}1{% else %}0{% endif %}"
+				title="{{ _('Favourite') | forceescape }}"
+				aria-label="{{ _('Favourite') | forceescape }}"
+				><span class="icon {% if is_fav %}has-text-warning{% else %}has-text-grey{% endif %}"><i class="{% if is_fav %}ph-fill ph-star{% else %}ph ph-star{% endif %}"></i></span>
+			</a>
+		</td>
+		<td class="action-cell">
 			{# One trigger per row opens the shared options modal (queue, favourite,
 			   and rename for admins). data-starred seeds its favourite state from
 			   this device's favourites, resolved once per render. #}
 			<a
 				class="song-options-trigger has-text-grey"
 				href="#"
-				data-song="{{url_escape(song.encode('utf-8','surrogateescape'))}}"
+				data-song="{{encoded}}"
 				data-title="{{display_name}}"
-				data-starred="{% if song in favourite_paths() %}1{% else %}0{% endif %}"
-				{% if admin %}data-edit-url="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"{% endif %}
+				data-starred="{% if is_fav %}1{% else %}0{% endif %}"
+				{% if admin %}data-edit-url="{{url_for('files.edit_file')}}?song={{encoded}}&referrer={{url_escape(current_url)}}"{% endif %}
 				title="{{ _('Options') | forceescape }}"
 				aria-label="{{ _('Options') | forceescape }}"
 				><span class="icon"><i class="ph ph-dots-three-vertical"></i></span>

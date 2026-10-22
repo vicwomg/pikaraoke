@@ -282,6 +282,15 @@
 		overflow-wrap: anywhere;
 	}
 
+	/* Row actions cluster as glyphs, not padded columns: trim the cell padding and
+	   drop fontello's glyph margins. The .icon box keeps the tap target full-size. */
+	#browse-results .action-cell {
+		padding-inline: 0.2rem;
+	}
+	#browse-results .action-cell .icon::before {
+		margin-inline: 0;
+	}
+
 	.batch-edit-btn {
 		font-size: 0.875rem;
 		white-space: nowrap;
