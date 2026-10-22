@@ -190,13 +190,13 @@
 								historySong || historyYoutubeId
 							) +
 							'<td class="has-text-centered is-vcentered' + (play.has_ended ? '' : ' js-live-status') + '">' + playStatus(play) + "</td>" +
-							'<td class="has-text-right is-vcentered">' +
+							'<td class="has-text-right is-vcentered action-cell">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +
 									'" data-starred="' + (play.starred ? "1" : "0") +
 									'" title="{{ _("Options") | forceescape }}">' +
-									'<i class="icon-ellipsis-vert is-size-5"></i></a>' +
+									'<i class="icon icon-ellipsis-vert"></i></a>' +
 							"</td>" +
 						"</tr>"
 					);
@@ -369,8 +369,9 @@
 	}
 	/* Widths are declared here rather than left to the contents: the song column
 	   is the only one without one, so it absorbs the slack and the three columns
-	   beside it keep a usable share whatever gets sung. The status column holds
-	   a glyph but has to be wide enough for its own header. */
+	   beside it keep a usable share whatever gets sung. The status column is
+	   sized to its glyph: its header is screen-reader-only, so the word does
+	   not widen it. */
 	/* A cell here is a time or a date, never both, so the column is sized for
 	   "7:57 am" or "31 Jul" rather than for the pair. Only a row from another
 	   year is longer, and it wraps. */
@@ -381,10 +382,10 @@
 		width: 20%;
 	}
 	#play-log .col-status {
-		width: 4em;
+		width: 2em;
 	}
 	#play-log .col-options {
-		width: 3em;
+		width: 2.25em;
 	}
 	.status-playing {
 		width: 18px;
@@ -403,10 +404,10 @@
 			width: 22%;
 		}
 		#play-log .col-status {
-			width: 3.2em;
+			width: 2em;
 		}
 		#play-log .col-options {
-			width: 2em;
+			width: 2.25em;
 		}
 		#play-log td.when {
 			color: var(--bulma-grey-light);
@@ -491,7 +492,8 @@
 				{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
 			</th>
 			{# MSG: Play log column header for whether the song was played through, skipped, or is still playing. #}
-			<th>{% trans %}Status{% endtrans %}</th>
+			{# Screen-reader-only, so the glyph alone -- not the word -- sets the column width. #}
+			<th><span class="is-sr-only">{% trans %}Status{% endtrans %}</span></th>
 			<th></th>
 		</tr>
 	</thead>
