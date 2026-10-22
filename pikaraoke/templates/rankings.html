@@ -38,7 +38,7 @@
 {% endmacro %}
 
 {# Both charts are ranked lists of a name and a count, so they share a header. #}
-{% macro ranking_head(what) %}
+{% macro ranking_head(what, actions=false) %}
 <thead>
 	<tr>
 		{# MSG: Ranking table column header for a row's position in the chart. #}
@@ -46,6 +46,7 @@
 		<th>{{ what }}</th>
 		{# MSG: Ranking table column header for how many times something was played. #}
 		<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+		{% if actions %}<th></th>{% endif %}
 	</tr>
 </thead>
 {% endmacro %}
@@ -59,6 +60,10 @@
 	}
 	.rankings-table .col-count {
 		width: 5em;
+	}
+	/* Just the vertical-ellipsis options glyph. */
+	.rankings-table .col-actions {
+		width: 3em;
 	}
 	/* The add-to-queue plus leads the title it queues. Fontello's symmetric side
 	   margins go: the left one would indent the plus out of line with the column
@@ -92,9 +97,10 @@
 		<col class="col-rank" />
 		<col />
 		<col class="col-count" />
+		<col class="col-actions" />
 	</colgroup>
 	{# MSG: Ranking table column header for the song that was sung. #}
-	{{ ranking_head(_("Song")) }}
+	{{ ranking_head(_("Song"), actions=true) }}
 	<tbody>
 		{% for song in top_songs %}
 		<tr>
@@ -103,22 +109,6 @@
 			   library -- which is also why file_path can be missing, and with it
 			   any way to queue the song up again. #}
 			<td>
-				{% if song.file_path %}
-				{# A bare fontello glyph, not a Bulma .icon: this one sits inline with
-				   the title, and .icon is a 1.5rem flex box that would ride above it.
-				   The three-dots trigger opens the shared options modal (queue and
-				   favourite); a song no longer in the library has no path and so no
-				   trigger, which is how the star stays hidden for a gone song. #}
-				<a class="song-options-trigger has-text-grey mr-1"
-					title="{{ _('Options') | forceescape }}"
-					aria-label="{{ _('Options') | forceescape }}"
-					href="#"
-					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
-					data-title="{{ song.song }}"
-					data-starred="{% if song.file_path in favourite_paths() %}1{% else %}0{% endif %}"
-					><i class="icon-menu"></i
-				></a>
-				{% endif %}
 				{# Through to every play of this song, and so to who sang it. The id
 				   goes with the title because a song downloaded twice ranks as two
 				   rows: without it both would open the same combined log, agreeing
@@ -128,6 +118,21 @@
 					session=selected_session or None) }}">{{ song.song }}</a>
 			</td>
 			<td class="has-text-right">{{ song.play_count }}</td>
+			<td class="has-text-right">
+				{# Options trigger in its own column, like the song list; a song gone
+				   from the library has no path, so no trigger. #}
+				{% if song.file_path %}
+				<a class="song-options-trigger has-text-grey"
+					title="{{ _('Options') | forceescape }}"
+					aria-label="{{ _('Options') | forceescape }}"
+					href="#"
+					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
+					data-title="{{ song.song }}"
+					data-starred="{% if song.file_path in favourite_paths() %}1{% else %}0{% endif %}"
+					><i class="icon icon-ellipsis-vert"></i
+				></a>
+				{% endif %}
+			</td>
 		</tr>
 		{% endfor %}
 	</tbody>
