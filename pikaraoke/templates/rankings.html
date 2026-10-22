@@ -59,11 +59,11 @@
 		width: 4em;
 	}
 	.rankings-table .col-count {
-		width: 5em;
+		width: 3.75em;
 	}
-	/* Just the vertical-ellipsis options glyph. */
+	/* Just the vertical-ellipsis options glyph, kept close to the play count. */
 	.rankings-table .col-actions {
-		width: 3em;
+		width: 2.25em;
 	}
 	/* On a phone the desktop column widths would leave too little for the song
 	   title, so they tighten to what the headers still need. */
@@ -72,7 +72,7 @@
 			width: 3em;
 		}
 		.rankings-table .col-count {
-			width: 3.6em;
+			width: 3em;
 		}
 	}
 </style>
@@ -111,11 +111,11 @@
 					session=selected_session or None) }}">{{ song.song }}</a>
 			</td>
 			<td class="has-text-right">{{ song.play_count }}</td>
-			<td class="has-text-right">
+			<td class="has-text-right action-cell">
 				{# Options trigger in its own column, like the song list; a song gone
 				   from the library has no path, so no trigger. #}
 				{% if song.file_path %}
-				<a class="song-options-trigger has-text-grey"
+				<a class="song-options-trigger has-text-grey-light"
 					title="{{ _('Options') | forceescape }}"
 					aria-label="{{ _('Options') | forceescape }}"
 					href="#"
