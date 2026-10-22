@@ -307,7 +307,7 @@
 				// Shared with Songs and Rankings; the path is raw here, so encode it
 				// to match what those pages send pre-encoded. Keep the row's state in
 				// step so reopening the menu reads true.
-				window.favouriteSong(encodeURIComponent(path), !starred, function (nowStarred) {
+				window.favouriteSong(encodeURIComponent(path), !starred, $trigger.data("song"), function (nowStarred) {
 					$trigger.data("starred", nowStarred ? 1 : 0).attr("data-starred", nowStarred ? "1" : "0");
 				});
 			} else {

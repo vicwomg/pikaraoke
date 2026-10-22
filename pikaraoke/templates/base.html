@@ -60,7 +60,11 @@
       // {# MSG: Row-options menu item which marks a song as one of the singer's favourites. #}
       favouriteAdd: {{ _("Add to favourites") | tojson }},
       // {# MSG: Row-options menu item which removes a song from the singer's favourites. #}
-      favouriteRemove: {{ _("Remove from favourites") | tojson }}
+      favouriteRemove: {{ _("Remove from favourites") | tojson }},
+      // {# MSG: Toast confirming a song was added to favourites. {title} is the song name. #}
+      favouriteAdded: {{ _("Added to favourites: {title}") | tojson }},
+      // {# MSG: Toast confirming a song was removed from favourites. {title} is the song name. #}
+      favouriteRemoved: {{ _("Removed from favourites: {title}") | tojson }}
     };
 
     function getSemitonesLabel(value) {
@@ -326,7 +330,7 @@
     // Star or unstar a song for this device's singer, resolving the name the same
     // way a queue add does (the cookie, else the Join in dialog). onDone(starred)
     // runs only on success, so the caller flips its star to match what was saved.
-    window.favouriteSong = function (encodedPath, makeStarred, onDone) {
+    window.favouriteSong = function (encodedPath, makeStarred, title, onDone) {
       resolveSinger().done(function (name) {
         var body =
           "song=" + encodedPath +
@@ -335,6 +339,10 @@
         $.post(window.pikaraokeConfig.favouriteUrl, body, function (data) {
           if (data.success) {
             onDone(data.starred);
+            var template = data.starred
+              ? window.translations.favouriteAdded
+              : window.translations.favouriteRemoved;
+            showNotification(template.replace("{title}", title), "is-success");
           }
         });
       });
@@ -367,6 +375,15 @@
       $item.find(".icon").toggleClass("has-text-success", starred);
     };
 
+    // Shared by the row star and the options modal, so either keeps the row in step.
+    window.setRowStar = function ($toggle, starred) {
+      $toggle.attr("data-starred", starred ? "1" : "0");
+      $toggle.find("i").attr(
+        "class",
+        starred ? "icon icon-star has-text-warning" : "icon icon-star-empty has-text-grey"
+      );
+    };
+
     function bindSongOptions() {
       $(document).off("click", ".song-options-trigger");
       $(document).on("click", ".song-options-trigger", function (e) {
@@ -397,10 +414,29 @@
         e.preventDefault();
         var $modal = $("#song-options-modal");
         var starred = $("#opt-favourite").attr("data-starred") === "1";
-        window.favouriteSong($modal.data("song"), !starred, function (nowStarred) {
-          // Keep the row's trigger in step, so reopening the modal reads true.
-          $modal.data("trigger").attr("data-starred", nowStarred ? "1" : "0");
+        var title = $modal.data("trigger").attr("data-title");
+        window.favouriteSong($modal.data("song"), !starred, title, function (nowStarred) {
+          // Keep the row's trigger and star in step with what was saved.
+          var $trigger = $modal.data("trigger");
+          $trigger.attr("data-starred", nowStarred ? "1" : "0");
+          $trigger.closest("tr").find(".song-favourite-toggle").each(function () {
+            window.setRowStar($(this), nowStarred);
+          });
           $modal.removeClass("is-active");
+        });
+      });
+
+      // The row star toggles the favourite in place; delegated and unbound-first
+      // like the trigger above.
+      $(document).off("click", ".song-favourite-toggle");
+      $(document).on("click", ".song-favourite-toggle", function (e) {
+        e.preventDefault();
+        var $toggle = $(this);
+        var starred = $toggle.attr("data-starred") === "1";
+        window.favouriteSong($toggle.attr("data-song"), !starred, $toggle.attr("data-title"), function (nowStarred) {
+          window.setRowStar($toggle, nowStarred);
+          // The trigger seeds its modal from data-starred, so keep it current.
+          $toggle.closest("tr").find(".song-options-trigger").attr("data-starred", nowStarred ? "1" : "0");
         });
       });
 

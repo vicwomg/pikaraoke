@@ -177,7 +177,6 @@ def browse():
         # Everyone, not just the host: the size is per-device now.
         "per_page_options": size_options,
         "total": total,
-        "skip": start_index,
         "page_href": page_href,
         "sort_order": sort_order,
         "site_title": site_name,
