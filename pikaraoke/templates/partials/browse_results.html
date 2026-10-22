@@ -3,6 +3,12 @@
    never steals focus or the caret. The pager sits inside it, because filtering
    changes the count and the number of pages. #}
 {% import 'partials/pager.html' as pager %}
+{% if view == 'favourites' and not songs and not q and not letter %}
+{# Favourites view with nothing starred: the notice stands in for the table, and
+   because it lives in the swapped fragment it survives a filter keystroke. #}
+{# MSG: Shown in the Favourites view of the song list when the singer has starred nothing. #}
+<p class="has-text-grey">{% trans %}No favourites yet. Tap the star on a song to add it.{% endtrans %}</p>
+{% else %}
 {{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
 <table class="table is-striped">
 	{% for song in songs %}
@@ -58,4 +64,5 @@
    back up, so it appears only when there is somewhere to scroll back up from. #}
 {% if total > per_page %}
 {{ pager.pager(page, per_page, total, page_href) }}
+{% endif %}
 {% endif %}
