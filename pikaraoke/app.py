@@ -88,7 +88,8 @@ app.jinja_env.globals.update(
     active_session_name=lambda: get_karaoke_instance().play_history.get_current_session_name(),
     has_active_session=lambda: get_karaoke_instance().play_history.has_active_session(),
     # The song lists draw a star per row from this; cached per request so a page
-    # of rows costs one query. Empty for an unnamed device, which hides the stars.
+    # of rows costs one query. Empty for an unnamed device, so every star draws
+    # unfilled until a name is set.
     favourite_paths=favourite_paths,
 )
 

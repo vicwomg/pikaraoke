@@ -307,11 +307,6 @@
       window.socket.on("now_playing", window.kjSessionHandler);
     }
 
-    // Queueing a song already on this machine. Delegated because the Songs page
-    // swaps its whole result table per filter keystroke, and shared because
-    // Songs and Add New render the identical link. Unbound first: SPA navigation
-    // re-executes every inline script, so a plain bind would stack and queue the
-    // song once per page visited.
     // Queue a song by its percent-encoded path. The body is assembled by hand to
     // pass that path through untouched: a filename that is not valid UTF-8 cannot
     // survive a decode here. A POST, never a GET, so a prefetcher, link preview or
@@ -353,6 +348,11 @@
       });
     };
 
+    // Queueing a song already on this machine. Delegated because the Songs page
+    // swaps its whole result table per filter keystroke, and shared because
+    // Songs and Add New render the identical link. Unbound first: SPA navigation
+    // re-executes every inline script, so a plain bind would stack and queue the
+    // song once per page visited.
     function bindAddSongLinks() {
       $(document).off("click", "a.add-song-link");
       $(document).on("click", "a.add-song-link", function (e) {
@@ -363,11 +363,6 @@
       });
     }
 
-    // The row-options modal shared by the Songs and Rankings lists: a three-dots
-    // trigger per row opens one modal populated from the trigger's data. Delegated
-    // and unbound-first like the add links, for SPA re-execution and the result
-    // table a filter keystroke swaps. History keeps its own modal (it also deletes
-    // log entries) but reuses favouriteSong, so the favourite behaviour is shared.
     // Set a favourite modal item's label, icon and state. $item defaults to the
     // shared modal's item; History passes its own, so the two modals share this.
     window.setFavouriteItem = function (starred, $item) {
@@ -389,6 +384,11 @@
       );
     };
 
+    // The row-options modal shared by the Songs and Rankings lists: a three-dots
+    // trigger per row opens one modal populated from the trigger's data. Delegated
+    // and unbound-first like the add links, for SPA re-execution and the result
+    // table a filter keystroke swaps. History keeps its own modal (it also deletes
+    // log entries) but reuses favouriteSong, so the favourite behaviour is shared.
     function bindSongOptions() {
       $(document).off("click", ".song-options-trigger");
       $(document).on("click", ".song-options-trigger", function (e) {

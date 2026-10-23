@@ -14,8 +14,8 @@
 		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
 
-	// The add links need no handler here: base.html delegates add-song-link
-	// clicks from the document, and a second binding would queue the song twice.
+	// The options triggers need no handler here: base.html delegates
+	// .song-options-trigger clicks, and a second binding would double them.
 </script>
 {% endblock %}
 
@@ -64,13 +64,6 @@
 	/* Just the vertical-ellipsis options glyph, kept close to the play count. */
 	.rankings-table .col-actions {
 		width: 2.25em;
-	}
-	/* The add-to-queue plus leads the title it queues. Fontello's symmetric side
-	   margins go: the left one would indent the plus out of line with the column
-	   above it, and the right one is the gap to the title. */
-	.rankings-table .add-song-link i:before {
-		margin-left: 0;
-		margin-right: 0.4em;
 	}
 	/* On a phone the desktop column widths would leave too little for the song
 	   title, so they tighten to what the headers still need. */
