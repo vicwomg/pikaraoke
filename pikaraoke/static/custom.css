@@ -142,6 +142,13 @@
   }
 }
 
+/* The row-options cell is vcentered to seat its icon; the data cells defaulted to
+   the top, so their text rode high above it. Centre every cell so the row reads
+   level against the icon. */
+.history-table td {
+  vertical-align: middle;
+}
+
 /* Rows are told apart by the stripe, so the cell border is off. Bulma's stripe,
    a step stronger. Any hovered row takes the app's hover step. */
 .table {
