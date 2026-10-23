@@ -252,6 +252,20 @@ input.switch[type="checkbox"]:focus-visible {
   outline-offset: 2px;
 }
 
+/* The heading row baseline-aligns its action so a text action sits on the title's
+   baseline. A glyph action -- the autoplay switch, the bulk-rename icon -- has no
+   such baseline, so it centres on the title and centres its own glyph on its label;
+   the gap replaces the switch's default spacing. */
+.heading-action {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.heading-action input.switch[type="checkbox"] {
+  margin-right: 0;
+}
+
 /* ===================================
    ICONS (Phosphor)
    Every glyph is wrapped in Bulma's .icon, which flex-centres it and aligns it
