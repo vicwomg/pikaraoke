@@ -132,18 +132,46 @@
 			});
 		}
 
-		function applyFilter() {
-			const q = effectiveQuery(input.value.trim());
-
-			// Aborting before the early return, not after it: backspacing from "ab"
-			// to "a" resolves to the query already on screen, but the request for
-			// "ab" is still in flight and its response would fill the table with
-			// results the input no longer describes.
+		// Fetch the browse fragment for `params` and swap it into #browse-results.
+		// Shared by the filter and the Favourites refresh, through one `inflight`
+		// controller so the two can never race into a stale table. Resolves true once
+		// this call's fragment is on screen, false if a newer call superseded it.
+		function swapBrowseFragment(params) {
 			if (inflight) {
 				inflight.abort();
 				inflight = null;
 			}
-			if (q === renderedQuery) return;
+			const controller = new AbortController();
+			inflight = controller;
+			const fetchParams = new URLSearchParams(params);
+			fetchParams.set("partial", "1");
+			return fetch(BROWSE_URL + "?" + fetchParams.toString(), { signal: controller.signal })
+				.then((r) => {
+					// A 500's HTML would otherwise render into the table as the fragment.
+					if (!r.ok) throw new Error("Browse request failed: " + r.status);
+					return r.text();
+				})
+				.then((html) => {
+					// abort() can lose the race, so the identity check is what holds.
+					if (inflight !== controller) return false;
+					inflight = null;
+					resultsDiv.innerHTML = html;
+					return true;
+				});
+		}
+
+		function applyFilter() {
+			const q = effectiveQuery(input.value.trim());
+
+			// Backspacing "ab" to "a" resolves to the query on screen: abort the stale
+			// "ab" request, issue nothing new. No fresh fetch follows to do it here.
+			if (q === renderedQuery) {
+				if (inflight) {
+					inflight.abort();
+					inflight = null;
+				}
+				return;
+			}
 
 			// Safe to move ahead of the response: these only matter once clicked,
 			// and clicking one navigates to a fresh server render of that query.
@@ -153,22 +181,9 @@
 			const query = params.toString();
 			const url = BROWSE_URL + (query ? "?" + query : "");
 
-			const controller = new AbortController();
-			inflight = controller;
-			params.set("partial", "1");
-			fetch(BROWSE_URL + "?" + params.toString(), { signal: controller.signal })
-				.then((r) => {
-					// An error page is still text. Without this check a 500 renders
-					// itself into the results table as though it were the fragment.
-					if (!r.ok) throw new Error("Filter request failed: " + r.status);
-					return r.text();
-				})
-				.then((html) => {
-					// abort() does not guarantee the promise loses the race, so the
-					// identity check is what actually keeps a stale response out.
-					if (inflight !== controller) return;
-					inflight = null;
-					resultsDiv.innerHTML = html;
+			swapBrowseFragment(params)
+				.then((swapped) => {
+					if (!swapped) return;
 					renderedQuery = q;
 					// The URL is rewritten only once the table it names is on screen,
 					// so an abandoned query can never be left in the address bar. It
@@ -186,6 +201,21 @@
 					console.error(e);
 				});
 		}
+
+		// In the Favourites view a row's membership *is* its starred state, so an
+		// unstar has to drop the row (in All/Folders the star just toggles in place).
+		// Refetch rather than splice: the server owns the empty-state, count and page
+		// boundaries. Only removals reach here -- you cannot star from inside the view.
+		$(document)
+			.off("favourite:changed.favview")
+			.on("favourite:changed.favview", function (e) {
+				// jQuery wraps the native CustomEvent; the payload is on originalEvent.
+				if (VIEW !== "favourites" || e.originalEvent.detail.starred) return;
+				swapBrowseFragment(new URLSearchParams(window.location.search)).catch((err) => {
+					if (err.name === "AbortError") return;
+					console.error(err);
+				});
+			});
 
 		const runFilter = debounce(applyFilter, 250);
 
