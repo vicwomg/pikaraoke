@@ -147,14 +147,18 @@ def stream_progressive_mp4(id):
         position = 0  # Initialize the position variable
         chunk_size = 10240 * 1000 * 25  # Read file in up to 25MB chunks
         with open(file_path, "rb") as file:
-            # Keep yielding file chunks as long as ffmpeg process is transcoding
-            while k.playback_controller.ffmpeg_process.poll() is None:
+            # None means transcoding finished or never started: stop and flush
+            # the rest of the file. Snapshotting avoids a None.poll() race when
+            # the process is cleared mid-stream.
+            process = k.playback_controller.ffmpeg_process
+            while process is not None and process.poll() is None:
                 file.seek(position)  # Move to the last read position
                 chunk = file.read(chunk_size)
                 if chunk is not None and len(chunk) > 0:
                     yield chunk
                     position += len(chunk)  # Update the position with the size of the chunk
                 time.sleep(1)  # Wait a bit before checking the file size again
+                process = k.playback_controller.ffmpeg_process
             chunk = file.read(chunk_size)  # Read the last chunk
             yield chunk
             position += len(chunk)  # Update the position with the size of the chunk
