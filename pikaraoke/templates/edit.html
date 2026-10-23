@@ -175,12 +175,15 @@
     </div>
   </form>
   <div class="has-text-right mt-4">
-    <a class="confirm-delete-file has-text-danger"
-      href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><span class="icon"><i class="ph ph-trash"></i></span>
+    <a class="icon-text has-text-danger confirm-delete-file"
+      href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}">
+      <span class="icon"><i class="ph ph-trash"></i></span>
       {# MSG: Label on button which deletes the current song. #}
+      <span>
       {%- trans -%}
         Delete this song
       {%- endtrans -%}
+      </span>
     </a>
   </div>
 </div>

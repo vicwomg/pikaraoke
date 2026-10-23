@@ -295,17 +295,15 @@
 	<hr />
 
 	{% if is_transpose_enabled %}
-	<div class="is-flex is-justify-content-space-between">
-		<div>
-			{# MSG: Title of a control to change the key/pitch of the playing song. #}
-			<h4>{% trans %}Change Key{% endtrans %}</h4>
-		</div>
-		<div class="is-flex">
-			<h4 id="semitones-label"></h4>
-			<a id="semitones-info"> <span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
-		</div>
+	<div class="is-flex is-justify-content-space-between is-align-items-center">
+		{# MSG: Title of a control to change the key/pitch of the playing song. #}
+		<h4 class="mb-0">{% trans %}Change Key{% endtrans %}</h4>
+		<span class="icon-text is-size-5 has-text-weight-bold">
+			<span id="semitones-label"></span>
+			<a id="semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
+		</span>
 	</div>
-	<div class="is-flex">
+	<div class="is-flex mt-3">
 		<input
 			type="range"
 			min="-12"
