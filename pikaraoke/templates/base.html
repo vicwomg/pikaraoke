@@ -331,6 +331,8 @@
     // Star or unstar a song for this device's singer, resolving the name the same
     // way a queue add does (the cookie, else the Join in dialog). onDone(starred)
     // runs only on success, so the caller flips its star to match what was saved.
+    // The one entry point for a favourite change, so it is where `favourite:changed`
+    // fires -- the Favourites view listens instead of every caller re-notifying.
     window.favouriteSong = function (encodedPath, makeStarred, title, onDone) {
       resolveSinger().done(function (name) {
         var body =
@@ -344,6 +346,9 @@
               ? window.translations.favouriteAdded
               : window.translations.favouriteRemoved;
             showNotification(template.replace("{title}", title), "is-success");
+            document.dispatchEvent(new CustomEvent("favourite:changed", {
+              detail: { song: encodedPath, starred: data.starred },
+            }));
           }
         });
       });
