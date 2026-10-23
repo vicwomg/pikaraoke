@@ -39,23 +39,29 @@ class SingerManager:
         Scoped to song_id, the live link, so only favourites of a song still in
         the library follow the rename; for a local rip, whose identity is the
         title, this is also what keeps the star attached to it.
+
+        OR IGNORE: a rename can collide two local-rip favourites on the title the
+        identity index keys on, and the row still resolves by its song link.
         """
         self.db.execute(
-            "UPDATE singer_songs SET song_title = ? WHERE song_id = ?", (title, song_id)
+            "UPDATE OR IGNORE singer_songs SET song_title = ? WHERE song_id = ?", (title, song_id)
         )
 
-    def get_or_create(self, name: str) -> int:
+    def get_or_create(self, name: str, *, refresh_casing: bool = True) -> int:
         """Return the singer id for a name, creating the row on first use.
 
         A later play under a different casing of the same name refreshes the
-        stored casing, so a name renders the way it was most recently typed --
+        stored casing, so a name renders the way it was most recently sung --
         the behaviour the old _latest_casing() subquery gave, now held in the
         row rather than re-derived on every read.
+
+        refresh_casing is off for a star, which is not a performance and whose
+        name may come from another device's cookie.
         """
         rows = self.db.query("SELECT id, name FROM singers WHERE name = ? COLLATE NOCASE", (name,))
         if rows:
             singer_id, stored = rows[0]["id"], rows[0]["name"]
-            if stored != name:
+            if refresh_casing and stored != name:
                 self.db.execute("UPDATE singers SET name = ? WHERE id = ?", (name, singer_id))
             return singer_id
         return self.db.execute("INSERT INTO singers (name) VALUES (?)", (name,)).lastrowid
@@ -107,11 +113,14 @@ class SingerManager:
     # Favourites
     # ------------------------------------------------------------------
 
-    def _find_song_row(self, singer_id: int, youtube_id: str | None, title: str) -> dict | None:
-        """Find a singer's row for one song by the same identity the index keys on.
+    def _find_song_row(
+        self, singer_id: int, song_id: int | None, youtube_id: str | None, title: str
+    ) -> dict | None:
+        """Find a singer's row for one song, by its most stable key.
 
-        A YouTube song is matched on its id, a local rip on its title, so the
-        lookup agrees with the unique index and a second star is an upsert.
+        A YouTube song matches on its id; a local rip on its live song link or
+        stored title (link first), so a rename or title-tidy toggle cannot hide
+        it while a repeat star still upserts on the title the index keys on.
         """
         if youtube_id:
             rows = self.db.query(
@@ -121,8 +130,10 @@ class SingerManager:
         else:
             rows = self.db.query(
                 "SELECT id, semitones FROM singer_songs "
-                "WHERE singer_id = ? AND youtube_id IS NULL AND song_title = ? COLLATE NOCASE",
-                (singer_id, title),
+                "WHERE singer_id = ? AND youtube_id IS NULL "
+                "AND (song_id = ? OR song_title = ? COLLATE NOCASE) "
+                "ORDER BY (song_id = ?) DESC LIMIT 1",
+                (singer_id, song_id, title, song_id),
             )
         return dict(rows[0]) if rows else None
 
@@ -132,11 +143,16 @@ class SingerManager:
         Idempotent: starring an already-starred song refreshes the live link and
         title and leaves one row. The song_id and youtube_id are re-read each
         time so a star placed before a re-download picks up the new library row.
+
+        A path not in the library is ignored, so an open route cannot grow the
+        table with rows no view can surface.
         """
         song_id, youtube_id = self.db.get_song_identity(song_path)
+        if song_id is None:
+            return
         title = self.song_display_name(song_path)
-        singer_id = self.get_or_create(name)
-        existing = self._find_song_row(singer_id, youtube_id, title)
+        singer_id = self.get_or_create(name, refresh_casing=False)
+        existing = self._find_song_row(singer_id, song_id, youtube_id, title)
         if existing:
             self.db.execute(
                 "UPDATE singer_songs SET starred = 1, song_id = ?, song_title = ? WHERE id = ?",
@@ -159,9 +175,9 @@ class SingerManager:
         singer = self.find(name)
         if singer is None:
             return
-        _, youtube_id = self.db.get_song_identity(song_path)
+        song_id, youtube_id = self.db.get_song_identity(song_path)
         title = self.song_display_name(song_path)
-        existing = self._find_song_row(singer["id"], youtube_id, title)
+        existing = self._find_song_row(singer["id"], song_id, youtube_id, title)
         if existing is None:
             return
         if existing["semitones"] is None:

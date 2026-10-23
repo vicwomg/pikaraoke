@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS plays (
     youtube_id TEXT,
     song_title TEXT NOT NULL,
     performer TEXT NOT NULL,
-    -- NULL until play history writes it; queries still read performer.
+    -- Written for every play (record_play resolves the singer, backfill fills
+    -- rows from before singers existed); every report joins singers on it.
     singer_id INTEGER,
     -- The shift the singer settled on, not the key the song is in: that is
     -- songs.musical_key. Written when the play ends, because it can change

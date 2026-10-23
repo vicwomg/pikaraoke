@@ -30,7 +30,8 @@ def favourite_paths() -> set[str]:
 
     A template global: the song lists call it per row to draw their stars, so it
     must cost one query per render however many rows ask. Empty when the device
-    has no name, which is what hides stars for an unnamed browser.
+    has no name, so an unnamed browser draws every star unfilled rather than
+    hidden; clicking one then asks for a name.
     """
     if "favourite_paths" not in g:
         name = current_singer_name()
