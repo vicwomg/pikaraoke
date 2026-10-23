@@ -215,19 +215,41 @@ a:not(.button, .navbar-item, .navbar-link, .navbar-burger, .panel-block, .delete
   opacity: 1;
 }
 
-/* Bulma puts .checkbox on the label that wraps a box, and accent-color inherits,
-   so this reaches the box either way. */
-.checkbox {
-  accent-color: var(--bulma-success);
+/* A preference that applies on click is a switch, not a checkbox. Bulma has none,
+   so it is drawn on a bare <input type="checkbox"> -- markup and :checked handlers
+   unchanged -- with the thumb as the input's ::before, green when on. */
+input.switch[type="checkbox"] {
+  appearance: none;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 2.5em;
+  height: 1.4em;
+  margin-right: 0.5em;
+  border-radius: var(--bulma-radius-rounded);
+  background-color: var(--bulma-border);
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
-
-/* A touch target for the preference boxes, which carry .checkbox on the input
-   itself: Bulma leaves native checkboxes at the browser's size, and exposes no
-   variables for them. On a wrapping label these would inset it instead. */
-input.checkbox {
-  margin-right: 8px;
-  min-width: 20px;
-  min-height: 20px;
+input.switch[type="checkbox"]::before {
+  content: "";
+  display: block;
+  width: calc(1.4em - 4px);
+  height: calc(1.4em - 4px);
+  margin: 2px;
+  border-radius: var(--bulma-radius-rounded);
+  background-color: var(--bulma-white);
+  transition: transform 0.2s ease;
+}
+input.switch[type="checkbox"]:checked {
+  background-color: var(--bulma-success);
+}
+input.switch[type="checkbox"]:checked::before {
+  transform: translateX(calc(2.5em - 1.4em));
+}
+input.switch[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--bulma-link);
+  outline-offset: 2px;
 }
 
 /* ===================================
@@ -621,6 +643,11 @@ td {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  input.switch[type="checkbox"],
+  input.switch[type="checkbox"]::before {
+    transition: none;
+  }
+
   .dl-bar-fill {
     transition: none;
   }
