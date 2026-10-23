@@ -260,6 +260,46 @@ class TestRename:
         assert (subfolder / "New---abc.cdg").exists()
 
 
+class TestLibraryConfinement:
+    """delete() and rename() refuse any path resolving outside download_path."""
+
+    def test_delete_refuses_a_path_outside_the_library(self, tmp_path, mock_db):
+        library = tmp_path / "library"
+        library.mkdir()
+        outside = tmp_path / "secret.txt"
+        outside.write_text("keep me")
+        sm = SongManager(str(library), db=mock_db, events=EventSystem())
+
+        with pytest.raises(PermissionError):
+            sm.delete(_native(outside))
+
+        assert outside.exists()
+
+    def test_delete_refuses_a_traversal_out_of_the_library(self, tmp_path, mock_db):
+        library = tmp_path / "library"
+        library.mkdir()
+        outside = tmp_path / "secret.txt"
+        outside.write_text("keep me")
+        sm = SongManager(str(library), db=mock_db, events=EventSystem())
+
+        with pytest.raises(PermissionError):
+            sm.delete(_native(library / ".." / "secret.txt"))
+
+        assert outside.exists()
+
+    def test_rename_refuses_a_path_outside_the_library(self, tmp_path, mock_db):
+        library = tmp_path / "library"
+        library.mkdir()
+        outside = tmp_path / "secret.txt"
+        outside.write_text("keep me")
+        sm = SongManager(str(library), db=mock_db, events=EventSystem())
+
+        with pytest.raises(PermissionError):
+            sm.rename(_native(outside), "pwned")
+
+        assert outside.read_text() == "keep me"
+
+
 class TestRenameCollides:
     """Only a different song's file is a clash, whatever the filesystem makes of case."""
 

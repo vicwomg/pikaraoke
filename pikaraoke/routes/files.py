@@ -222,12 +222,18 @@ def delete_file(query):
             "is-danger",
         )
     else:
-        k.song_manager.delete(song_path)
-        # MSG: Message shown after deleting a song. Followed by the song path
-        flash(
-            _("Song deleted: %s") % k.song_manager.display_name_from_path(song_path),
-            "is-warning",
-        )
+        try:
+            k.song_manager.delete(song_path)
+        except OSError as e:
+            logging.error(f"Error deleting file: {e}")
+            # MSG: Message shown after a delete failed. Followed by the system error.
+            flash(_("Error deleting file: %s") % e, "is-danger")
+        else:
+            # MSG: Message shown after deleting a song. Followed by the song path
+            flash(
+                _("Song deleted: %s") % k.song_manager.display_name_from_path(song_path),
+                "is-warning",
+            )
     return redirect(referrer)
 
 

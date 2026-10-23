@@ -262,8 +262,21 @@ class SongManager:
                 companions.append(os.path.join(dirpath, f))
         return companions
 
+    def _require_in_library(self, song_path: str) -> None:
+        """Refuse a path that resolves outside `download_path`.
+
+        delete() and rename() take the path from the file routes, which a
+        no-password install serves to every client; realpath collapses "../"
+        and symlinks, normcase keeps it right where the filesystem ignores case.
+        """
+        base = os.path.normcase(os.path.realpath(self.download_path))
+        real = os.path.normcase(os.path.realpath(song_path))
+        if not real.startswith(base + os.sep):
+            raise PermissionError(f"Path outside song library refused: {song_path}")
+
     def delete(self, song_path: str) -> None:
         """Delete a song from disk, SongList, and DB."""
+        self._require_in_library(song_path)
         logging.info(f"Deleting song: {song_path}")
         companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
@@ -296,6 +309,7 @@ class SongManager:
         Raises:
             FileExistsError: `new_name` is already another song's file.
         """
+        self._require_in_library(song_path)
         new_name = sanitize_filename(new_name)
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
