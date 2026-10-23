@@ -14,8 +14,8 @@
 		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
 
-	// The add links need no handler here: base.html delegates add-song-link
-	// clicks from the document, and a second binding would queue the song twice.
+	// The options triggers need no handler here: base.html delegates
+	// .song-options-trigger clicks, and a second binding would double them.
 </script>
 {% endblock %}
 

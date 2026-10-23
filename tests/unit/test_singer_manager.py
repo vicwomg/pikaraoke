@@ -204,3 +204,34 @@ class TestFavourites:
         events.emit("song_renamed", song_id, _display_name(new_path))
         singers.remove_favourite("Alice", new_path)
         assert singers.get_favourite_paths("Alice") == set()
+
+    def test_starring_ignores_a_path_not_in_the_library(self, db, singers):
+        singers.add_favourite("Alice", "/s/Not In Library.mp4")
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 0
+        assert singers.find("Alice") is None
+
+    def test_starring_does_not_restyle_an_existing_singers_casing(self, db, singers, library):
+        singer_id = singers.get_or_create("Mike")
+        singers.add_favourite("mike", library["youtube"])
+        assert _performer(db, singer_id) == "Mike"
+
+    def test_a_local_rip_unstars_after_a_title_tidy_toggle(self, db, events):
+        titles = {"/s/Local Rip.mp4": "Local Rip Tidy"}
+        manager = SingerManager(db, events, lambda p: titles.get(p, _display_name(p)))
+        db.insert_songs([{"file_path": "/s/Local Rip.mp4", "youtube_id": None, "format": "mp4"}])
+        manager.add_favourite("Alice", "/s/Local Rip.mp4")
+        # A title-tidy toggle changes the displayed title without a rename; the
+        # star still resolves by the live song link.
+        titles["/s/Local Rip.mp4"] = "local rip untidy"
+        manager.remove_favourite("Alice", "/s/Local Rip.mp4")
+        assert manager.get_favourite_paths("Alice") == set()
+
+    def test_a_rename_colliding_on_title_does_not_crash(self, db, singers, events, library):
+        db.insert_songs([{"file_path": "/s/Other.mp4", "youtube_id": None, "format": "mp4"}])
+        singers.add_favourite("Alice", library["local"])
+        singers.add_favourite("Alice", "/s/Other.mp4")
+        other_id = db.get_song_identity("/s/Other.mp4")[0]
+        # Renaming Other to the title Local Rip already holds would break the
+        # identity index; the handler skips the clash rather than aborting.
+        events.emit("song_renamed", other_id, _display_name(library["local"]))
+        assert singers.get_favourite_paths("Alice") == {library["local"], "/s/Other.mp4"}

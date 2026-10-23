@@ -101,9 +101,9 @@ def browse():
     # rather than being validated against the filesystem.
     #
     # Folder browsing is opt-in. The empty tree stands in when it is off, which
-    # drops the toggle and makes a bookmarked ?view=folders fall back to the flat
-    # list rather than 404 -- the preference can be turned off while a phone is
-    # sitting on a folder page.
+    # drops the Folders option and makes a bookmarked ?view=folders fall back to
+    # the flat list rather than 404 -- the preference can be turned off while a
+    # phone is sitting on a folder page.
     view = request.args.get("view")
     folder_tree = k.song_manager.folder_tree() if k.enable_folder_browsing else {"": []}
     has_subfolders = bool(folder_tree[""])
@@ -222,8 +222,8 @@ def browse():
         "folder": folder,
         "subfolders": folder_tree[folder] if in_folders else [],
         "breadcrumbs": _build_breadcrumbs(folder),
-        # Drives whether the folder toggle is offered at all: a flat library never
-        # sees it, so nothing about the page changes for those users.
+        # Drives whether the view menu offers Folders: a flat library gets the
+        # menu but not that option.
         "has_subfolders": has_subfolders,
     }
     # Filter keystrokes ask for the result table alone. Rendering base.html per
