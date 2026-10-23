@@ -231,7 +231,7 @@
 {% block heading_action %}
 {% if admin %}
 <a class="batch-edit-btn" href="{{ url_for('batch_song_renamer.browse')}}" title="Bulk rename"
-	><i class="icon icon-edit"></i>{# MSG: Button to open the batch song renamer page. #} {% trans %}Bulk rename{%
+	><span class="icon"><i class="ph ph-note-pencil"></i></span>{# MSG: Button to open the batch song renamer page. #} {% trans %}Bulk rename{%
 	endtrans %}</a
 >
 {% endif %}
@@ -345,7 +345,7 @@
 				{# The glyph class alone -- adding Bulma's `icon` to the inner element
 				   nests a default 1.5rem icon box inside this `is-small` one and
 				   knocks the folder glyph off centre. #}
-				<span class="icon is-small"><i class="icon-folder-open-empty"></i></span>
+				<span class="icon is-small"><i class="ph ph-folder-open"></i></span>
 				{# MSG: Breadcrumb link back to the top level of the folder view. #}
 				<span>{% trans %}All folders{% endtrans %}</span>
 			</a>
@@ -375,7 +375,7 @@
 			{# MSG: Placeholder in the box that filters the songs already on this machine. #}
 			placeholder="{{ _('Search by title, artist...') }}"
 		/>
-		<span class="icon is-small is-left"><i class="icon icon-search-1"></i></span>
+		<span class="icon is-small is-left"><i class="ph ph-magnifying-glass"></i></span>
 	</div>
 	<div class="control">
 		{# MSG: Button which empties the filter box and shows every song again. #}
@@ -392,7 +392,7 @@
 {% if not view or letters %}
 <div id="alpha-bar" class="column is-full has-background-dark">
 	<a href="{{ url_for('files.browse', view=view or None, folder=folder or None) }}" title="Show all"
-		><i class="icon icon-list-bullet"></i
+		><span class="icon"><i class="ph ph-list-bullets"></i></span
 	></a>
 	{% if 'numeric' in letters %}
 	<a href="{{ url_for('files.browse', letter='numeric', view=view or None, folder=folder or None) }}">#</a>
@@ -422,8 +422,8 @@
 	{% for name in subfolders %}
 	<a class="panel-block py-3 is-justify-content-space-between"
 		href="{{ url_for('files.browse', view='folders', folder=(folder ~ '/' ~ name) if folder else name) }}">
-		<span><span class="icon mr-2"><i class="icon-folder-open-empty"></i></span>{{ name }}</span>
-		<span class="icon"><i class="icon-right-big"></i></span>
+		<span><span class="icon mr-2"><i class="ph ph-folder-open"></i></span>{{ name }}</span>
+		<span class="icon"><i class="ph ph-caret-right"></i></span>
 	</a>
 	{% endfor %}
 </div>
