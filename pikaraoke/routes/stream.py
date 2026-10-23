@@ -162,6 +162,31 @@ def stream_progressive_mp4(id):
     return Response(generate(), mimetype="video/mp4")
 
 
+def _parse_byte_range(range_header: str, file_size: int) -> tuple[int, int] | None:
+    """Resolve a single HTTP byte range to an inclusive (start, end), or None.
+
+    Handles "bytes=N-M", the open "bytes=N-" and the suffix "bytes=-S" (the last
+    S bytes). None means unparseable or unsatisfiable, which the caller answers
+    with 416 rather than crashing on the old regex's missing match.
+    """
+    match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+    if match is None:
+        return None
+    start_str, end_str = match.groups()
+    if start_str:
+        start = int(start_str)
+        end = int(end_str) if end_str else file_size - 1
+    elif end_str:
+        start = max(file_size - int(end_str), 0)
+        end = file_size - 1
+    else:
+        return None
+    end = min(end, file_size - 1)
+    if start > end or start >= file_size:
+        return None
+    return start, end
+
+
 def stream_file_path_full(file_path):
     try:
         file_size = os.path.getsize(file_path)
@@ -170,23 +195,24 @@ def stream_file_path_full(file_path):
             with open(file_path, "rb") as file:
                 file_content = file.read()
             return Response(file_content, mimetype="video/mp4")
-        # Extract range start and end from Range header (e.g., "bytes=0-499")
-        range_match = re.search(r"bytes=(\d+)-(\d*)", range_header)
-        start, end = range_match.groups()
-        start = int(start)
-        end = int(end) if end else file_size - 1
-        # Generate response with part of file
+        byte_range = _parse_byte_range(range_header, file_size)
+        if byte_range is None:
+            return Response(
+                "Requested Range Not Satisfiable",
+                status=416,
+                headers={"Content-Range": f"bytes */{file_size}"},
+            )
+        start, end = byte_range
         with open(file_path, "rb") as file:
             file.seek(start)
             data = file.read(end - start + 1)
-        status_code = 206  # Partial content
         headers = {
             "Content-Type": "video/mp4",
             "Accept-Ranges": "bytes",
             "Content-Range": f"bytes {start}-{end}/{file_size}",
             "Content-Length": str(len(data)),
         }
-        return Response(data, status=status_code, headers=headers)
+        return Response(data, status=206, headers=headers)
     except IOError:
         return Response("File not found.", status=404)
 
