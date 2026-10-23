@@ -454,7 +454,7 @@
         </a>
 
         <a id="queue" class="navbar-item" href="{{ url_for('queue.queue') }}">
-          <span class="icon"><i class="ph ph-list-numbers" title="Queue"></i></span>
+          <span class="icon"><i class="ph ph-queue" title="Queue"></i></span>
           {# MSG: Navigation link for the queue page. #}
           <span>{% trans %}Queue{% endtrans %}</span>
         </a>
@@ -464,13 +464,13 @@
              active item from the first URL path segment. -->
         <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}"
           aria-label="{% trans %}Songs{% endtrans %}">
-          <span class="icon"><i class="ph ph-music-notes"></i></span>
+          <span class="icon"><i class="ph ph-vinyl-record"></i></span>
           {# MSG: Navigation link for the page listing songs already on this machine. #}
           <span>{% trans %}Songs{% endtrans %}</span>
         </a>
         <a id="search" class="navbar-item" href="{{ url_for('search.search') }}"
           aria-label="{% trans %}Add New{% endtrans %}">
-          <span class="icon"><i class="ph ph-plus-circle"></i></span>
+          <span class="icon"><i class="ph ph-music-notes-plus"></i></span>
           {# MSG: Navigation link for the page used to get new songs into the library. #}
           <span>{% trans %}Add New{% endtrans %}</span>
         </a>
