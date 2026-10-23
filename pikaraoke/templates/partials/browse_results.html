@@ -15,7 +15,7 @@
 				title="Add '{{display_name}}' to queue"
 				href="#"
 				data-song="{{url_escape(song.encode('utf-8','surrogateescape'))}}"
-				><i class="icon icon-list-add"></i>
+				><span class="icon"><i class="ph ph-plus-circle"></i></span>
 			</a>
 		</td>
 		<td class="break-word pr-0">{{display_name}}</td>
@@ -25,7 +25,7 @@
 				class="edit-button"
 				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
 				title="Rename song"
-				><i class="icon icon-edit-1"></i>
+				><span class="icon"><i class="ph ph-pencil-simple"></i></span>
 			</a>
 		</td>
 		{% endif %}

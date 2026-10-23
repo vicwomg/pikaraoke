@@ -14,9 +14,9 @@
   <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;700&display=swap">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
+  <link rel="stylesheet" href="{{  url_for('static', filename='phosphor/regular/style.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='fontello/css/fontello.css') }}?v=4">
 
   <script>
     window.pikaraokeConfig = {
@@ -362,18 +362,9 @@
 </head>
 
 <style>
-  /* Icon-to-label spacing. Bulma already makes navbar items flex containers with
-     a .75rem gap, and the fontello glyph adds another .2em of its own, so the
-     icon floated well clear of its label. The flex gap is the only lever needed
-     once the glyph's margin is zeroed -- the element margin that used to be here
-     just stacked a third value on top. */
   .navbar-item,
   .navbar-link {
     gap: 0.3rem;
-  }
-  .navbar-item > i::before,
-  .navbar-link > i::before {
-    margin-right: 0;
   }
   /* The stack is the fixed anchor; toasts flow upward from the bottom edge,
      newest nearest it. pointer-events lets clicks through the gaps between toasts. */
@@ -430,8 +421,9 @@
     .session-ribbon-dot { animation: none; }
   }
   @media screen and (max-width: 1088px) {
-    /* Labels hide at this width; the avatar slot is the item's only signal. */
-    .navbar-brand > .navbar-item > span:not(.singer-avatar) {
+    /* Labels hide at this width, leaving the icon (now a Bulma .icon span) as the
+       item's only signal; the avatar slot is the signal for #current-user. */
+    .navbar-brand > .navbar-item > span:not(.singer-avatar):not(.icon) {
       display: none;
     }
     /* Name hidden here; trim the trailing padding before the burger. */
@@ -456,13 +448,13 @@
     <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
       <div class="navbar-brand ml-0" id="brand">
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
-          <i class="icon icon-home-2" title="Home"></i>
+          <span class="icon"><i class="ph ph-house" title="Home"></i></span>
           {# MSG: Navigation link for the home page. #}
           <span>{% trans %}Home{% endtrans %}</span>
         </a>
 
         <a id="queue" class="navbar-item" href="{{ url_for('queue.queue') }}">
-          <i class="icon icon-list-numbered" title="Queue"></i>
+          <span class="icon"><i class="ph ph-list-numbers" title="Queue"></i></span>
           {# MSG: Navigation link for the queue page. #}
           <span>{% trans %}Queue{% endtrans %}</span>
         </a>
@@ -472,13 +464,13 @@
              active item from the first URL path segment. -->
         <a id="browse" class="navbar-item" href="{{ url_for('files.browse') }}"
           aria-label="{% trans %}Songs{% endtrans %}">
-          <i class="icon icon-music"></i>
+          <span class="icon"><i class="ph ph-music-notes"></i></span>
           {# MSG: Navigation link for the page listing songs already on this machine. #}
           <span>{% trans %}Songs{% endtrans %}</span>
         </a>
         <a id="search" class="navbar-item" href="{{ url_for('search.search') }}"
           aria-label="{% trans %}Add New{% endtrans %}">
-          <i class="icon icon-plus-circled"></i>
+          <span class="icon"><i class="ph ph-plus-circle"></i></span>
           {# MSG: Navigation link for the page used to get new songs into the library. #}
           <span>{% trans %}Add New{% endtrans %}</span>
         </a>
@@ -487,7 +479,7 @@
         <a id="current-user" class="navbar-item has-text-success" href="#"
           aria-label="{% trans %}Join in{% endtrans %}">
           {# Avatar slot: the glyph fills the circle now; a later PR swaps in a photo. #}
-          <span class="singer-avatar"><i class="icon icon-user-circle-o"></i></span>
+          <span class="singer-avatar"><i class="ph ph-user-circle"></i></span>
           <span class="is-truncated">{% trans %}Join in{% endtrans %}</span>
         </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
@@ -508,30 +500,30 @@
       <div class="navbar-menu mr-0" id="menu">
         <div class="navbar-end">
           <a id="rankings" class="navbar-item" href="{{ url_for('sessions.rankings') }}">
-            <i class="icon icon-th-list-outline"></i>
+            <span class="icon"><i class="ph ph-trophy"></i></span>
             {# MSG: Menu link to the most-played songs and most active singers. #}
             <span>{% trans %}Rankings{% endtrans %}</span>
           </a>
           <a id="history" class="navbar-item" href="{{ url_for('sessions.history') }}">
-            <i class="icon icon-list-alt"></i>
+            <span class="icon"><i class="ph ph-clock-counter-clockwise"></i></span>
             {# MSG: Menu link to the log of everything that has been sung. #}
             <span>{% trans %}Play History{% endtrans %}</span>
           </a>
           {% if is_admin() %}
           <a id="sessions" class="navbar-item" href="{{ url_for('sessions.sessions') }}">
-            <i class="icon icon-mic-1"></i>
+            <span class="icon"><i class="ph ph-microphone-stage"></i></span>
             {# MSG: Menu link to the karaoke session management page, only shown to the host. #}
             <span>{% trans %}Sessions{% endtrans %}</span>
           </a>
           {% endif %}
           <a id="settings" class="navbar-item" href="{{ url_for('settings.settings') }}">
-            <i class="icon icon-cog"></i>
+            <span class="icon"><i class="ph ph-gear"></i></span>
             {# MSG: Menu link to the settings and host controls page. #}
             <span>{% trans %}Settings{% endtrans %}</span>
           </a>
           <hr class="navbar-divider">
           <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1"></i>
+            <span class="icon"><i class="ph ph-info"></i></span>
             {# MSG: Menu link to the page with the QR code to join and the system information. #}
             <span>{% trans %}Info{% endtrans %}</span>
           </a>

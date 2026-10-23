@@ -104,13 +104,11 @@
 			   any way to queue the song up again. #}
 			<td>
 				{% if song.file_path %}
-				{# A bare fontello glyph, not a Bulma .icon: this one sits inline with
-				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
 				<a class="add-song-link has-text-success"
 					title="{{ _('Add to queue') | forceescape }}"
 					href="#"
 					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
-					><i class="icon-list-add"></i
+					><span class="icon"><i class="ph ph-plus-circle"></i></span
 				></a>
 				{% endif %}
 				{# Through to every play of this song, and so to who sang it. The id

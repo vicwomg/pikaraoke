@@ -25,7 +25,7 @@
 		pikaWaitingSong = np.up_next_file;
 		if (np.now_playing) {
 			var nowPlayingHtml = `<p class="mb-1">${np.now_playing}</p>
-          <p class="has-text-text mb-1"><i class="icon icon-mic-1" title="Current singer"></i>${np.now_playing_user}</p>`;
+          <p class="has-text-text mb-1"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${np.now_playing_user}</p>`;
 
 			if (np.now_playing_transpose != 0) {
 				nowPlayingHtml +=
@@ -52,7 +52,7 @@
 			$("#up-next").html(`<p class="mb-1">${np.up_next}</p>
           <p class="has-text-text">
             {# MSG: Title text for the icon marking the next person to sing. #}
-            <i class="icon icon-mic-1" title="{{ _('Next singer') | forceescape }}"></i>${np.next_user}</p>`);
+            <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${np.next_user}</p>`);
 		} else {
 			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
 			$("#up-next").html({{ _('No song is queued.') | tojson }});
@@ -73,12 +73,12 @@
 		// Not playing (paused or a song waiting to start): the button plays
 		// rather than pauses, and the gif stays still.
 		if (!window.isNowPlaying(np)) {
-			$("#pause-resume").removeClass("icon-pause");
-			$("#pause-resume").addClass("icon-play");
+			$("#pause-resume").removeClass("ph-pause");
+			$("#pause-resume").addClass("ph-play");
 			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
 		} else {
-			$("#pause-resume").removeClass("icon-play");
-			$("#pause-resume").addClass("icon-pause");
+			$("#pause-resume").removeClass("ph-play");
+			$("#pause-resume").addClass("ph-pause");
 			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
 		}
 	}
@@ -171,12 +171,12 @@
 		});
 
 		function togglePausePlayButton() {
-			if ($("#pause-resume").hasClass("icon-pause")) {
-				$("#pause-resume").removeClass("icon-pause");
-				$("#pause-resume").addClass("icon-play");
+			if ($("#pause-resume").hasClass("ph-pause")) {
+				$("#pause-resume").removeClass("ph-pause");
+				$("#pause-resume").addClass("ph-play");
 			} else {
-				$("#pause-resume").removeClass("icon-play");
-				$("#pause-resume").addClass("icon-pause");
+				$("#pause-resume").removeClass("ph-play");
+				$("#pause-resume").addClass("ph-pause");
 			}
 		}
 
@@ -209,7 +209,7 @@
 				var escaped = $('<span>').text(dev.label).html();
 				list.append(
 					'<div class="is-flex is-align-items-center mb-1">' +
-						'<i class="icon icon-mic-1 mr-1"></i>' +
+						'<span class="icon mr-1"><i class="ph ph-microphone-stage"></i></span>' +
 						'<span class="is-size-7 mr-2 is-truncated" style="min-width: 80px;">' + escaped + '</span>' +
 						'<input type="range" min="0" max="1" step="0.05" value="' + dev.volume + '" ' +
 							'class="mic-live-volume" data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
@@ -272,14 +272,14 @@
 	<div class="is-size-3 is-flex is-justify-content-space-between">
 		<div class="is-size-3">
 			{# MSG: Title attribute on the button to restart the current song. #}
-			<a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a>&nbsp;&nbsp; {# MSG:
+			<a title="{{ _('Restart Song') }}" id="restart"><span class="icon is-text-size"><i class="ph ph-skip-back"></i></span> </a>&nbsp;&nbsp; {# MSG:
 			Title attribute on the button to play or pause the current song. #}
-			<a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a>&nbsp;&nbsp; {# MSG:
+			<a title="{{ _('Play/Pause') }}"><span class="icon is-text-size"><i id="pause-resume" class="ph ph-pause"></i></span> </a>&nbsp;&nbsp; {# MSG:
 			Title attribute on the button to skip to the next song. #}
-			<a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a>
+			<a title="{{ _('Stop Current Song') }}" id="skip"><span class="icon is-text-size"><i class="ph ph-skip-forward"></i></span> </a>
 		</div>
 		<div class="is-size-3 is-flex is-align-items-center">
-			<i id="vol-down" class="icon icon-volume-down"></i>
+			<span class="icon is-text-size"><i id="vol-down" class="ph ph-speaker-low"></i></span>
 			<input
 				type="range"
 				min="0"
@@ -289,7 +289,7 @@
 				id="volume-slider"
 				style="margin: 0 8px 0px 5px; width: 100px"
 			/>
-			<i id="vol-up" class="icon icon-volume-up"></i>
+			<span class="icon is-text-size"><i id="vol-up" class="ph ph-speaker-high"></i></span>
 		</div>
 	</div>
 	<hr />
@@ -302,7 +302,7 @@
 		</div>
 		<div class="is-flex">
 			<h4 id="semitones-label"></h4>
-			<a id="semitones-info"> <i class="icon icon-info-circled-1" title="Info"></i></a>
+			<a id="semitones-info"> <span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
 		</div>
 	</div>
 	<div class="is-flex">
@@ -326,7 +326,7 @@
 	{% if mic_available %}
 	<div id="mic-live-panel" style="display: none">
 		<hr />
-		<h4><i class="icon icon-mic-1"></i> {% trans %}Microphones{% endtrans %}</h4>
+		<h4><span class="icon"><i class="ph ph-microphone-stage"></i></span> {% trans %}Microphones{% endtrans %}</h4>
 		<div id="mic-live-list"></div>
 	</div>
 	{% endif %}

@@ -30,7 +30,7 @@
 		class="button is-small is-fullwidth is-warning {% if has_active_session() %}is-hidden{% endif %}"
 		href="{{ url_for('sessions.sessions') }}"
 	>
-		<i class="icon icon-list-alt"></i>
+		<span class="icon"><i class="ph ph-microphone-stage"></i></span>
 		{# MSG: Button shown in place of the KJ singer field when no session is running. Links to the sessions page. #}
 		<span>{% trans %}Start a session to queue for singers{% endtrans %}</span>
 	</a>

@@ -58,17 +58,14 @@
 		return !!play.has_ended && !play.completed;
 	}
 
-	// Shown as a glyph with the word on its tooltip: three fixed states are not
-	// worth a column of text, and icon-to-end is already this app's skip control.
-	// The words stay as titles, which is what a screen reader announces.
 	function playStatus(play) {
 		if (!play.has_ended) {
 			return inProgressStatus();
 		}
 		if (!wasSkipped(play)) {
-			return statusIcon("icon-ok", "has-text-success", historyText.played);
+			return statusIcon("ph-check", "has-text-success", historyText.played);
 		}
-		return statusIcon("icon-to-end", "has-text-grey-light", historyText.skipped);
+		return statusIcon("ph-skip-forward", "has-text-grey-light", historyText.skipped);
 	}
 
 	// The log only knows the song is unended; playing-vs-paused is the live player's.
@@ -91,19 +88,19 @@
 	// in an attribute here, where an apostrophe would close it early.
 	function statusIcon(glyph, colour, label) {
 		return (
-			'<span class="' + colour + '" title="' + escapeHtml(label) + '">' +
-			'<i class="icon ' + glyph + '"></i></span>'
+			'<span class="icon ' + colour + '" title="' + escapeHtml(label) + '">' +
+			'<i class="ph ' + glyph + '"></i></span>'
 		);
 	}
 
 	// Mark the sorted column, so it is clear which one the order came from. The
 	// glyph goes in bare, without Bulma's .icon: see .sort-arrow below.
 	function renderSortArrows() {
-		var arrow = historyDirection === "asc" ? "icon-sort-up" : "icon-sort-down";
+		var arrow = historyDirection === "asc" ? "ph-sort-ascending" : "ph-sort-descending";
 		$("#play-log th.sortable").each(function () {
 			var $th = $(this);
 			var active = $th.data("sort") === historySort;
-			$th.find(".sort-arrow").html(active ? '<i class="' + arrow + '"></i>' : "");
+			$th.find(".sort-arrow").html(active ? '<i class="ph ' + arrow + '"></i>' : "");
 		});
 	}
 
@@ -195,7 +192,7 @@
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +
 									'" title="{{ _("Options") | forceescape }}">' +
-									'<i class="icon-cog is-size-5"></i></a>' +
+									'<span class="icon is-medium"><i class="ph ph-gear"></i></span></a>' +
 							"</td>" +
 						"</tr>"
 					);
@@ -327,7 +324,7 @@
 	.history-table th.sortable:hover {
 		color: var(--bulma-text-strong);
 	}
-	/* The arrow is a bare fontello glyph, never a Bulma .icon: that is a 1.5rem
+	/* The arrow is a bare Phosphor glyph, never a Bulma .icon: that is a 1.5rem
 	   inline-flex box which centres its glyph on its own axis instead of the
 	   header's baseline, so the arrow floats above the label and stretches the
 	   row to 1.5rem. Left as inline text it simply sits on the baseline.
@@ -339,12 +336,11 @@
 		width: 1.3em;
 		font-size: 0.8em;
 	}
-	/* Fontello centres each glyph in a 1em box with symmetric side margins,
-	   which here reads as a gap on the wrong side of the arrow. */
+	/* A 0.4em gap sets the arrow off from the header label; width:auto drops the
+	   base .ph 1em glyph box, which would otherwise pad that gap unevenly. */
 	.sort-arrow i:before {
 		width: auto;
 		margin-left: 0.4em;
-		margin-right: 0;
 	}
 	/* A skipped song stays on the record but was never a performance, so the row
 	   reads in the same grey as the marker saying so. The cog is unaffected --
@@ -495,17 +491,17 @@
 		</header>
 		<section class="modal-card-body">
 			<a id="opt-add-queue" class="panel-block py-3" href="#" data-action="queue">
-				<span class="icon has-text-success mr-2"><i class="icon-list-add"></i></span>
+				<span class="icon has-text-success mr-2"><i class="ph ph-plus-circle"></i></span>
 				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
 				{% trans %}Add to queue{% endtrans %}
 			</a>
 			<span id="opt-song-gone" class="panel-block py-3 has-text-grey-light">
-				<span class="icon mr-2"><i class="icon-info-circled"></i></span>
+				<span class="icon mr-2"><i class="ph ph-info"></i></span>
 				{# MSG: Shown in place of "add to queue" when the song has since been removed from the library. #}
 				{% trans %}This song is no longer in the library{% endtrans %}
 			</span>
 			<a id="opt-delete-play" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
-				<span class="icon mr-2"><i class="icon-trash"></i></span>
+				<span class="icon mr-2"><i class="ph ph-trash"></i></span>
 				{# MSG: Menu item which removes this entry from the play log. #}
 				{% trans %}Delete entry{% endtrans %}
 			</a>

@@ -141,7 +141,7 @@
 						'" data-uuid="' + escapedUuid + '" aria-expanded="' + isExpanded + '">' +
 						"<td>" +
 							{# MSG: Tooltip on the arrow which expands a session to list who sang in it. #}
-							'<i class="session-chevron icon-play" title="{{ _("Show who sang") | forceescape }}"></i>' +
+							'<i class="session-chevron ph ph-caret-right" title="{{ _("Show who sang") | forceescape }}"></i>' +
 							'<span class="session-name">' + escapeHtml(label) + "</span>" +
 						"</td>" +
 						whenCell(session.started_at) +
@@ -151,7 +151,7 @@
 								escapedUuid + '" data-label="' + escapeHtml(label) +
 								'" data-unnamed="' + (isUnnamed ? "1" : "") +
 								'" title="{{ _("Options") | forceescape }}">' +
-								'<i class="icon-cog is-size-5"></i></a>' +
+								'<span class="icon is-medium"><i class="ph ph-gear"></i></span></a>' +
 						"</td>" +
 					"</tr>" +
 					'<tr class="singers-row' + marks + (isExpanded ? "" : " is-hidden") +
@@ -477,11 +477,7 @@
 		font-size: 0.7em;
 		color: var(--bulma-grey-light);
 	}
-	/* Fontello puts the glyph and its margins on the ::before, so the rotation
-	   goes there: turning the element would swing the spacing round with it and
-	   shift the name. */
 	.session-chevron:before {
-		margin-left: 0;
 		margin-right: 0.7em;
 		transition: transform 0.15s ease;
 	}
@@ -576,7 +572,7 @@
 <h2>{% trans %}Current Session{% endtrans %}</h2>
 <div class="current-session">
 	<span class="is-flex-grow-1 has-text-weight-semibold">
-		<i class="icon icon-mic-1"></i>
+		<span class="icon"><i class="ph ph-microphone-stage"></i></span>
 		<span id="current-session"></span>
 	</span>
 	{# One flex item, so the actions wrap as a group instead of splitting across
@@ -591,7 +587,7 @@
 				maxlength="{{ session_name_max_length }}"
 				{# MSG: Placeholder inside the box naming a session as it is started. #}
 				placeholder="{{ _('Name this session...') | forceescape }}">
-			<span class="icon is-small is-left"><i class="icon-pencil"></i></span>
+			<span class="icon is-small is-left"><i class="ph ph-pencil-simple"></i></span>
 		</div>
 		{# Disabled until the box has something in it: naming is the whole point of
 		   starting one by hand, so there is nothing to fall back to. #}
@@ -655,38 +651,38 @@
 		</header>
 		<section class="modal-card-body">
 			<a id="opt-activate" class="panel-block py-3" href="#" data-action="activate">
-				<span class="icon has-text-info mr-2"><i class="icon-exchange"></i></span>
+				<span class="icon has-text-info mr-2"><i class="ph ph-swap"></i></span>
 				{# MSG: Menu item which makes an old session the one new songs are recorded against. #}
 				{% trans %}Make active{% endtrans %}
 			</a>
 			<a id="opt-end" class="panel-block py-3" href="#" data-action="end">
-				<span class="icon has-text-warning mr-2"><i class="icon-cancel-circled-outline"></i></span>
+				<span class="icon has-text-warning mr-2"><i class="ph ph-x-circle"></i></span>
 				{# MSG: Menu item which closes the session that is currently running. #}
 				{% trans %}End session{% endtrans %}
 			</a>
 			<a id="opt-export" class="panel-block py-3 no-spa" href="#">
-				<span class="icon mr-2"><i class="icon-down-circled"></i></span>
+				<span class="icon mr-2"><i class="ph ph-download-simple"></i></span>
 				{# MSG: Menu item which downloads the session's play log as a CSV file for spreadsheets. #}
 				{% trans %}Export CSV{% endtrans %}
 			</a>
 			<a id="opt-export-txt" class="panel-block py-3 no-spa" href="#">
-				<span class="icon mr-2"><i class="icon-list-numbered"></i></span>
+				<span class="icon mr-2"><i class="ph ph-list-numbers"></i></span>
 				{# MSG: Menu item which downloads the session's play log as a plain-text, human-readable set list. #}
 				{% trans %}Export list (text){% endtrans %}
 			</a>
 			{# Labelled from openSessionOptions(): naming an unnamed session promotes
 			   it, naming a named one is a rename. #}
 			<a id="opt-rename" class="panel-block py-3" href="#" data-action="rename">
-				<span class="icon mr-2"><i class="icon-pencil"></i></span>
+				<span class="icon mr-2"><i class="ph ph-pencil-simple"></i></span>
 				<span id="opt-rename-text"></span>
 			</a>
 			<a id="opt-clear-plays" class="panel-block py-3 has-text-danger" href="#" data-action="clear">
-				<span class="icon mr-2"><i class="icon-trash"></i></span>
+				<span class="icon mr-2"><i class="ph ph-trash"></i></span>
 				{# MSG: Menu item which deletes every play in the session but keeps the session itself. #}
 				{% trans %}Clear plays{% endtrans %}
 			</a>
 			<a id="opt-delete-session" class="panel-block py-3 has-text-danger" href="#" data-action="delete">
-				<span class="icon mr-2"><i class="icon-trash-empty"></i></span>
+				<span class="icon mr-2"><i class="ph ph-trash"></i></span>
 				{# MSG: Menu item which deletes the session and every play recorded in it. #}
 				{% trans %}Delete session{% endtrans %}
 			</a>
