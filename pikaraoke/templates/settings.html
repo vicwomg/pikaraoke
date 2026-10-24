@@ -498,7 +498,7 @@
 					{% if is_linux %}
 					<div class="is-flex is-align-items-center mb-2">
 						<label class="checkbox mic-control-label">
-							<input type="checkbox" id="mic-echo-cancel" class="switch" />
+							<input type="checkbox" id="mic-echo-cancel" class="switch" {% if echo_cancel %}checked{% endif %} />
 							{% trans %}Echo cancellation{% endtrans %}
 						</label>
 						<span class="tag is-warning is-light ml-2">{% trans %}Experimental{% endtrans %}</span>

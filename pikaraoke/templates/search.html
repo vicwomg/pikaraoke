@@ -281,13 +281,9 @@
 
 		loadSingerList();
 
-		// "Include non-karaoke matches" is the only setting left on this page, so its
-		// cookie is read and written right here rather than through a restore-everything
-		// helper.
-		const includeNonKaraoke = Cookies.get("include-non-karaoke");
-		if (includeNonKaraoke !== undefined) {
-			$("#include-non-karaoke").prop("checked", includeNonKaraoke === "true");
-		}
+		// "Include non-karaoke matches" is the only setting left on this page. Its
+		// initial state is rendered from the cookie server-side so the switch never
+		// animates into position on load; here we only persist later changes.
 		$("#include-non-karaoke").change(function () {
 			Cookies.set("include-non-karaoke", $(this).is(":checked"), {
 				expires: 365,
@@ -520,7 +516,7 @@
 		   form -- a disclosure rather than a setting, so it is a link, not a tickbox. #}
 		<div id="search-options" class="is-flex is-flex-wrap-wrap is-align-items-center is-row-gap-1 is-column-gap-3 mb-3">
 			<label class="checkbox">
-				<input type="checkbox" class="switch" id="include-non-karaoke" name="include-non-karaoke" />
+				<input type="checkbox" class="switch" id="include-non-karaoke" name="include-non-karaoke" {% if request.cookies.get('include-non-karaoke') == 'true' %}checked{% endif %} />
 				{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
 				have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
 			</label>

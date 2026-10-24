@@ -600,7 +600,7 @@
 
 {% block heading_action %}
 {% if admin %}
-<label class="checkbox heading-action"><input type="checkbox" class="switch" id="queue-autoplay"> {% trans %}Autoplay{% endtrans %}</label>
+<label class="checkbox heading-action"><input type="checkbox" class="switch" id="queue-autoplay" {% if autoplay %}checked{% endif %}> {% trans %}Autoplay{% endtrans %}</label>
 {% endif %}
 {% endblock %}
 

@@ -76,6 +76,7 @@ def settings():
             "high": k.high_score_phrases,
         },
         mic_available=k.sound_manager.available,
+        echo_cancel=k.sound_manager.get_echo_cancel(),
         mic_passthrough_enabled=k.enable_mic_passthrough,
         keep_awake=k.keep_awake,
         keep_awake_unsupported=keep_awake.unsupported_reason(),

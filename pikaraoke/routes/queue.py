@@ -27,4 +27,5 @@ def queue():
         # MSG: Title of the queue page.
         title=_("Queue"),
         admin=is_admin(),
+        autoplay=k.preferences.get_or_default("autoplay"),
     )
