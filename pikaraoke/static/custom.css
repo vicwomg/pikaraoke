@@ -170,6 +170,12 @@
   max-width: 95%;
 }
 
+/* Bulma rounds the foot but not the body, so a footless modal ends square. */
+.modal-card-body:last-child {
+  border-end-start-radius: var(--bulma-modal-card-foot-radius);
+  border-end-end-radius: var(--bulma-modal-card-foot-radius);
+}
+
 /* The text-prompt dialog is a form, not the self-padding option list the shared
    style zeroes body padding for, so its message and input get the head's inset. */
 #text-prompt-modal .modal-card {
