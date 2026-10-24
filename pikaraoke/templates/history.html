@@ -288,6 +288,22 @@
 			openPlayOptions($(this));
 		});
 
+		// The same song can sit in many rows, each with its own trigger; bring them
+		// all into step, not just the one whose menu made the change. Rebound first,
+		// as SPA navigation re-runs this script. Both .data (read by openPlayOptions)
+		// and the attribute are written, or they fall out of sync.
+		$(document)
+			.off("favourite:changed.history")
+			.on("favourite:changed.history", function (e) {
+				var path = decodeURIComponent(e.originalEvent.detail.song);
+				var starred = !!e.originalEvent.detail.starred;
+				$("#plays-body .row-options-btn").each(function () {
+					if ($(this).data("path") === path) {
+						$(this).data("starred", starred ? 1 : 0).attr("data-starred", starred ? "1" : "0");
+					}
+				});
+			});
+
 		$playModal.on("click", ".modal-background, .modal-close-btn", closePlayOptions);
 
 		$playModal.on("click", "[data-action]", function (e) {
@@ -301,12 +317,9 @@
 			if (action === "queue") {
 				addToQueue(path);
 			} else if (action === "favourite") {
-				// Shared with Songs and Rankings; the path is raw here, so encode it
-				// to match what those pages send pre-encoded. Keep the row's state in
-				// step so reopening the menu reads true.
-				window.favouriteSong(encodeURIComponent(path), !starred, $trigger.data("song"), function (nowStarred) {
-					$trigger.data("starred", nowStarred ? 1 : 0).attr("data-starred", nowStarred ? "1" : "0");
-				});
+				// Path is raw here; encode it to match the pre-encoded form the other
+				// pages send. The favourite:changed listener above syncs every row.
+				window.favouriteSong(encodeURIComponent(path), !starred, $trigger.data("song"), function () {});
 			} else {
 				deletePlay(id);
 			}
