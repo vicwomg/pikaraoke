@@ -186,8 +186,8 @@
 								{ song: play.song, youtube_id: play.youtube_id || "" },
 								historySong || historyYoutubeId
 							) +
-							'<td class="has-text-centered is-vcentered' + (play.has_ended ? '' : ' js-live-status') + '">' + playStatus(play) + "</td>" +
-							'<td class="has-text-right is-vcentered">' +
+							'<td class="has-text-centered' + (play.has_ended ? '' : ' js-live-status') + '">' + playStatus(play) + "</td>" +
+							'<td class="has-text-right">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +

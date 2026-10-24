@@ -142,10 +142,10 @@
   }
 }
 
-/* The row-options cell is vcentered to seat its icon; the data cells defaulted to
-   the top, so their text rode high above it. Centre every cell so the row reads
-   level against the icon. */
-.history-table td {
+/* Every data-table cell centres on its row, so an icon, a tag or a two-line wrap
+   all sit level against the text. Bulma top-aligns by default; this one rule
+   replaces the per-cell is-vcentered the row generators used to carry. */
+.table td {
   vertical-align: middle;
 }
 

@@ -145,7 +145,7 @@
       : '{{ url_for("static", filename="images/now-playing.png") }}';
 
     var html = '<tr class="disabled-sort has-background-dark">';
-    html += '<td class="is-vcentered has-text-centered">';
+    html += '<td class="has-text-centered">';
     html += '<img src="' + iconSrc + '" alt="Now Playing">';
     html += '</td>';
 
@@ -153,7 +153,7 @@
       html += '<td></td>';
     }
 
-    html += '<td class="is-vcentered">';
+    html += '<td>';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
     html += '<span>' + np.now_playing_user + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
@@ -162,7 +162,7 @@
     html += '</div></td>';
 
     if (isAdmin) {
-      html += '<td class="is-vcentered has-text-right">';
+      html += '<td class="has-text-right">';
       html += '<a class="has-text-grey-light row-options-btn now-playing-options-btn" title="{{ _("Options") | forceescape }}">';
       html += '<span class="icon is-medium"><i class="ph ph-dots-three-vertical"></i></span></a>';
       html += '</td>';
@@ -364,15 +364,15 @@
   // Generate queue row HTML
   function generateQueueRow(e, index) {
     var html = '<tr data-index="' + index + '">';
-    html += '<td class="is-vcentered has-text-centered">' + (index + 1) + '</td>';
+    html += '<td class="has-text-centered">' + (index + 1) + '</td>';
 
     if (isAdmin) {
-      html += '<td class="drag-handle is-vcentered has-text-centered" style="cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") | forceescape }}">';
+      html += '<td class="drag-handle has-text-centered" style="cursor: grab; touch-action: none;" title="{{ _("Drag to reorder") | forceescape }}">';
       html += '<span class="icon"><i class="ph ph-dots-six-vertical has-text-grey-light"></i></span>';
       html += '</td>';
     }
 
-    html += '<td class="is-vcentered">';
+    html += '<td>';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
     html += '<span>' + e.user + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
@@ -381,7 +381,7 @@
     html += '</div></td>';
 
     if (isAdmin) {
-      html += '<td class="is-vcentered has-text-right">';
+      html += '<td class="has-text-right">';
       html += '<a class="has-text-grey-light row-options-btn queue-song-options-btn" data-index="' + index + '" data-file="' + escape(e.file) + '" data-title="' + escape(e.title) + '" title="{{ _("Options") | forceescape }}">';
       html += '<span class="icon is-medium"><i class="ph ph-dots-three-vertical"></i></span></a>';
       html += '</td>';
