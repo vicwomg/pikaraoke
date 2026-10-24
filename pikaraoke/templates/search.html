@@ -100,10 +100,9 @@
 		z-index: 1;
 	}
 
-	/* Fontello play icon overlay */
 	#search-results .img-wrapper::after {
-		font-family: "fontello";
-		content: "\e800";
+		font-family: "Phosphor";
+		content: "\e3d0";
 		position: absolute;
 		top: 50%;
 		left: 51%;
@@ -328,7 +327,7 @@
 			}
 			$actions.html(
 				'<span class="button is-static search_result_items_pending">' +
-					'<span class="icon"><i class="icon-down-circled"></i></span>' +
+					'<span class="icon"><i class="ph ph-download-simple"></i></span>' +
 					// {# MSG: Status shown on a search result that has been requested but has not arrived yet. #}
 					'<span>{{ _("Adding...") | forceescape }}</span>' +
 				"</span>"
@@ -348,7 +347,7 @@
 		function showInLibrary($row, path) {
 			$row.find(".search_result_items_actions").html(
 				'<a class="button is-success add-song-link" href="#" data-song="' + encodeURIComponent(path) + '">' +
-					'<span class="icon"><i class="icon-list-add"></i></span>' +
+					'<span class="icon"><i class="ph ph-plus-circle"></i></span>' +
 					// {# MSG: Button which adds an already-downloaded song to the queue. #}
 					'<span>{{ _("Add to queue") | forceescape }}</span>' +
 				"</a>"
@@ -509,7 +508,7 @@
 					{# MSG: Placeholder in the box used to search YouTube for a song to download. #}
 					placeholder="{{ _('Search YouTube by title, artist...') }}"
 				/>
-				<span class="icon is-small is-left"><i class="icon icon-search-1"></i></span>
+				<span class="icon is-small is-left"><i class="ph ph-magnifying-glass"></i></span>
 			</div>
 			<div class="control">
 				{# MSG: Submit button on the search form for searching YouTube. #}
@@ -521,7 +520,7 @@
 		   form -- a disclosure rather than a setting, so it is a link, not a tickbox. #}
 		<div id="search-options" class="is-flex is-flex-wrap-wrap is-align-items-center is-row-gap-1 is-column-gap-3 mb-3">
 			<label class="checkbox">
-				<input type="checkbox" id="include-non-karaoke" name="include-non-karaoke" />
+				<input type="checkbox" class="switch" id="include-non-karaoke" name="include-non-karaoke" />
 				{# MSG: Checkbox label which enables matching songs which are not karaoke versions (i.e. the songs still
 				have a singer and are not just instrumentals.) #} {% trans %}Include non-karaoke matches{% endtrans %}
 			</label>
@@ -551,12 +550,12 @@
 					<div class="has-text-right mt-2">
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
 						<button class="button is-success direct-download" disabled data-queue="1">
-							<span class="icon"><i class="icon-list-add"></i></span>
+							<span class="icon"><i class="ph ph-plus-circle"></i></span>
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</button>
 						{# MSG: Button which downloads a song into the library without queuing it. #}
 						<button class="button direct-download" disabled data-queue="">
-							<span class="icon"><i class="icon-down-circled"></i></span>
+							<span class="icon"><i class="ph ph-download-simple"></i></span>
 							<span>{% trans %}Save for later{% endtrans %}</span>
 						</button>
 					</div>
@@ -618,7 +617,7 @@
 							href="#"
 							data-song="{{url_escape(local_path.encode('utf-8','surrogateescape'))}}"
 						>
-							<span class="icon"><i class="icon-list-add"></i></span>
+							<span class="icon"><i class="ph ph-plus-circle"></i></span>
 							{# MSG: Button which adds an already-downloaded song to the queue. #}
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</a>
@@ -629,12 +628,12 @@
 						   negative margins that pull the text over the glyph. #}
 						{# MSG: Button which downloads a song and puts it straight in the queue. #}
 						<button class="button is-success search_result_items_download" data-queue="1">
-							<span class="icon"><i class="icon-list-add"></i></span>
+							<span class="icon"><i class="ph ph-plus-circle"></i></span>
 							<span>{% trans %}Add to queue{% endtrans %}</span>
 						</button>
 						{# MSG: Button which downloads a song into the library without queuing it. #}
 						<button class="button search_result_items_download" data-queue="">
-							<span class="icon"><i class="icon-down-circled"></i></span>
+							<span class="icon"><i class="ph ph-download-simple"></i></span>
 							<span>{% trans %}Save for later{% endtrans %}</span>
 						</button>
 						{% endif %}

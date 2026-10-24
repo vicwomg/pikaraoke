@@ -60,13 +60,6 @@
 	.rankings-table .col-count {
 		width: 5em;
 	}
-	/* The add-to-queue plus leads the title it queues. Fontello's symmetric side
-	   margins go: the left one would indent the plus out of line with the column
-	   above it, and the right one is the gap to the title. */
-	.rankings-table .add-song-link i:before {
-		margin-left: 0;
-		margin-right: 0.4em;
-	}
 	/* On a phone the desktop column widths would leave too little for the song
 	   title, so they tighten to what the headers still need. */
 	@media screen and (max-width: 600px) {
@@ -103,23 +96,23 @@
 			   library -- which is also why file_path can be missing, and with it
 			   any way to queue the song up again. #}
 			<td>
-				{% if song.file_path %}
-				{# A bare fontello glyph, not a Bulma .icon: this one sits inline with
-				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
-				<a class="add-song-link has-text-success"
-					title="{{ _('Add to queue') | forceescape }}"
-					href="#"
-					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
-					><i class="icon-list-add"></i
-				></a>
-				{% endif %}
-				{# Through to every play of this song, and so to who sang it. The id
-				   goes with the title because a song downloaded twice ranks as two
-				   rows: without it both would open the same combined log, agreeing
-				   with neither count. #}
-				<a href="{{ url_for('sessions.history', song=song.song,
-					youtube_id=song.youtube_id or None,
-					session=selected_session or None) }}">{{ song.song }}</a>
+				<div class="is-flex is-align-items-center">
+					{% if song.file_path %}
+					<a class="add-song-link has-text-success"
+						title="{{ _('Add to queue') | forceescape }}"
+						href="#"
+						data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
+						><span class="icon mr-1"><i class="ph ph-plus-circle"></i></span
+					></a>
+					{% endif %}
+					{# Through to every play of this song, and so to who sang it. The id
+					   goes with the title because a song downloaded twice ranks as two
+					   rows: without it both would open the same combined log, agreeing
+					   with neither count. #}
+					<a href="{{ url_for('sessions.history', song=song.song,
+						youtube_id=song.youtube_id or None,
+						session=selected_session or None) }}">{{ song.song }}</a>
+				</div>
 			</td>
 			<td class="has-text-right">{{ song.play_count }}</td>
 		</tr>

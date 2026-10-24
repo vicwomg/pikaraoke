@@ -12,9 +12,9 @@
    <button> natively, and the browser drops it from the tab order. #}
 {% macro _end(label, icon, href, enabled) %}
 {%- if enabled -%}
-<a class="button is-small" title="{{ label | forceescape }}" href="{{ href }}"><i class="icon icon-{{ icon }}"></i></a>
+<a class="button is-small" title="{{ label | forceescape }}" href="{{ href }}"><span class="icon is-small"><i class="ph ph-{{ icon }}"></i></span></a>
 {%- else -%}
-<button class="button is-small" title="{{ label | forceescape }}" disabled><i class="icon icon-{{ icon }}"></i></button>
+<button class="button is-small" title="{{ label | forceescape }}" disabled><span class="icon is-small"><i class="ph ph-{{ icon }}"></i></span></button>
 {%- endif -%}
 {% endmacro %}
 
@@ -29,9 +29,9 @@
 {% set end = [page * per_page, total] | min %}
 <div class="pager-controls is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
 	{# MSG: Tooltip on the button showing the previous page of a table. #}
-	{{ _end(_('Previous page'), 'left-big', page_href | replace('PAGENUMBER', page - 1), page > 1) }}
+	{{ _end(_('Previous page'), 'caret-left', page_href | replace('PAGENUMBER', page - 1), page > 1) }}
 	{# MSG: Tooltip on the button showing the next page of a table. #}
-	{{ _end(_('Next page'), 'right-big', page_href | replace('PAGENUMBER', page + 1), end < total) }}
+	{{ _end(_('Next page'), 'caret-right', page_href | replace('PAGENUMBER', page + 1), end < total) }}
 	{# Tokens rather than Jinja placeholders, because renderPager() below substitutes
 	   the same string client-side and shares this one msgid. #}
 	{# MSG: Pagination summary. {start}, {end} and {total} are replaced with numbers, reading for example "1-100 of 2000". #}
@@ -61,11 +61,11 @@
 <div class="pager-controls is-flex is-flex-wrap-wrap is-align-items-center is-gap-1 mt-2">
 	{# MSG: Tooltip on the button showing the previous page of a table. #}
 	<button id="{{ prefix }}-prev" class="button is-small" title="{{ _('Previous page') | forceescape }}">
-		<i class="icon icon-left-big"></i>
+		<span class="icon is-small"><i class="ph ph-caret-left"></i></span>
 	</button>
 	{# MSG: Tooltip on the button showing the next page of a table. #}
 	<button id="{{ prefix }}-next" class="button is-small" title="{{ _('Next page') | forceescape }}">
-		<i class="icon icon-right-big"></i>
+		<span class="icon is-small"><i class="ph ph-caret-right"></i></span>
 	</button>
 	<span id="{{ prefix }}-page-info" class="is-size-7"></span>
 </div>

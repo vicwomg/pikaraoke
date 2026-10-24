@@ -185,7 +185,7 @@
 				list.append(
 					'<div class="is-flex is-align-items-center mb-2">' +
 						'<label class="checkbox" style="flex: 1; display: flex; align-items: center; min-width: 0;">' +
-							'<input type="checkbox" class="mic-toggle mr-2" ' +
+							'<input type="checkbox" class="mic-toggle switch mr-2" ' +
 								'data-device-id="' + dev.deviceId + '" data-label="' + escaped + '" ' +
 								(dev.enabled ? 'checked' : '') + ' />' +
 							'<span class="is-truncated">' + escaped + '</span>' +
@@ -351,34 +351,34 @@
 			<div class="collapsible-content panel is-shadowless mb-0">
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables the URL display #} {% trans %}Hide the URL{% endtrans %}</span>
-					<input id="pref-url" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
+					<input id="pref-url" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="hide_url" {% if hide_url == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables the QR code display #} {% trans %}Hide the QR code{% endtrans %}</span>
-					<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_qr_code" {% if hide_qr_code == True %}checked{% endif %}>
+					<input id="pref-qr-code" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="hide_qr_code" {% if hide_qr_code == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enables/disables the karaoke session name shown under the logo on the splash screen #} {% trans %}Hide the session name{% endtrans %}</span>
-					<input id="pref-session-name" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_session_name" {% if hide_session_name == True %}checked{% endif %}>
+					<input id="pref-session-name" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="hide_session_name" {% if hide_session_name == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enables/disables the logo in the middle of the splash screen #} {% trans %}Hide the logo{% endtrans %}</span>
-					<input id="pref-logo" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_logo" {% if hide_logo == True %}checked{% endif %}>
+					<input id="pref-logo" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="hide_logo" {% if hide_logo == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>
 						{# MSG: Checkbox label which enable/disables showing overlay data on the splash screen #} {% trans %}Hide all overlays{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Now playing, up next and the QR code.{% endtrans %}</span>
 					</span>
-					<input id="pref-overlay" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
+					<input id="pref-overlay" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="hide_overlay" {% if hide_overlay == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables notifications on the splash screen #} {% trans %}Hide notifications{% endtrans %}</span>
-					<input id="pref-notifications" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="hide_notifications" {% if hide_notifications == True %}checked{% endif %}>
+					<input id="pref-notifications" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="hide_notifications" {% if hide_notifications == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables the digital clock on the splash screen #} {% trans %}Show the clock{% endtrans %}</span>
-					<input id="pref-splash-clock" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="show_splash_clock" {% if show_splash_clock == True %}checked{% endif %}>
+					<input id="pref-splash-clock" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="show_splash_clock" {% if show_splash_clock == True %}checked{% endif %}>
 				</label>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="pref-screensaver-timeout">
@@ -409,11 +409,11 @@
 			<div class="collapsible-content panel is-shadowless mb-0">
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables background music on the Splash Screen #} {% trans %}Disable background music{% endtrans %}</span>
-					<input id="pref-bg-music" class="user-preference-checkbox checkbox ml-4 mr-0" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == True %}checked{% endif %} />
+					<input id="pref-bg-music" class="user-preference-checkbox switch ml-4 mr-0" type="checkbox" data-pref="disable_bg_music" {% if disable_bg_music == True %}checked{% endif %} />
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables background video on the Splash Screen #} {% trans %}Disable background video{% endtrans %}</span>
-					<input id="pref-bg-video" class="user-preference-checkbox checkbox ml-4 mr-0" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
+					<input id="pref-bg-video" class="user-preference-checkbox switch ml-4 mr-0" type="checkbox" data-pref="disable_bg_video" {% if disable_bg_video == True %}checked{% endif %} />
 				</label>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="bg-music-volume">
@@ -448,14 +448,14 @@
 				</div>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}</span>
-					<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
+					<input id="pref-normalize" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>
 						{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode fully before playing{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Better browser compatibility, slower starts. Ignores the buffer size.{% endtrans %}</span>
 					</span>
-					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == True %}checked{% endif %}>
+					<input id="pref-complete_transcode_before_play" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="complete_transcode_before_play" {% if complete_transcode_before_play == True %}checked{% endif %}>
 				</label>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="pref-buffer-size">
@@ -476,7 +476,7 @@
 						{# MSG: Checkbox label which enable/disables CDG pixel scaling #} {% trans %}Enable CDG pixel scaling{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Crisper visuals for CDG files, may increase CPU usage.{% endtrans %}</span>
 					</span>
-					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
+					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
 				</label>
 				{% if mic_passthrough_enabled %}
 				<div class="panel-block is-block p-5">
@@ -498,7 +498,7 @@
 					{% if is_linux %}
 					<div class="is-flex is-align-items-center mb-2">
 						<label class="checkbox mic-control-label">
-							<input type="checkbox" id="mic-echo-cancel" class="mr-1" />
+							<input type="checkbox" id="mic-echo-cancel" class="switch" />
 							{% trans %}Echo cancellation{% endtrans %}
 						</label>
 						<span class="tag is-warning is-light ml-2">{% trans %}Experimental{% endtrans %}</span>
@@ -538,7 +538,7 @@
 						{# MSG: Checkbox label for playing the next queued song automatically #} {% trans %}Autoplay{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Play the next song automatically.{% endtrans %}</span>
 					</span>
-					<input id="pref-autoplay" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="autoplay" {% if autoplay == True %}checked{% endif %}>
+					<input id="pref-autoplay" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="autoplay" {% if autoplay == True %}checked{% endif %}>
 				</label>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="pref-limit-user-songs-by">
@@ -552,7 +552,7 @@
 						{# MSG: Checkbox label which enable/disables fair queue (round-robin) mode #} {% trans %}Enable fair queue{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Round-robin: singers take turns.{% endtrans %}</span>
 					</span>
-					<input id="pref-fair-queue" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_fair_queue" {% if enable_fair_queue == True %}checked{% endif %}>
+					<input id="pref-fair-queue" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="enable_fair_queue" {% if enable_fair_queue == True %}checked{% endif %}>
 				</label>
 			</div>
 
@@ -569,7 +569,7 @@
 			<div class="collapsible-content panel is-shadowless mb-0">
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables the Score Screen #} {% trans %}Disable the score screen after each song{% endtrans %}</span>
-					<input id="pref-score" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
+					<input id="pref-score" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="disable_score" {% if disable_score == True %}checked{% endif %}>
 				</label>
 				<div class="panel-block is-block p-5">
 					{# MSG: Help text explaining how to add phrases #}
@@ -604,14 +604,14 @@
 			<div class="collapsible-content panel is-shadowless mb-0">
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which enable/disables high quality video downloads #} {% trans %}Download high quality videos{% endtrans %}</span>
-					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
+					<input id="pref-high-quality" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="high_quality" {% if high_quality == True  %}checked{% endif %}>
 				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>
 						{# MSG: Checkbox label which enables browsing the song library by folder #} {% trans %}Enable folder browsing{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Adds a Folders view to the Songs page when the library has subfolders.{% endtrans %}</span>
 					</span>
-					<input id="pref-enable-folder-browsing" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_folder_browsing" {% if enable_folder_browsing == True %}checked{% endif %}>
+					<input id="pref-enable-folder-browsing" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="enable_folder_browsing" {% if enable_folder_browsing == True %}checked{% endif %}>
 				</label>
 				<div class="panel-block px-5 py-3 is-justify-content-space-between">
 					<label for="pref-browse-per-page">{# MSG: Label for the dropdown choosing how many songs are shown per page on the Songs page. #} {% trans %}Songs per page{% endtrans %}</label>
@@ -628,7 +628,7 @@
 						{# MSG: Checkbox label which enables automatic cleanup of YouTube song titles #} {% trans %}Enable automatic YouTube title cleanup{% endtrans %}
 						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Strips noise words like "Karaoke Version HD".{% endtrans %}</span>
 					</span>
-					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
+					<input id="pref-enable-title-tidy" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="enable_title_tidy" {% if enable_title_tidy == True %}checked{% endif %}>
 				</label>
 			</div>
 
@@ -715,7 +715,7 @@
 				{% else %}
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>{# MSG: Checkbox label which stops the server machine from sleeping #} {% trans %}Keep the server awake while PiKaraoke is running{% endtrans %}</span>
-					<input id="pref-keep-awake" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="keep_awake" {% if keep_awake == True %}checked{% endif %}>
+					<input id="pref-keep-awake" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="keep_awake" {% if keep_awake == True %}checked{% endif %}>
 				</label>
 				{% endif %}
 				{# The lines inside a multi-line trans block are part of its message id:
