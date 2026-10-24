@@ -227,12 +227,10 @@
                 submitLabel: joining ? window.translations.identityJoinAction : window.translations.identityProfileAction,
                 value: currentName
             }).done(function (res) {
-                Cookies.set("user", res.name, {
-                    expires: 3650,
-                    path: window.pikaraokeConfig.cookiePath
-                });
-                // Update the displayed name without reloading.
-                window.setCurrentUser(res.name);
+                // No pending action here, so re-fetch straight away when the name changed.
+                if (window.setIdentity(res.name) && window.spaNavigation) {
+                    window.spaNavigation.rerender();
+                }
             });
             // Remove focus from the link to prevent CSS focus styling (black background)
             $(this).blur();

@@ -231,17 +231,6 @@
 		$playModal.removeClass("is-active");
 	}
 
-	function addToQueue(path) {
-		// The same endpoint and response shape the browse page uses: `success` is
-		// [ok, message], the message being what to show either way.
-		resolveSinger().done(function (name) {
-			$.post("{{ url_for('queue_api.enqueue_form') }}", { song_to_add: path, song_added_by: name }, function (data) {
-				var result = data.success;
-				showNotification(result[1], result[0] ? "is-success" : "is-danger");
-			});
-		});
-	}
-
 	function deletePlay(id) {
 		if (!window.confirm(historyText.confirmDeletePlay)) {
 			return;
@@ -315,7 +304,9 @@
 			var $trigger = $playModal.data("trigger");
 			closePlayOptions();
 			if (action === "queue") {
-				addToQueue(path);
+				// Shared with every other page's add, so the three cannot drift: it
+				// resolves the singer, posts, and re-fetches on a first naming.
+				window.enqueueSong(encodeURIComponent(path));
 			} else if (action === "favourite") {
 				// Path is raw here; encode it to match the pre-encoded form the other
 				// pages send. The favourite:changed listener above syncs every row.

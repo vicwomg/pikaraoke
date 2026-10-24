@@ -165,6 +165,16 @@
       $("#current-user").attr({ title: name, "aria-label": name }).removeClass("has-text-success");
     };
 
+    // Persist this device's name and show it in the navbar. Returns whether the
+    // name changed: the song list is server-rendered per singer preferences, so a
+    // changed name must re-fetch whatever page is open.
+    window.setIdentity = function (name) {
+      var changed = getUserCookie() !== name;
+      Cookies.set("user", name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
+      window.setCurrentUser(name);
+      return changed;
+    };
+
     // Who a queue add is attributed to, resolved async so the name can come from
     // a modal: the KJ singer field, else this device's cookie, else the Join in
     // dialog (which writes the cookie). Rejects on dismissal, so nothing queues.
@@ -187,9 +197,9 @@
         submitLabel: window.translations.identityJoinAction,
         value: ""
       }).done(function (res) {
-        Cookies.set("user", res.name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
-        window.setCurrentUser(res.name);
-        d.resolve(res.name);
+        // The second arg tells callers the identity was newly set, so they can
+        // re-fetch per-singer content after their own request completes.
+        d.resolve(res.name, window.setIdentity(res.name));
       }).fail(function () {
         d.reject();
       });
@@ -324,11 +334,14 @@
     // proxy retry cannot queue a song unasked. Shared by the add links and the
     // row-options modal, so the two cannot drift.
     window.enqueueSong = function (encodedPath) {
-      resolveSinger().done(function (name) {
+      resolveSinger().done(function (name, changed) {
         var body = "song_to_add=" + encodedPath + "&song_added_by=" + encodeURIComponent(name);
         $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
           // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
           showNotification(data.success[1], data.success[0] ? "is-success" : "is-danger");
+          if (changed && window.spaNavigation) {
+            window.spaNavigation.rerender();
+          }
         });
       });
     };
@@ -339,21 +352,27 @@
     // The one entry point for a favourite change, so it is where `favourite:changed`
     // fires -- the Favourites view listens instead of every caller re-notifying.
     window.favouriteSong = function (encodedPath, makeStarred, title, onDone) {
-      resolveSinger().done(function (name) {
+      resolveSinger().done(function (name, changed) {
         var body =
           "song=" + encodedPath +
           "&starred=" + (makeStarred ? "true" : "false") +
           "&song_added_by=" + encodeURIComponent(name);
         $.post(window.pikaraokeConfig.favouriteUrl, body, function (data) {
           if (data.success) {
-            onDone(data.starred);
             var template = data.starred
               ? window.translations.favouriteAdded
               : window.translations.favouriteRemoved;
             showNotification(template.replace("{title}", title), "is-success");
-            document.dispatchEvent(new CustomEvent("favourite:changed", {
-              detail: { song: encodedPath, starred: data.starred },
-            }));
+            // A first naming from the star rendered every row nameless; re-fetch
+            // so all stars reflect the new singer, not just this one.
+            if (changed && window.spaNavigation) {
+              window.spaNavigation.rerender();
+            } else {
+              onDone(data.starred);
+              document.dispatchEvent(new CustomEvent("favourite:changed", {
+                detail: { song: encodedPath, starred: data.starred },
+              }));
+            }
           }
         });
       });
