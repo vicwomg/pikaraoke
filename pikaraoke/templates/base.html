@@ -26,7 +26,9 @@
       // Empty on the chromeless splash page, which has no singer field.
       singersUrl: "{% if not blank_page %}{{ url_for('sessions_api.get_singers') }}{% endif %}",
       // Likewise: the splash page renders no add links.
-      enqueueUrl: "{% if not blank_page %}{{ url_for('queue_api.enqueue_form') }}{% endif %}"
+      enqueueUrl: "{% if not blank_page %}{{ url_for('queue_api.enqueue_form') }}{% endif %}",
+      // Likewise: the splash page renders no favourite controls.
+      favouriteUrl: "{% if not blank_page %}{{ url_for('singers_api.set_favourite') }}{% endif %}"
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
@@ -54,7 +56,15 @@
       // {# MSG: Confirmation dialog when expanding the filesystem on Raspberry Pi, which triggers a reboot. #}
       confirmExpandFilesystem: {{ _("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.") | tojson }},
       // {# MSG: Generic error prefix shown before an error message. #}
-      errorLabel: {{ _("Error") | tojson }}
+      errorLabel: {{ _("Error") | tojson }},
+      // {# MSG: Row-options menu item which marks a song as one of the singer's favourites. #}
+      favouriteAdd: {{ _("Add to favourites") | tojson }},
+      // {# MSG: Row-options menu item which removes a song from the singer's favourites. #}
+      favouriteRemove: {{ _("Remove from favourites") | tojson }},
+      // {# MSG: Toast confirming a song was added to favourites. {title} is the song name. #}
+      favouriteAdded: {{ _("Added to favourites: {title}") | tojson }},
+      // {# MSG: Toast confirming a song was removed from favourites. {title} is the song name. #}
+      favouriteRemoved: {{ _("Removed from favourites: {title}") | tojson }}
     };
 
     function getSemitonesLabel(value) {
@@ -297,6 +307,47 @@
       window.socket.on("now_playing", window.kjSessionHandler);
     }
 
+    // Queue a song by its percent-encoded path. The body is assembled by hand to
+    // pass that path through untouched: a filename that is not valid UTF-8 cannot
+    // survive a decode here. A POST, never a GET, so a prefetcher, link preview or
+    // proxy retry cannot queue a song unasked. Shared by the add links and the
+    // row-options modal, so the two cannot drift.
+    window.enqueueSong = function (encodedPath) {
+      resolveSinger().done(function (name) {
+        var body = "song_to_add=" + encodedPath + "&song_added_by=" + encodeURIComponent(name);
+        $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
+          // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
+          showNotification(data.success[1], data.success[0] ? "is-success" : "is-danger");
+        });
+      });
+    };
+
+    // Star or unstar a song for this device's singer, resolving the name the same
+    // way a queue add does (the cookie, else the Join in dialog). onDone(starred)
+    // runs only on success, so the caller flips its star to match what was saved.
+    // The one entry point for a favourite change, so it is where `favourite:changed`
+    // fires -- the Favourites view listens instead of every caller re-notifying.
+    window.favouriteSong = function (encodedPath, makeStarred, title, onDone) {
+      resolveSinger().done(function (name) {
+        var body =
+          "song=" + encodedPath +
+          "&starred=" + (makeStarred ? "true" : "false") +
+          "&song_added_by=" + encodeURIComponent(name);
+        $.post(window.pikaraokeConfig.favouriteUrl, body, function (data) {
+          if (data.success) {
+            onDone(data.starred);
+            var template = data.starred
+              ? window.translations.favouriteAdded
+              : window.translations.favouriteRemoved;
+            showNotification(template.replace("{title}", title), "is-success");
+            document.dispatchEvent(new CustomEvent("favourite:changed", {
+              detail: { song: encodedPath, starred: data.starred },
+            }));
+          }
+        });
+      });
+    };
+
     // Queueing a song already on this machine. Delegated because the Songs page
     // swaps its whole result table per filter keystroke, and shared because
     // Songs and Add New render the identical link. Unbound first: SPA navigation
@@ -306,26 +357,104 @@
       $(document).off("click", "a.add-song-link");
       $(document).on("click", "a.add-song-link", function (e) {
         e.preventDefault();
-        // The song rides in data-song and goes back as a POST. A link that
-        // queues a song on GET is queued by anything that fetches it without a
-        // click -- a prefetcher, a link preview, a proxy retry, a userscript.
-        // The attribute holds the percent-encoded path the href used to carry,
-        // and the body is assembled by hand to pass it through untouched: a
-        // filename that is not valid UTF-8 cannot survive a decode here.
-        var dataSong = this.getAttribute("data-song");
-        resolveSinger().done(function (name) {
-          var body = "song_to_add=" + dataSong + "&song_added_by=" + encodeURIComponent(name);
-          $.post(window.pikaraokeConfig.enqueueUrl, body, function (data) {
-            // {# MSG: Notification shown after trying to add a song to the queue. The song name comes after this string. #}
-            showNotification(data.success[1], data.success[0] ? "is-success" : "is-danger");
+        // The song rides in data-song as the percent-encoded path the href used
+        // to carry, so it survives a filename that is not valid UTF-8.
+        window.enqueueSong(this.getAttribute("data-song"));
+      });
+    }
+
+    // Set a favourite modal item's label, icon and state. $item defaults to the
+    // shared modal's item; History passes its own, so the two modals share this.
+    window.setFavouriteItem = function (starred, $item) {
+      $item = $item || $("#opt-favourite");
+      $item.attr("data-starred", starred ? "1" : "0");
+      $item.find(".opt-fav-label").text(
+        starred ? window.translations.favouriteRemove : window.translations.favouriteAdd
+      );
+      $item.find(".icon i").attr("class", starred ? "icon-ok" : "icon-plus");
+      $item.find(".icon").toggleClass("has-text-success", starred);
+    };
+
+    // Shared by the row star and the options modal, so either keeps the row in step.
+    window.setRowStar = function ($toggle, starred) {
+      $toggle.attr("data-starred", starred ? "1" : "0");
+      $toggle.find("i").attr(
+        "class",
+        starred ? "icon icon-star has-text-warning" : "icon icon-star-empty has-text-grey"
+      );
+    };
+
+    // The row-options modal shared by the Songs and Rankings lists: a three-dots
+    // trigger per row opens one modal populated from the trigger's data. Delegated
+    // and unbound-first like the add links, for SPA re-execution and the result
+    // table a filter keystroke swaps. History keeps its own modal (it also deletes
+    // log entries) but reuses favouriteSong, so the favourite behaviour is shared.
+    function bindSongOptions() {
+      $(document).off("click", ".song-options-trigger");
+      $(document).on("click", ".song-options-trigger", function (e) {
+        e.preventDefault();
+        var $modal = $("#song-options-modal");
+        if (!$modal.length) {
+          return;
+        }
+        var $t = $(this);
+        $modal.data("song", $t.attr("data-song"));
+        $modal.data("trigger", $t);
+        $("#song-options-title").text($t.attr("data-title") || "");
+        setFavouriteItem($t.attr("data-starred") === "1");
+        var editUrl = $t.attr("data-edit-url") || "";
+        $("#opt-edit").toggle(!!editUrl).attr("href", editUrl || "#");
+        $modal.addClass("is-active");
+      });
+
+      $(document).off("click", "#song-options-modal #opt-add-queue");
+      $(document).on("click", "#song-options-modal #opt-add-queue", function (e) {
+        e.preventDefault();
+        var $modal = $("#song-options-modal").removeClass("is-active");
+        window.enqueueSong($modal.data("song"));
+      });
+
+      $(document).off("click", "#song-options-modal #opt-favourite");
+      $(document).on("click", "#song-options-modal #opt-favourite", function (e) {
+        e.preventDefault();
+        var $modal = $("#song-options-modal");
+        var starred = $("#opt-favourite").attr("data-starred") === "1";
+        var title = $modal.data("trigger").attr("data-title");
+        window.favouriteSong($modal.data("song"), !starred, title, function (nowStarred) {
+          // Keep the row's trigger and star in step with what was saved.
+          var $trigger = $modal.data("trigger");
+          $trigger.attr("data-starred", nowStarred ? "1" : "0");
+          $trigger.closest("tr").find(".song-favourite-toggle").each(function () {
+            window.setRowStar($(this), nowStarred);
           });
+          $modal.removeClass("is-active");
         });
+      });
+
+      // The row star toggles the favourite in place; delegated and unbound-first
+      // like the trigger above.
+      $(document).off("click", ".song-favourite-toggle");
+      $(document).on("click", ".song-favourite-toggle", function (e) {
+        e.preventDefault();
+        var $toggle = $(this);
+        var starred = $toggle.attr("data-starred") === "1";
+        window.favouriteSong($toggle.attr("data-song"), !starred, $toggle.attr("data-title"), function (nowStarred) {
+          window.setRowStar($toggle, nowStarred);
+          // The trigger seeds its modal from data-starred, so keep it current.
+          $toggle.closest("tr").find(".song-options-trigger").attr("data-starred", nowStarred ? "1" : "0");
+        });
+      });
+
+      $(document).off("click.songopts", "#song-options-modal .modal-background, #song-options-modal .modal-close-btn");
+      $(document).on("click.songopts", "#song-options-modal .modal-background, #song-options-modal .modal-close-btn", function () {
+        $("#song-options-modal").removeClass("is-active");
       });
     }
 
     $(function () {
       connectSocket();
       bindAddSongLinks();
+      bindSongOptions();
 
       // Unlike the singer field, the ribbon is not a KJ-mode control: everyone
       // in the room sees which session is running.

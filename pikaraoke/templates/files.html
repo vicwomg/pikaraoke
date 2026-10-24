@@ -3,6 +3,27 @@
 	$(function () {
 		loadSingerList();
 
+		const BROWSE_URL = "{{ url_for('files.browse') }}";
+
+		// The view menu reloads the page scoped to All, Favourites or Folders. It
+		// carries the sort and query and drops letter/page/folder -- a new view is a
+		// new listing. Bound before the folder-landing early return below, because
+		// that page still shows the menu; delegated and namespaced for SPA re-runs.
+		$(document)
+			.off("change.viewselect")
+			.on("change.viewselect", "#view-select", function () {
+				const params = new URLSearchParams();
+				const chosen = $(this).val();
+				if (chosen && chosen !== "all") params.set("view", chosen);
+				const sort = new URLSearchParams(window.location.search).get("sort");
+				if (sort) params.set("sort", sort);
+				const box = document.getElementById("song-filter");
+				const typed = box ? box.value.trim() : "";
+				if (typed) params.set("q", typed);
+				const query = params.toString();
+				window.location.href = BROWSE_URL + (query ? "?" + query : "");
+			});
+
 		// --- A-Z strip ----------------------------------------------------
 		// On a phone the strip is fixed, so it has to be told where to sit: it
 		// starts level with the top of the Songs box and rides up with the page
@@ -61,7 +82,6 @@
 			return false;
 		}
 
-		const BROWSE_URL = "{{ url_for('files.browse') }}";
 		const VIEW = {{ view | tojson }};
 		const FOLDER = {{ folder | tojson }};
 
@@ -112,18 +132,46 @@
 			});
 		}
 
-		function applyFilter() {
-			const q = effectiveQuery(input.value.trim());
-
-			// Aborting before the early return, not after it: backspacing from "ab"
-			// to "a" resolves to the query already on screen, but the request for
-			// "ab" is still in flight and its response would fill the table with
-			// results the input no longer describes.
+		// Fetch the browse fragment for `params` and swap it into #browse-results.
+		// Shared by the filter and the Favourites refresh, through one `inflight`
+		// controller so the two can never race into a stale table. Resolves true once
+		// this call's fragment is on screen, false if a newer call superseded it.
+		function swapBrowseFragment(params) {
 			if (inflight) {
 				inflight.abort();
 				inflight = null;
 			}
-			if (q === renderedQuery) return;
+			const controller = new AbortController();
+			inflight = controller;
+			const fetchParams = new URLSearchParams(params);
+			fetchParams.set("partial", "1");
+			return fetch(BROWSE_URL + "?" + fetchParams.toString(), { signal: controller.signal })
+				.then((r) => {
+					// A 500's HTML would otherwise render into the table as the fragment.
+					if (!r.ok) throw new Error("Browse request failed: " + r.status);
+					return r.text();
+				})
+				.then((html) => {
+					// abort() can lose the race, so the identity check is what holds.
+					if (inflight !== controller) return false;
+					inflight = null;
+					resultsDiv.innerHTML = html;
+					return true;
+				});
+		}
+
+		function applyFilter() {
+			const q = effectiveQuery(input.value.trim());
+
+			// Backspacing "ab" to "a" resolves to the query on screen: abort the stale
+			// "ab" request, issue nothing new. No fresh fetch follows to do it here.
+			if (q === renderedQuery) {
+				if (inflight) {
+					inflight.abort();
+					inflight = null;
+				}
+				return;
+			}
 
 			// Safe to move ahead of the response: these only matter once clicked,
 			// and clicking one navigates to a fresh server render of that query.
@@ -133,22 +181,9 @@
 			const query = params.toString();
 			const url = BROWSE_URL + (query ? "?" + query : "");
 
-			const controller = new AbortController();
-			inflight = controller;
-			params.set("partial", "1");
-			fetch(BROWSE_URL + "?" + params.toString(), { signal: controller.signal })
-				.then((r) => {
-					// An error page is still text. Without this check a 500 renders
-					// itself into the results table as though it were the fragment.
-					if (!r.ok) throw new Error("Filter request failed: " + r.status);
-					return r.text();
-				})
-				.then((html) => {
-					// abort() does not guarantee the promise loses the race, so the
-					// identity check is what actually keeps a stale response out.
-					if (inflight !== controller) return;
-					inflight = null;
-					resultsDiv.innerHTML = html;
+			swapBrowseFragment(params)
+				.then((swapped) => {
+					if (!swapped) return;
 					renderedQuery = q;
 					// The URL is rewritten only once the table it names is on screen,
 					// so an abandoned query can never be left in the address bar. It
@@ -166,6 +201,21 @@
 					console.error(e);
 				});
 		}
+
+		// In the Favourites view a row's membership *is* its starred state, so an
+		// unstar has to drop the row (in All/Folders the star just toggles in place).
+		// Refetch rather than splice: the server owns the empty-state, count and page
+		// boundaries. Only removals reach here -- you cannot star from inside the view.
+		$(document)
+			.off("favourite:changed.favview")
+			.on("favourite:changed.favview", function (e) {
+				// jQuery wraps the native CustomEvent; the payload is on originalEvent.
+				if (VIEW !== "favourites" || e.originalEvent.detail.starred) return;
+				swapBrowseFragment(new URLSearchParams(window.location.search)).catch((err) => {
+					if (err.name === "AbortError") return;
+					console.error(err);
+				});
+			});
 
 		const runFilter = debounce(applyFilter, 250);
 
@@ -328,14 +378,20 @@
 </style>
 {% endblock %} {% block content %}
 
+{% set in_favourites = view == 'favourites' %}
+{% set in_folders = view == 'folders' %}
 {# A folder holding only subfolders is navigation, not a result set: no singer
    field, no filter box, no A-Z bar, no sort toggle and no empty table -- just the
    folders. An active filter keeps them all, so a query matching nothing can still
-   be cleared. #}
-{% set folder_landing = view and not songs and not q and not letter %}
-{# The route reports the sort as a display string; the view toggle needs the param
-   back so that switching between flat and folder view keeps the chosen order. #}
-{% set sort_param = 'date' if sort_order == 'Date' else None %}
+   be cleared. Favourites is a result set like the flat list, never a landing. #}
+{% set folder_landing = in_folders and not songs and not q and not letter %}
+{# Carried through the view and sort links so changing one keeps the other; the
+   default A-Z is the absent param. name_sort/date_sort are each button's toggle
+   target: Name flips A-Z<->Z-A, Date flips newest<->oldest, each defaulting the
+   other axis. asc is an up arrow, desc a down one, matching the play log. #}
+{% set sort_param = sort if sort != 'az' else None %}
+{% set name_sort = 'za' if sort == 'az' else 'az' %}
+{% set date_sort = 'date_asc' if sort == 'date' else 'date' %}
 
 {% if breadcrumbs %}
 <nav class="breadcrumb is-small" aria-label="breadcrumbs">
@@ -429,38 +485,43 @@
 </div>
 {% endif %}
 
-{# Both toggles sit with the results they describe rather than above the search box,
-   and each shows its options at once so the active one is visible without reading a
-   sentence. Sorting and the view are orthogonal to filtering, so both carry the
-   active query through -- the alpha bar above is the one control that clears it. #}
+{# Both controls sit with the results they describe rather than above the search box.
+   Sorting and the view are orthogonal to filtering, so both carry the active query
+   through -- the alpha bar above is the one control that clears it. #}
 <div id="browse-controls" class="is-flex is-justify-content-space-between is-flex-wrap-wrap">
-	<div class="buttons has-addons are-small mb-2">
-		{% if has_subfolders %}
-		<a class="button {% if not view %}is-info is-selected{% endif %}"
-			href="{{ url_for('files.browse', q=q or None, sort=sort_param) }}">
-			{# MSG: Button which lists every song at once, ignoring the folders they are stored in. #}
-			{% trans %}All songs{% endtrans %}
-		</a>
-		<a class="button {% if view %}is-info is-selected{% endif %}"
-			href="{{ url_for('files.browse', view='folders', q=q or None, sort=sort_param) }}">
-			{# MSG: Button which groups the songs by the folder they are stored in. #}
-			{% trans %}Folders{% endtrans %}
-		</a>
-		{% endif %}
+	<div class="select is-small mb-2">
+		{# All songs, the singer's favourites, or grouped by folder. A full reload on
+		   change, like the session filter -- the list is server-rendered. Folders is
+		   offered only where the library has any. #}
+		<select id="view-select">
+			{# MSG: Option in the Songs view menu which lists every song. #}
+			<option value="all" {% if not view %}selected{% endif %}>{% trans %}All songs{% endtrans %}</option>
+			{# MSG: Option in the Songs view menu which lists only the singer's starred songs. #}
+			<option value="favourites" {% if in_favourites %}selected{% endif %}>{% trans %}Favourites{% endtrans %}</option>
+			{% if has_subfolders %}
+			{# MSG: Option in the Songs view menu which groups songs by their folder. #}
+			<option value="folders" {% if in_folders %}selected{% endif %}>{% trans %}Folders{% endtrans %}</option>
+			{% endif %}
+		</select>
 	</div>
 	<div class="buttons has-addons are-small mb-2">
 		{% if not folder_landing %}
-		{# Labels stay on one line: `trans` does not collapse whitespace, so a wrapped
-		   label bakes the newline and tabs into the msgid and any reindent breaks it. #}
-		<a class="button sort-link {% if sort_order == 'Alphabetical' %}is-info is-selected{% endif %}" data-sort=""
-			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None) }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #}
-			{% trans %}Sort Alphabetically{% endtrans %}
+		{# Two axes, each a toggle: the active button carries its direction arrow and
+		   flips it on a repeat click; the inactive one switches axis at its default
+		   direction. Labels stay on one line -- `trans` bakes whitespace into the msgid. #}
+		<a class="button sort-link {% if sort in ['az', 'za'] %}is-info is-selected{% endif %}" data-sort="{{ name_sort }}"
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None, sort=name_sort) }}">
+			{# MSG: Button which sorts the songs by name. #}
+			<span>{% trans %}Name{% endtrans %}</span>
+			{% if sort == 'az' %}<span class="icon is-small"><i class="icon-sort-up"></i></span>
+			{% elif sort == 'za' %}<span class="icon is-small"><i class="icon-sort-down"></i></span>{% endif %}
 		</a>
-		<a class="button sort-link {% if sort_order == 'Date' %}is-info is-selected{% endif %}" data-sort="date"
-			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None, sort='date') }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #}
-			{% trans %}Sort by Date{% endtrans %}
+		<a class="button sort-link {% if sort in ['date', 'date_asc'] %}is-info is-selected{% endif %}" data-sort="{{ date_sort }}"
+			href="{{ url_for('files.browse', q=q or None, letter=letter or None, view=view or None, folder=folder or None, sort=date_sort) }}">
+			{# MSG: Button which sorts the songs by the date they were added. #}
+			<span>{% trans %}Date{% endtrans %}</span>
+			{% if sort == 'date_asc' %}<span class="icon is-small"><i class="icon-sort-up"></i></span>
+			{% elif sort == 'date' %}<span class="icon is-small"><i class="icon-sort-down"></i></span>{% endif %}
 		</a>
 		{% endif %}
 	</div>
@@ -471,4 +532,6 @@
    caret with it. #}
 <div id="browse-results">{% include 'partials/browse_results.html' %}</div>
 {% endif %}
+
+{% include 'partials/song_options_modal.html' %}
 {% endblock %}

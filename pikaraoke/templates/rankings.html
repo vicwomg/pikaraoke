@@ -14,8 +14,8 @@
 		window.location.href = "{{ url_for('sessions.rankings') }}?" + params;
 	}
 
-	// The add links need no handler here: base.html delegates add-song-link
-	// clicks from the document, and a second binding would queue the song twice.
+	// The options triggers need no handler here: base.html delegates
+	// .song-options-trigger clicks, and a second binding would double them.
 </script>
 {% endblock %}
 
@@ -38,7 +38,7 @@
 {% endmacro %}
 
 {# Both charts are ranked lists of a name and a count, so they share a header. #}
-{% macro ranking_head(what) %}
+{% macro ranking_head(what, actions=false) %}
 <thead>
 	<tr>
 		{# MSG: Ranking table column header for a row's position in the chart. #}
@@ -46,6 +46,7 @@
 		<th>{{ what }}</th>
 		{# MSG: Ranking table column header for how many times something was played. #}
 		<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+		{% if actions %}<th></th>{% endif %}
 	</tr>
 </thead>
 {% endmacro %}
@@ -58,14 +59,11 @@
 		width: 4em;
 	}
 	.rankings-table .col-count {
-		width: 5em;
+		width: 3.75em;
 	}
-	/* The add-to-queue plus leads the title it queues. Fontello's symmetric side
-	   margins go: the left one would indent the plus out of line with the column
-	   above it, and the right one is the gap to the title. */
-	.rankings-table .add-song-link i:before {
-		margin-left: 0;
-		margin-right: 0.4em;
+	/* Just the vertical-ellipsis options glyph, kept close to the play count. */
+	.rankings-table .col-actions {
+		width: 2.25em;
 	}
 	/* On a phone the desktop column widths would leave too little for the song
 	   title, so they tighten to what the headers still need. */
@@ -74,7 +72,7 @@
 			width: 3em;
 		}
 		.rankings-table .col-count {
-			width: 3.6em;
+			width: 3em;
 		}
 	}
 </style>
@@ -92,9 +90,10 @@
 		<col class="col-rank" />
 		<col />
 		<col class="col-count" />
+		<col class="col-actions" />
 	</colgroup>
 	{# MSG: Ranking table column header for the song that was sung. #}
-	{{ ranking_head(_("Song")) }}
+	{{ ranking_head(_("Song"), actions=true) }}
 	<tbody>
 		{% for song in top_songs %}
 		<tr>
@@ -103,16 +102,6 @@
 			   library -- which is also why file_path can be missing, and with it
 			   any way to queue the song up again. #}
 			<td>
-				{% if song.file_path %}
-				{# A bare fontello glyph, not a Bulma .icon: this one sits inline with
-				   the title, and .icon is a 1.5rem flex box that would ride above it. #}
-				<a class="add-song-link has-text-success"
-					title="{{ _('Add to queue') | forceescape }}"
-					href="#"
-					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
-					><i class="icon-list-add"></i
-				></a>
-				{% endif %}
 				{# Through to every play of this song, and so to who sang it. The id
 				   goes with the title because a song downloaded twice ranks as two
 				   rows: without it both would open the same combined log, agreeing
@@ -122,6 +111,21 @@
 					session=selected_session or None) }}">{{ song.song }}</a>
 			</td>
 			<td class="has-text-right">{{ song.play_count }}</td>
+			<td class="has-text-right action-cell">
+				{# Options trigger in its own column, like the song list; a song gone
+				   from the library has no path, so no trigger. #}
+				{% if song.file_path %}
+				<a class="song-options-trigger has-text-grey-light"
+					title="{{ _('Options') | forceescape }}"
+					aria-label="{{ _('Options') | forceescape }}"
+					href="#"
+					data-song="{{ url_escape(song.file_path.encode('utf-8','surrogateescape')) }}"
+					data-title="{{ song.song }}"
+					data-starred="{% if song.file_path in favourite_paths() %}1{% else %}0{% endif %}"
+					><i class="icon icon-ellipsis-vert"></i
+				></a>
+				{% endif %}
+			</td>
 		</tr>
 		{% endfor %}
 	</tbody>
@@ -163,4 +167,5 @@
 <p>{% trans %}Nobody has sung yet.{% endtrans %}</p>
 {% endif %}
 
+{% include 'partials/song_options_modal.html' %}
 {% endblock %}

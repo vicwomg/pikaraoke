@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS plays (
     youtube_id TEXT,
     song_title TEXT NOT NULL,
     performer TEXT NOT NULL,
-    -- NULL until play history writes it; queries still read performer.
+    -- Written for every play (record_play resolves the singer, backfill fills
+    -- rows from before singers existed); every report joins singers on it.
     singer_id INTEGER,
     -- The shift the singer settled on, not the key the song is in: that is
     -- songs.musical_key. Written when the play ends, because it can change
@@ -122,15 +123,57 @@ CREATE TABLE IF NOT EXISTS plays (
 -- leftmost prefix still covers the session_id lookups on its own.
 CREATE INDEX IF NOT EXISTS idx_plays_session_played_at ON plays(session_id, played_at);
 CREATE INDEX IF NOT EXISTS idx_plays_played_at ON plays(played_at);
--- NOCASE to match the collation every performer query uses; a BINARY index
--- would be written on every play and read by nothing.
-CREATE INDEX IF NOT EXISTS idx_plays_performer ON plays(performer COLLATE NOCASE);
+-- Performer queries now join singers on singer_id, so nothing reads through a
+-- performer index any more. Dropped here rather than merely uncreated, so an
+-- upgraded database stops paying to maintain it on every play.
+DROP INDEX IF EXISTS idx_plays_performer;
 -- Foreign keys are enforced, so SQLite scans for referencing plays on every
 -- song delete. Without this, a library sync that drops songs scans the whole
 -- plays table once per deleted row.
 CREATE INDEX IF NOT EXISTS idx_plays_song ON plays(song_id);
 -- Likewise for a singer delete.
 CREATE INDEX IF NOT EXISTS idx_plays_singer ON plays(singer_id);
+
+-- One row per (singer, song): what this singer has saved about it. The same
+-- three ways of naming a song as plays, for the same reasons -- song_id the
+-- live link, youtube_id the durable identity, song_title the label of last
+-- resort, kept current through renames (SingerManager subscribes to
+-- song_renamed). Either a star or a saved key creates the row.
+CREATE TABLE IF NOT EXISTS singer_songs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    singer_id INTEGER NOT NULL,
+    song_id INTEGER,
+    youtube_id TEXT,
+    song_title TEXT NOT NULL,
+    -- Starred: the singer marked this a favourite. One preference, not the
+    -- row's only reason to exist.
+    starred INTEGER NOT NULL DEFAULT 0,
+    -- Saved key: the shift this singer wants this song in. NULL = none saved.
+    -- Present but unwritten until a pitch UI exists, as plays.singer_id shipped.
+    semitones INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (singer_id) REFERENCES singers(id) ON DELETE CASCADE,
+    FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL
+);
+-- Identity, not row: a second star on the same song is an upsert, keyed the
+-- way _SONG_KEY groups plays so a youtube song is one favourite across its
+-- redownloads and a local rip one across renames.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_singer_songs_identity
+    ON singer_songs(singer_id, COALESCE('y:' || youtube_id, 't:' || LOWER(song_title)));
+-- As idx_plays_song: foreign keys are enforced, so a library sync that drops a
+-- song would otherwise scan this table once per deleted row.
+CREATE INDEX IF NOT EXISTS idx_singer_songs_song ON singer_songs(song_id);
+
+-- Singer-level preferences as key/value, the shape the metadata table already
+-- uses for the same open-ended reason. Created here; first written in stage E
+-- (a saved language), so nothing reads it yet.
+CREATE TABLE IF NOT EXISTS singer_preferences (
+    singer_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (singer_id, key),
+    FOREIGN KEY (singer_id) REFERENCES singers(id) ON DELETE CASCADE
+);
 """
 
 

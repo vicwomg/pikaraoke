@@ -16,6 +16,7 @@ from pikaraoke.routes.files import files_bp
 from pikaraoke.routes.library_api import library_bp
 from pikaraoke.routes.preferences import preferences_bp
 from pikaraoke.routes.queue_api import queue_api_bp
+from pikaraoke.routes.singers_api import singers_api_bp
 
 STATE_CHANGING_ENDPOINTS = {
     "admin.update_ytdl",
@@ -39,13 +40,22 @@ STATE_CHANGING_ENDPOINTS = {
     "controller.volume",
     "controller.vol_up",
     "controller.vol_down",
+    "singers_api.set_favourite",
 }
 
 
 @pytest.fixture
 def url_map():
     app = Flask(__name__)
-    for blueprint in (admin_bp, controller_bp, files_bp, library_bp, preferences_bp, queue_api_bp):
+    for blueprint in (
+        admin_bp,
+        controller_bp,
+        files_bp,
+        library_bp,
+        preferences_bp,
+        queue_api_bp,
+        singers_api_bp,
+    ):
         app.register_blueprint(blueprint)
     return app.url_map
 
