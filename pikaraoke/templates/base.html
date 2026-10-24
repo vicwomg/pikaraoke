@@ -36,9 +36,17 @@
     // translation must therefore be filtered by hand: |tojson for a JS value (as below),
     // |forceescape for HTML that JS builds as a string. See tests/unit/test_template_i18n.py.
     window.translations = {
-      // {# MSG: Title of the dialog holding the singer's name and, later, their other preferences. #}
-      identityTitle: {{ _('Profile') | tojson }},
-      // {# MSG: Label on the name field in the profile dialog. #}
+      // {# MSG: Title of the identity dialog when a nameless device is joining in. #}
+      identityJoinTitle: {{ _('Join in') | tojson }},
+      // {# MSG: Title of the identity dialog when an existing singer edits their profile. #}
+      identityProfileTitle: {{ _('Profile') | tojson }},
+      // {# MSG: Lead line in the identity dialog while joining, explaining why to give a name. #}
+      identityJoinMessage: {{ _('Create a profile and start singing') | tojson }},
+      // {# MSG: Primary button in the identity dialog while joining. #}
+      identityJoinAction: {{ _('Join') | tojson }},
+      // {# MSG: Primary button in the identity dialog when saving profile changes. #}
+      identityProfileAction: {{ _('Save') | tojson }},
+      // {# MSG: Label on the name field in the identity dialog. #}
       usernameLabel: {{ _('Username') | tojson }},
       // {# MSG: Hint under the username field noting the name is public. #}
       usernameHelp: {{ _('This name is visible to everyone.') | tojson }},
@@ -172,9 +180,11 @@
         return d.resolve(user);
       }
       window.promptForIdentity({
-        title: window.translations.identityTitle,
+        title: window.translations.identityJoinTitle,
+        message: window.translations.identityJoinMessage,
         label: window.translations.usernameLabel,
         help: window.translations.usernameHelp,
+        submitLabel: window.translations.identityJoinAction,
         value: ""
       }).done(function (res) {
         Cookies.set("user", res.name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });

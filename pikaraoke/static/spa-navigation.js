@@ -93,6 +93,7 @@
         $('#text-prompt-label').text(opts.label || '').toggleClass('is-hidden', !opts.label);
         $('#text-prompt-help').text(opts.help || '').toggleClass('is-hidden', !opts.help);
         $input.val(opts.value || '').attr('placeholder', opts.placeholder || '');
+        if (opts.submitLabel) { $ok.text(opts.submitLabel); }
 
         // Namespaced so a prior, unclosed prompt leaves no handler behind.
         function teardown() {
@@ -217,10 +218,13 @@
         $(document).on('click', '#current-user', function(e) {
             e.preventDefault();
             const currentName = Cookies.get("user") || "";
+            const joining = !currentName;
             window.promptForIdentity({
-                title: window.translations.identityTitle,
+                title: joining ? window.translations.identityJoinTitle : window.translations.identityProfileTitle,
+                message: joining ? window.translations.identityJoinMessage : "",
                 label: window.translations.usernameLabel,
                 help: window.translations.usernameHelp,
+                submitLabel: joining ? window.translations.identityJoinAction : window.translations.identityProfileAction,
                 value: currentName
             }).done(function (res) {
                 Cookies.set("user", res.name, {
