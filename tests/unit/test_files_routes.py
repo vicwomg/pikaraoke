@@ -365,6 +365,34 @@ class TestFavouritesView:
         # Queen is in the library but not starred, so its letter is dead here.
         assert "q" in greyed
 
+    def test_partial_carries_the_rebuilt_bar_for_the_unstar_refresh(self, client, app):
+        """The Favourites fragment ferries the rebuilt A-Z strip to the live one."""
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4"},
+        ):
+            body = _browse(client, app, self.SONGS, "?view=favourites&partial=1").data.decode()
+        match = re.search(r'<template id="alpha-bar-fresh">.*?</template>', body, re.S)
+        assert match, "expected the rebuilt bar to ride along with the fragment"
+        bar = match.group(0)
+        assert "letter=a" in bar
+        assert '<span class="alpha-empty">Q</span>' in bar
+
+    def test_full_page_does_not_duplicate_the_bar(self, client, app):
+        """Only the ?partial=1 fetch ferries the bar; a full load already has the live one."""
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4"},
+        ):
+            body = _browse(client, app, self.SONGS, "?view=favourites").data.decode()
+        assert '<template id="alpha-bar-fresh">' not in body
+
+    def test_emptied_favourites_fragment_drops_the_bar(self, client, app):
+        """No template means no favourites remain, so the handler removes the strip."""
+        with patch("pikaraoke.routes.files.favourite_paths", return_value=set()):
+            body = _browse(client, app, self.SONGS, "?view=favourites&partial=1").data.decode()
+        assert '<template id="alpha-bar-fresh">' not in body
+
 
 class TestPartialFragment:
     SONGS = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]

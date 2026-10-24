@@ -9,6 +9,11 @@
 {# MSG: Shown in the Favourites view of the song list when the singer has starred nothing. #}
 <p class="has-text-grey">{% trans %}No favourites yet. Tap the star on a song to add it.{% endtrans %}</p>
 {% else %}
+{# The A-Z bar lives outside this fragment; ferry the rebuilt bar across for the
+   unstar refresh. Partial-only, so a full load does not duplicate it. #}
+{% if request.args.get('partial') and view == 'favourites' and letters %}
+<template id="alpha-bar-fresh">{% include 'partials/alpha_bar.html' %}</template>
+{% endif %}
 {{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
 <table class="table is-striped">
 	{% for song in songs %}
