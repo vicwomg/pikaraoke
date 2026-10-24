@@ -275,9 +275,10 @@ input.switch[type="checkbox"]:focus-visible {
 
 /* ===================================
    ICONS (Phosphor)
-   Every glyph is wrapped in Bulma's .icon, which flex-centres it and aligns it
-   to the adjacent text -- so there is no bare <i class="ph"> to nudge and no
-   per-icon vertical-align.  Size is the .icon tier, the glyph sitting a little
+   Every glyph is wrapped in Bulma's .icon, which flex-centres the glyph in its
+   box; a vertical-align on .icon (below) then seats that box on the adjacent
+   text -- so there is no bare <i class="ph"> to nudge and no per-glyph nudge.
+   Size is the .icon tier, the glyph sitting a little
    inside its box so it reads a touch larger than Bulma's default.  Two bespoke
    exceptions keep their own sizing: .sort-arrow (a sub-em header indicator the
    1.5rem box is wrong for) and .singer-avatar (a themed slot, soon a photo).
@@ -286,6 +287,14 @@ input.switch[type="checkbox"]:focus-visible {
   display: inline-block;
   width: 1em;
   text-align: center;
+}
+/* .icon is inline-flex, so on its own in a line it aligns to the text baseline
+   and a box taller than the text rides high above it -- most visible on the
+   add-song plus in a browse or rankings cell. Centre the box on the text's
+   middle instead. Ignored wherever .icon is a flex item (buttons, navbar,
+   panel-block, .icon-text, the rankings wrapper), so only bare inline icons move. */
+.icon {
+  vertical-align: middle;
 }
 .icon .ph {
   font-size: 1.25rem;
