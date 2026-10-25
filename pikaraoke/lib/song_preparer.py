@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 from collections.abc import Callable
 from queue import Queue
 
@@ -9,6 +10,7 @@ from gevent import Greenlet, spawn
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import get_media_duration
+from pikaraoke.lib.file_resolver import find_ass_file
 from pikaraoke.lib.lyrics import (
     LRC_LEAD_S,
     best_alignment,
@@ -62,6 +64,12 @@ class SongPreparer:
         self._waiting: set[str] = set()
         self._attempted: set[tuple[str, str]] = set()
         self._worker: Greenlet | None = None
+        # The task under way, as (task, song), and when it started.
+        self._working: tuple[str, str] | None = None
+        self._working_since = 0.0
+        self._working_duration: float | None = None
+        # Seconds a separation takes per second of song, from the last one; None until then.
+        self._separation_rate: float | None = None
 
     def start(self) -> None:
         """Start the worker greenlet."""
@@ -70,9 +78,14 @@ class SongPreparer:
     def _due_tasks(self, song_path: str) -> list[str]:
         tasks = []
         # Vocals first: the separated lead vocal is what lyrics are aligned against.
-        if self._preferences.get_or_default("vocal_removal") and is_vocal_removal_available():
+        # A song already having the result is skipped, so it is not shown waiting.
+        if (
+            self._preferences.get_or_default("vocal_removal")
+            and is_vocal_removal_available()
+            and not find_instrumental(song_path)
+        ):
             tasks.append("vocals")
-        if self._preferences.get_or_default("auto_lyrics"):
+        if self._preferences.get_or_default("auto_lyrics") and not find_ass_file(song_path):
             tasks.append("lyrics")
         return [t for t in tasks if (t, song_path) not in self._attempted]
 
@@ -82,6 +95,29 @@ class SongPreparer:
             return
         self._waiting.add(song_path)
         self._pending.put(song_path)
+
+    def progress(self, song_path: str) -> dict[str, str | int | None] | None:
+        """What is being done for a song, for showing singers, or None if nothing is due.
+
+        `task` is "vocals" or "lyrics" while under way, or "waiting" while songs ahead
+        of it are prepared. A separation also gives `remaining_s` once one has been timed.
+        """
+        if self._working is not None and self._working[1] == song_path:
+            task = self._working[0]
+            remaining = None
+            if task == "vocals" and self._separation_rate and self._working_duration:
+                elapsed = time.monotonic() - self._working_since
+                remaining = max(0, round(self._working_duration * self._separation_rate - elapsed))
+            return {"task": task, "remaining_s": remaining}
+        if song_path in self._waiting:
+            return {"task": "waiting", "remaining_s": None}
+        return None
+
+    def _set_working(self, task: str | None, song_path: str) -> None:
+        self._working = (task, song_path) if task else None
+        self._working_since = time.monotonic()
+        self._working_duration = get_media_duration(song_path) if task == "vocals" else None
+        self._events.emit("preparation_update")
 
     def _process_queue(self) -> None:
         while True:
@@ -93,6 +129,7 @@ class SongPreparer:
         try:
             for task in self._due_tasks(song_path):
                 self._attempted.add((task, song_path))
+                self._set_working(task, song_path)
                 if task == "lyrics":
                     self._add_lyrics(song_path)
                 else:
@@ -102,6 +139,7 @@ class SongPreparer:
             logging.error(f"Error preparing {song_path}: {e}")
         finally:
             self._waiting.discard(song_path)
+            self._set_working(None, song_path)
 
     def _add_lyrics(self, song_path: str) -> None:
         base, ext = os.path.splitext(song_path)
@@ -165,9 +203,13 @@ class SongPreparer:
         if is_karaoke_title(self._filename_from_path(song_path, remove_youtube_id=True)):
             return
         if separate_vocals(song_path):
+            if self._working_duration:
+                elapsed = time.monotonic() - self._working_since
+                self._separation_rate = elapsed / self._working_duration
             self._events.emit("instrumental_ready", song_path)
             # Lyrics tried before the vocals existed may now align where length alone did not.
             if ("lyrics", song_path) in self._attempted and self._preferences.get_or_default(
                 "auto_lyrics"
             ):
+                self._set_working("lyrics", song_path)
                 self._add_lyrics(song_path)

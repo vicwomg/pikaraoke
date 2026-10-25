@@ -69,6 +69,7 @@
 		$("#vocals-off").toggleClass("is-primary is-selected", !!np.now_playing_instrumental);
 		$("#lyrics-timing").toggle(!!np.now_playing && !!np.now_playing_subtitle_url);
 		$("#lyrics-approximate").toggle(!!np.lyrics_approximate);
+		showPreparing(np);
 
 		// set the volume slider to the current volume
 		if (np.volume != volume) {
@@ -88,6 +89,31 @@
 			$("#pause-resume").addClass("icon-pause");
 			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
 		}
+	}
+
+	// While the playing song is still being prepared, say so, and while its vocals
+	// are coming off, let the next singer go first.
+	function showPreparing(np) {
+		var prep = np.now_playing ? np.now_playing_preparing : null;
+		$("#preparing-control").toggle(!!prep);
+		if (!prep) return;
+		var text;
+		if (prep.task === "vocals") {
+			// {# MSG: Shown in the player controls while the playing song's vocals are being removed. #}
+			text = {{ _("Removing vocals…") | tojson }};
+			if (prep.remaining_s) {
+				// {# MSG: Shown after "Removing vocals…" with the minutes left, e.g. "about 2 min". #}
+				text += " " + {{ _("about {minutes} min") | tojson }}.replace("{minutes}", Math.max(1, Math.ceil(prep.remaining_s / 60)));
+			}
+		} else if (prep.task === "lyrics") {
+			// {# MSG: Shown in the player controls while the playing song's lyrics are being looked up and timed. #}
+			text = {{ _("Adding lyrics…") | tojson }};
+		} else {
+			// {# MSG: Shown in the player controls while songs ahead of the playing one are being prepared. #}
+			text = {{ _("Waiting to prepare") | tojson }};
+		}
+		$("#preparing-status").text(text);
+		$("#defer-song").toggle(prep.task === "vocals" && !!np.up_next);
 	}
 
 	$(function () {
@@ -153,6 +179,10 @@
 			if (r) {
 				$.post(window.pikaraokeConfig.basePath + "/api/vocals/" + $(this).data("vocals"));
 			}
+		});
+
+		$("#defer-song").click(function () {
+			$.post(window.pikaraokeConfig.basePath + "/api/defer");
 		});
 
 		$(".lyrics-shift").click(function () {
@@ -357,6 +387,15 @@
 				{# MSG: Button that plays the song's instrumental track, with the vocals removed. #}
 				<button id="vocals-off" class="button is-small vocals-toggle mb-0" data-vocals="off">{% trans %}Instrumental{% endtrans %}</button>
 			</div>
+		</div>
+	</div>
+
+	<div id="preparing-control" style="display: none">
+		<hr />
+		<div class="is-flex is-justify-content-space-between is-align-items-center">
+			<span id="preparing-status" class="has-text-warning"></span>
+			{# MSG: Button that plays the next song first and the playing one, still having its vocals removed, after it. #}
+			<button id="defer-song" class="button is-small is-warning is-light mb-0">{% trans %}Let the next song go first{% endtrans %}</button>
 		</div>
 	</div>
 

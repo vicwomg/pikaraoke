@@ -89,6 +89,42 @@ class TestPrepare:
         assert preparer._pending.qsize() == 1
 
 
+class TestProgress:
+    def test_a_song_waiting_its_turn(self, preparer, prefs):
+        prefs.set("auto_lyrics", True)
+        preparer.prepare("/songs/a.mp4")
+        assert preparer.progress("/songs/a.mp4") == {"task": "waiting", "remaining_s": None}
+        assert preparer.progress("/songs/other.mp4") is None
+
+    @patch("pikaraoke.lib.song_preparer.get_media_duration", return_value=200.0)
+    def test_task_under_way_is_announced_and_cleared(self, mock_duration, preparer, events):
+        updates = []
+        events.on("preparation_update", lambda: updates.append(preparer.progress("/s/a.mp4")))
+
+        preparer._set_working("vocals", "/s/a.mp4")
+        preparer._set_working(None, "/s/a.mp4")
+
+        assert updates == [{"task": "vocals", "remaining_s": None}, None]
+
+    @patch("pikaraoke.lib.song_preparer.time.monotonic")
+    @patch("pikaraoke.lib.song_preparer.get_media_duration", return_value=200.0)
+    def test_separation_estimates_from_the_last_one_timed(
+        self, mock_duration, mock_clock, preparer, tmp_path
+    ):
+        song = str(tmp_path / "Title---abcdefghijk.mp4")
+        mock_clock.return_value = 1000.0
+        preparer._set_working("vocals", song)
+        mock_clock.return_value = 1160.0  # 160s for 200s of song
+        with patch("pikaraoke.lib.song_preparer.separate_vocals", return_value=True):
+            preparer._add_instrumental(song)
+
+        other = str(tmp_path / "Other---abcdefghijk.mp4")
+        preparer._set_working("vocals", other)
+        mock_clock.return_value = 1200.0
+
+        assert preparer.progress(other) == {"task": "vocals", "remaining_s": 120}
+
+
 class TestAddLyrics:
     RESULTS = [{"duration": 200.0, "syncedLyrics": LRC}]
 

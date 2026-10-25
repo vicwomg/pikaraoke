@@ -24,6 +24,22 @@ def client(app):
 class TestControllerRoutes:
     """Tests for playback control routes."""
 
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_defer_stops_the_player_only_when_the_song_moved(
+        self, mock_get_instance, mock_broadcast, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_get_instance.return_value = mock_karaoke
+
+        mock_karaoke.defer_current.return_value = False
+        assert json.loads(client.post("/api/defer").data) == {"success": False}
+        mock_broadcast.assert_not_called()
+
+        mock_karaoke.defer_current.return_value = True
+        assert json.loads(client.post("/api/defer").data) == {"success": True}
+        mock_broadcast.assert_called_once_with("skip", "defer")
+
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     def test_play_arms_manual_start(self, mock_get_instance, client):
         """POST /api/play arms the waiting song without touching the player."""

@@ -9,6 +9,8 @@ from marshmallow import Schema, ValidationError, fields, validates_schema
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
+from pikaraoke.lib.file_resolver import find_ass_file
+from pikaraoke.lib.vocal_remover import find_instrumental
 
 _ = flask_babel.gettext
 
@@ -55,9 +57,19 @@ class QueuePitchQuery(Schema):
 @queue_api_bp.route("/api/get_queue")
 @public
 def get_queue():
-    """Get the current song queue."""
+    """Get the current song queue, with what is ready or being prepared for each song."""
     k = get_karaoke_instance()
-    return jsonify(k.queue_manager.queue)
+    return jsonify(
+        [
+            {
+                **item,
+                "preparing": k.song_preparer.progress(item["file"]),
+                "has_instrumental": find_instrumental(item["file"]) is not None,
+                "has_lyrics": find_ass_file(item["file"]) is not None,
+            }
+            for item in k.queue_manager.queue
+        ]
+    )
 
 
 @queue_api_bp.route("/api/queue/addrandom/<int:amount>", methods=["POST"])

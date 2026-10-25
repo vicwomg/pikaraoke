@@ -331,6 +331,7 @@ class Karaoke:
         self.events.on("queue_update", self.prepare_queued_songs)
         self.events.on("instrumental_ready", self._announce_instrumental)
         self.events.on("lyrics_ready", self._show_new_lyrics)
+        self.events.on("preparation_update", self._broadcast_preparation)
 
         # Song library startup: warm cache from DB or blocking cold scan
         paths = self.db.get_all_song_paths()
@@ -646,6 +647,33 @@ class Karaoke:
             )
             self.update_now_playing_socket()
 
+    def _broadcast_preparation(self) -> None:
+        """Refresh the queue and player controls, which show what is being prepared."""
+        if self.socketio:
+            self.socketio.emit("queue_update", namespace="/")
+        self.update_now_playing_socket()
+
+    def defer_current(self) -> bool:
+        """Let the next singer go first, and play the current song again after them.
+
+        For a song still being prepared: by its next turn it has its instrumental.
+        Returns False when nothing is playing or no one is waiting to go first.
+        """
+        pc = self.playback_controller
+        filename, user = pc.now_playing_filename, pc.now_playing_user
+        if filename is None or user is None or not self.queue_manager.queue:
+            return False
+        title = pc.now_playing
+        queued, message = self.queue_manager.enqueue(filename, user, pc.now_playing_transpose, True)
+        if not queued:
+            self.log_and_send(str(message), "danger")
+            return False
+        self.queue_manager.queue_edit(filename, "down")
+        pc.skip(log_action=False)
+        # MSG: Message shown after the playing song is moved after the next one in the queue
+        self.log_and_send(_("Moved after the next song: %s") % title)
+        return True
+
     def _show_new_lyrics(self, song_path: str) -> None:
         """Put lyrics on screen for a playing song that started without them."""
         pc = self.playback_controller
@@ -733,8 +761,10 @@ class Karaoke:
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
 
+        filename = self.playback_controller.now_playing_filename
         return {
             **playback_state,
+            "now_playing_preparing": self.song_preparer.progress(filename) if filename else None,
             "up_next": next_song["title"] if next_song else None,
             "next_user": next_song["user"] if next_song else None,
             # Drive the waiting-song panel: the control box when autoplay is off,

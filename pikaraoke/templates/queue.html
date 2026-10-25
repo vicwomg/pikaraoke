@@ -139,6 +139,46 @@
   };
 
   // Generate now-playing row HTML
+  // What is ready, or being readied, for a song: shown so singers can wait for it
+  // or let the next song go first.
+  function preparationTags(prep, hasInstrumental, hasLyrics) {
+    var html = '';
+    if (prep && prep.task === 'vocals') {
+      // {# MSG: Tag on a queued song while its vocals are being removed. #}
+      var label = {{ _('Removing vocals') | tojson }};
+      if (prep.remaining_s) {
+        // {# MSG: Shown beside "Removing vocals" with the minutes left, e.g. "about 2 min". #}
+        label += ' · ' + {{ _('about {minutes} min') | tojson }}.replace('{minutes}', Math.max(1, Math.ceil(prep.remaining_s / 60)));
+      }
+      html += '<span class="tag is-warning is-light">' + label + '…</span>';
+    } else if (prep && prep.task === 'lyrics') {
+      // {# MSG: Tag on a queued song while its lyrics are being looked up and timed. #}
+      html += '<span class="tag is-warning is-light">' + {{ _('Adding lyrics') | tojson }} + '…</span>';
+    } else if (prep && prep.task === 'waiting') {
+      // {# MSG: Tag on a queued song waiting for songs ahead of it to be prepared. #}
+      html += '<span class="tag is-light">' + {{ _('Waiting to prepare') | tojson }} + '</span>';
+    }
+    if (hasInstrumental) {
+      // {# MSG: Tag on a queued song whose vocals have been removed. #}
+      html += '<span class="tag is-success is-light">' + {{ _('Instrumental') | tojson }} + '</span>';
+    }
+    if (hasLyrics) {
+      // {# MSG: Tag on a queued song that has lyrics to show. #}
+      html += '<span class="tag is-success is-light">' + {{ _('Lyrics') | tojson }} + '</span>';
+    }
+    return html ? '<div class="tags mb-0 mt-1" style="width: 100%;">' + html + '</div>' : '';
+  }
+
+  // Still separating, and someone could go first: offer to let them. Without a
+  // file it defers the playing song.
+  function deferButton(prep, file) {
+    if (!isAdmin || !prep || prep.task !== 'vocals') return '';
+    var data = file ? ' data-file="' + escape(file) + '"' : '';
+    // {# MSG: Button on a song still having its vocals removed that lets the next song play first. #}
+    return '<button class="button is-small is-warning is-light mt-1 defer-song-btn"' + data + '>' + {{ _('Let the next song go first') | tojson }} + '</button>';
+  }
+
+
   function generateNowPlayingRow(np) {
     var iconSrc = window.isNowPlaying(np)
       ? '{{ url_for("static", filename="images/now-playing.gif") }}'
@@ -159,6 +199,10 @@
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
     html += '<span class="has-text-weight-bold has-text-white is-hidden-mobile">' + np.now_playing + '</span>';
     html += '<span class="is-size-7 has-text-weight-bold has-text-white is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
+    html += preparationTags(np.now_playing_preparing, np.instrumental_available, !!np.now_playing_subtitle_url);
+    if (window.queuePageState.queue.length > 0) {
+      html += deferButton(np.now_playing_preparing, null);
+    }
     html += '</div></td>';
 
     if (isAdmin) {
@@ -378,6 +422,11 @@
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
     html += '<span class="is-hidden-mobile">' + e.title + '</span>';
     html += '<span class="is-size-7 is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
+    html += preparationTags(e.preparing, e.has_instrumental, e.has_lyrics);
+    // Up next is when it matters: the song is about to start without its instrumental.
+    if (index === 0 && window.queuePageState.queue.length > 1) {
+      html += deferButton(e.preparing, e.file);
+    }
     html += '</div></td>';
 
     if (isAdmin) {
@@ -560,6 +609,17 @@
       $(document).on('click', '.now-playing-options-btn', function(e) {
           e.preventDefault();
           openNowPlayingOptions();
+      });
+
+      // Let the next song go first: the playing song when the button has no file
+      $(document).on('click', '.defer-song-btn', function() {
+          var file = $(this).attr('data-file');
+          if (!file) {
+              $.post(window.pikaraokeConfig.basePath + "/api/defer");
+              return;
+          }
+          window.highlightAfterRefresh = decodeURIComponent(file);
+          $.post(window.pikaraokeConfig.basePath + "/api/queue/edit?song=" + file + "&action=down");
       });
 
       // Autoplay toggle and manual start

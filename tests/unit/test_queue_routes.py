@@ -132,6 +132,7 @@ class TestQueueApiContract:
                 "semitones": 0,
             }
         ]
+        mock_karaoke.song_preparer.progress.return_value = {"task": "vocals", "remaining_s": 90}
         mock_get_instance.return_value = mock_karaoke
 
         response = client.get("/api/get_queue")
@@ -146,6 +147,9 @@ class TestQueueApiContract:
         assert "file" in item
         assert "title" in item
         assert "semitones" in item
+        assert item["preparing"] == {"task": "vocals", "remaining_s": 90}
+        assert item["has_instrumental"] is False
+        assert item["has_lyrics"] is False
 
     @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):
@@ -310,3 +314,37 @@ class TestQueueEditSocketUpdates:
         assert response.get_json()["success"] is True
         assert qm.queue[0]["semitones"] == 4
         assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"
+
+
+class TestQueuePage:
+    """The queue page renders, preparation tags and all."""
+
+    @pytest.fixture
+    def page_client(self):
+        from pikaraoke.routes.queue import queue_bp
+        from tests.conftest import make_route_app
+
+        app = make_route_app(
+            queue_bp,
+            [
+                ("/", "home.home"),
+                ("/api/prefs", "preferences.change_preferences"),
+                ("/api/queue/reorder", "queue_api.reorder"),
+                ("/api/now_playing", "now_playing.now_playing"),
+                ("/api/queue/downloads/errors/<error_id>", "queue_api.delete_download_error"),
+                ("/api/queue/downloads", "queue_api.get_current_downloads"),
+                ("/api/get_queue", "queue_api.get_queue"),
+                ("/api/queue/downloads/errors/<error_id>/retry", "queue_api.retry_download_error"),
+            ],
+        )
+        return app.test_client()
+
+    @patch("pikaraoke.routes.queue.get_site_name", return_value="PiKaraoke")
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_page_renders_with_preparation_labels(self, mock_get_instance, mock_site, page_client):
+        mock_get_instance.return_value.queue_manager.queue = []
+        response = page_client.get("/queue")
+        assert response.status_code == 200
+        body = response.data.decode()
+        assert "about {minutes} min" in body
+        assert "defer-song-btn" in body

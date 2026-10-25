@@ -1,4 +1,4 @@
-"""Playback control routes for skip, pause, volume, transpose, vocals, and lyrics timing."""
+"""Playback control routes for skip, defer, pause, volume, transpose, vocals, and lyrics timing."""
 
 import math
 
@@ -17,6 +17,16 @@ def skip():
     broadcast_event("skip", "user command")
     k.playback_controller.skip()
     return jsonify({"success": True})
+
+
+@controller_bp.route("/api/defer", methods=["POST"])
+def defer():
+    """Let the next song go first and play the current one after it."""
+    k = get_karaoke_instance()
+    deferred = k.defer_current()
+    if deferred:
+        broadcast_event("skip", "defer")
+    return jsonify({"success": deferred})
 
 
 @controller_bp.route("/api/pause", methods=["POST"])

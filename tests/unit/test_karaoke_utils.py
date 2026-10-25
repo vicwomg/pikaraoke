@@ -532,6 +532,41 @@ class TestShiftLyrics:
         assert k.shift_lyrics(0.5) is False
 
 
+class TestDeferCurrent:
+    """Letting the next singer go first while the playing song is still being prepared."""
+
+    def _start_playing(self, k, path="/songs/Artist - Song One---abc123.mp4"):
+        k.playback_controller.now_playing = "Artist - Song One"
+        k.playback_controller.now_playing_filename = path
+        k.playback_controller.now_playing_user = "Alice"
+        k.playback_controller.is_playing = True
+        return path
+
+    def test_playing_song_goes_after_the_next_one(self, mock_karaoke_with_songs):
+        k = mock_karaoke_with_songs
+        k.queue_manager.enqueue("/songs/Artist - Song Two---def456.mp4", "Bob")
+        k.queue_manager.enqueue("/songs/Artist - Song Three---ghi789.mp4", "Carol")
+        path = self._start_playing(k)
+
+        assert k.defer_current() is True
+
+        assert [item["file"] for item in k.queue_manager.queue] == [
+            "/songs/Artist - Song Two---def456.mp4",
+            path,
+            "/songs/Artist - Song Three---ghi789.mp4",
+        ]
+        assert k.playback_controller.skipped_reasons == ["skip"]
+
+    def test_nobody_waiting_keeps_the_song_playing(self, mock_karaoke_with_songs):
+        k = mock_karaoke_with_songs
+        self._start_playing(k)
+
+        assert k.defer_current() is False
+
+        assert k.playback_controller.skipped_reasons == []
+        assert k.queue_manager.queue == []
+
+
 class TestShowNewLyrics:
     """Lyrics finished while their song plays go straight on screen."""
 
