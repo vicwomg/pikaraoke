@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Callable
 from flask_babel import _
 
 from pikaraoke.lib.events import EventSystem
-from pikaraoke.lib.file_resolver import delete_stream_files
+from pikaraoke.lib.file_resolver import delete_stream_files, find_ass_file
+from pikaraoke.lib.lyrics import has_approximate_timing
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager
 from pikaraoke.lib.vocal_remover import find_instrumental
@@ -361,6 +362,26 @@ class PlaybackController:
         """
         return bool(self.now_playing_filename and find_instrumental(self.now_playing_filename))
 
+    @property
+    def lyrics_approximate(self) -> bool:
+        """Whether the shown lyrics were timed by PiKaraoke, so singers know they may be off."""
+        if not (self.now_playing_filename and self.now_playing_subtitle_url):
+            return False
+        ass_path = find_ass_file(self.now_playing_filename)
+        return bool(ass_path and has_approximate_timing(ass_path))
+
+    def attach_lyrics(self) -> bool:
+        """Show lyrics that arrived after the playing song started. True if they now show.
+
+        The splash loads a song's subtitle whenever the URL in now-playing changes.
+        """
+        if not self.now_playing_filename or not self.playback_id or self.now_playing_subtitle_url:
+            return False
+        if find_ass_file(self.now_playing_filename) is None:
+            return False
+        self.now_playing_subtitle_url = self.stream_manager.subtitle_url(self.playback_id)
+        return True
+
     def get_now_playing(self) -> dict[str, str | int | float | bool | None]:
         """Get the current playback state.
 
@@ -377,6 +398,7 @@ class PlaybackController:
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
             "now_playing_instrumental": self.now_playing_instrumental,
             "instrumental_available": self.instrumental_available,
+            "lyrics_approximate": self.lyrics_approximate,
             "now_playing_position": self.now_playing_position,
             "is_paused": self.is_paused,
         }

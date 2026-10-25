@@ -14,6 +14,7 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.stream_manager import StreamManager
 
 PIKARAOKE_PACKAGE = Path(__file__).resolve().parent.parent / "pikaraoke"
 
@@ -140,6 +141,9 @@ class MockPlaybackController:
     is_playing: bool = False
 
     instrumental_available = PlaybackController.instrumental_available
+    lyrics_approximate = PlaybackController.lyrics_approximate
+    attach_lyrics = PlaybackController.attach_lyrics
+    playback_id: str | None = None
 
     def __init__(self) -> None:
         # End reasons passed to skip(), in order. Held on the instance so one
@@ -269,6 +273,7 @@ class MockKaraoke:
             config_file_path=str(tmp_path / "config.ini"), target=self
         )
         self.playback_controller = MockPlaybackController()
+        self.playback_controller.stream_manager = StreamManager(self.preferences)
         self._playback_lock = threading.Lock()
         self.play_history = MockPlayHistory()
         self.volume = 0.85
@@ -319,6 +324,8 @@ class MockKaraoke:
     transpose_current = Karaoke.transpose_current
     set_vocals = Karaoke.set_vocals
     shift_lyrics = Karaoke.shift_lyrics
+    _show_new_lyrics = Karaoke._show_new_lyrics
+    _warn_if_lyrics_approximate = Karaoke._warn_if_lyrics_approximate
     vocals_toggle_restarts = Karaoke.vocals_toggle_restarts
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send

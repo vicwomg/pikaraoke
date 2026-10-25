@@ -12,10 +12,13 @@ from pikaraoke.lib.lyrics import (
     MIN_ALIGNMENT_AGREEMENT,
     align_lyrics,
     best_alignment,
+    cjk_title,
+    has_approximate_timing,
     lrc_to_ass,
     parse_lrc,
     pick_by_duration,
-    search_synced_lyrics,
+    pick_plain_lyrics,
+    search_lyrics,
     shift_ass,
     vocal_activity,
 )
@@ -75,20 +78,24 @@ class TestSearchAndPick:
         return response
 
     @patch("pikaraoke.lib.lyrics.requests.get")
-    def test_search_keeps_only_synced_results(self, mock_get):
+    def test_search_keeps_results_with_any_lyrics(self, mock_get):
         mock_get.return_value = self._response(
             [
-                {"duration": 200, "syncedLyrics": None},
+                {"duration": 200, "syncedLyrics": None, "plainLyrics": None},
                 {"duration": 200, "syncedLyrics": "[00:01.00]x"},
+                {"duration": 200, "syncedLyrics": None, "plainLyrics": "x"},
             ]
         )
-        assert search_synced_lyrics("A - T") == [{"duration": 200, "syncedLyrics": "[00:01.00]x"}]
+        assert search_lyrics("A - T") == [
+            {"duration": 200, "syncedLyrics": "[00:01.00]x"},
+            {"duration": 200, "syncedLyrics": None, "plainLyrics": "x"},
+        ]
         assert mock_get.call_args.kwargs["params"] == {"q": "A - T"}
 
     @patch("pikaraoke.lib.lyrics.requests.get")
     def test_network_failure_finds_nothing(self, mock_get):
         mock_get.side_effect = requests.exceptions.ConnectionError("offline")
-        assert search_synced_lyrics("A - T") == []
+        assert search_lyrics("A - T") == []
 
     def test_picks_result_closest_in_length(self):
         results = [
@@ -99,6 +106,47 @@ class TestSearchAndPick:
 
     def test_rejects_lyrics_timed_to_a_different_edit(self):
         assert pick_by_duration([{"duration": 240, "syncedLyrics": "x"}], 300) is None
+
+    def test_plain_lyrics_of_the_right_length_are_not_timed_lyrics(self):
+        assert pick_by_duration([{"duration": 200, "plainLyrics": "x"}], 200) is None
+
+    def test_plain_lyrics_come_from_the_song_searched_for(self):
+        results = [
+            {"trackName": "Another Song", "plainLyrics": "wrong"},
+            {"trackName": "Song", "syncedLyrics": "[00:01.00]right", "plainLyrics": "right"},
+        ]
+        assert pick_plain_lyrics(results, "Artist - Song") == "right"
+        assert pick_plain_lyrics(results[:1], "Artist - Song") is None
+
+
+class TestCjkTitle:
+    def test_finds_the_title_among_names_in_two_scripts(self):
+        assert cjk_title("Matt Lv 吕彦良 '夏夜晴朗的晚上 A Clear Summer Night'") == "夏夜晴朗的晚上"
+
+    def test_takes_the_title_after_the_artist(self):
+        assert cjk_title("陳奕迅 - 沙龍") == "沙龍"
+
+    def test_nothing_new_to_search_for(self):
+        assert cjk_title("夏夜晴朗的晚上") is None
+        assert cjk_title("Maroon 5 - Sugar") is None
+
+
+class TestApproximateTiming:
+    def test_marked_subtitle_is_recognized(self, tmp_path):
+        ass = tmp_path / "a.ass"
+        ass.write_text(lrc_to_ass("[00:01.00]hello", approximate=True), encoding="utf-8")
+        assert has_approximate_timing(str(ass))
+
+    def test_timed_lyrics_and_missing_files_are_not_approximate(self, tmp_path):
+        ass = tmp_path / "a.ass"
+        ass.write_text(lrc_to_ass("[00:01.00]hello"), encoding="utf-8")
+        assert not has_approximate_timing(str(ass))
+        assert not has_approximate_timing(str(tmp_path / "missing.ass"))
+
+    def test_mark_survives_a_shift(self, tmp_path):
+        ass = tmp_path / "a.ass"
+        ass.write_text(shift_ass(lrc_to_ass("[00:01.00]hi", approximate=True), 0.5), "utf-8")
+        assert has_approximate_timing(str(ass))
 
 
 class TestOffsetAndShift:

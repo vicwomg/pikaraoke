@@ -45,6 +45,13 @@ LRC_LEAD_S = 0.7
 # How early a line appears when no line before it is on screen to make room for it.
 LEAD_IN_S = 3.0
 
+# Marks a subtitle whose timing PiKaraoke worked out rather than took as timed, so
+# singers can be told it may be off. An .ass comment, which players ignore.
+APPROXIMATE_TIMING_NOTE = "; PiKaraoke: timed automatically, may be off"
+
+# A run of Chinese, Japanese or Korean characters.
+_CJK_RUN_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]{2,}")
+
 _TIMESTAMP_RE = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
 
 # KTV layout: lines alternate between a left-aligned upper row and a right-aligned
@@ -115,10 +122,11 @@ def _timed_lines(lrc: str) -> list[tuple[float, float, str]]:
     return timed
 
 
-def lrc_to_ass(lrc: str, offset: float = 0.0) -> str:
+def lrc_to_ass(lrc: str, offset: float = 0.0, approximate: bool = False) -> str:
     """Render synced lyrics as a two-row KTV .ass subtitle with a colour sweep.
 
     `offset` moves every line later by that many seconds, or earlier if negative.
+    `approximate` marks the timing as worked out by PiKaraoke.
     """
     events = []
     # The last line rendered; it ended at 0 when there is none.
@@ -141,7 +149,17 @@ def lrc_to_ass(lrc: str, offset: float = 0.0) -> str:
             f"{{\\kf{round((end - start) * 100)}}}{_ass_text(text)}"
         )
         prev_start, prev_end = start, end
-    return _ASS_HEADER + "\n".join(events) + "\n"
+    header = _ASS_HEADER.replace("[Script Info]\n", f"[Script Info]\n{APPROXIMATE_TIMING_NOTE}\n")
+    return (header if approximate else _ASS_HEADER) + "\n".join(events) + "\n"
+
+
+def has_approximate_timing(ass_path: str) -> bool:
+    """Whether a subtitle's timing was worked out by PiKaraoke, so may be off."""
+    try:
+        with open(ass_path, encoding="utf-8") as f:
+            return any(line.rstrip("\n") == APPROXIMATE_TIMING_NOTE for line, _ in zip(f, range(5)))
+    except (OSError, UnicodeDecodeError):
+        return False
 
 
 _ASS_TIME_RE = re.compile(r"(\d+):(\d{2}):(\d{2})\.(\d{2})")
@@ -172,8 +190,8 @@ def shift_ass(ass: str, seconds: float) -> str:
     return "\n".join(shifted) + "\n"
 
 
-def search_synced_lyrics(query: str) -> list[dict]:
-    """LRCLIB results for a free-text query that carry synced lyrics.
+def search_lyrics(query: str) -> list[dict]:
+    """LRCLIB results for a free-text query, synced or plain.
 
     Free text, since a YouTube title rarely splits cleanly into artist and track.
     """
@@ -189,7 +207,19 @@ def search_synced_lyrics(query: str) -> list[dict]:
     except (requests.exceptions.RequestException, ValueError) as e:
         logging.warning(f"Lyrics lookup failed for '{query}': {e}")
         return []
-    return [r for r in results if r.get("syncedLyrics") and r.get("duration")]
+    return [r for r in results if r.get("syncedLyrics") or r.get("plainLyrics")]
+
+
+def cjk_title(query: str) -> str | None:
+    """The likely song title in a video title mixing scripts, to search for on its own.
+
+    Chinese uploads often surround the title with the artist's names in two scripts
+    and an English translation, which no LRCLIB search matches as a whole. The
+    title is usually the longest run of CJK characters, after the artist's dash if any.
+    """
+    runs = _CJK_RUN_RE.findall(query.rsplit(" - ", 1)[-1])
+    title = max(runs, key=len) if runs else None
+    return title if title and title != query.strip() else None
 
 
 def pick_by_duration(results: list[dict], duration: float) -> str | None:
@@ -198,7 +228,13 @@ def pick_by_duration(results: list[dict], duration: float) -> str | None:
     Lyrics timed by hand to this very version beat any alignment, so a matching
     length is trusted first, and unmoved.
     """
-    candidates = [r for r in results if abs(r["duration"] - duration) <= MAX_DURATION_DIFF_S]
+    candidates = [
+        r
+        for r in results
+        if r.get("syncedLyrics")
+        and r.get("duration")
+        and abs(r["duration"] - duration) <= MAX_DURATION_DIFF_S
+    ]
     if not candidates:
         return None
     return min(candidates, key=lambda r: abs(r["duration"] - duration))["syncedLyrics"]
@@ -291,6 +327,17 @@ def _same_song(track_name: str, query: str) -> bool:
     return bool(track) and (track in wanted or wanted in track)
 
 
+def pick_plain_lyrics(results: list[dict], query: str) -> str | None:
+    """The song's lyrics as text, for timing by ear when no timed lyrics fit.
+
+    Synced lyrics carry their text too, so an upload timed to another edit serves.
+    """
+    for r in results:
+        if r.get("plainLyrics") and _same_song(r.get("trackName", ""), query):
+            return r["plainLyrics"]
+    return None
+
+
 def best_alignment(
     results: list[dict], activity: list[bool], query: str
 ) -> tuple[str, float] | None:
@@ -301,7 +348,11 @@ def best_alignment(
     with each other are not chance. Returns None without that agreement.
     """
     placements = []  # (first line's time once moved, lyrics, offset)
-    candidates = (r["syncedLyrics"] for r in results if _same_song(r.get("trackName", ""), query))
+    candidates = (
+        r["syncedLyrics"]
+        for r in results
+        if r.get("syncedLyrics") and _same_song(r.get("trackName", ""), query)
+    )
     for lrc in dict.fromkeys(candidates):
         offset, agreement = align_lyrics(lrc, activity)
         lines = _timed_lines(lrc)

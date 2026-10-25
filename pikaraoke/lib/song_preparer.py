@@ -10,11 +10,19 @@ from gevent import Greenlet, spawn
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.lyrics import (
+    LRC_LEAD_S,
     best_alignment,
+    cjk_title,
     lrc_to_ass,
     pick_by_duration,
-    search_synced_lyrics,
+    pick_plain_lyrics,
+    search_lyrics,
     vocal_activity,
+)
+from pikaraoke.lib.lyrics_timing import (
+    is_transcription_available,
+    time_plain_lyrics,
+    transcribe_words,
 )
 from pikaraoke.lib.metadata_parser import (
     clean_search_query,
@@ -104,34 +112,50 @@ class SongPreparer:
         if has_on_screen_lyrics(name):
             return
         query = clean_search_query(name)
-        results = search_synced_lyrics(query)
+        results = search_lyrics(query)
+        title = cjk_title(query) if not results else None
+        if title:
+            query, results = title, search_lyrics(title)
         lyrics = self._choose_lyrics(song_path, query, results)
         if lyrics is None:
-            logging.info(f"No synced lyrics fit '{query}'")
+            logging.info(f"No lyrics fit '{query}'")
             return
-        lrc, offset = lyrics
+        lrc, offset, approximate = lyrics
         with open(ass_path, "w", encoding="utf-8") as f:
-            f.write(lrc_to_ass(lrc, offset))
+            f.write(lrc_to_ass(lrc, offset, approximate))
         self._events.emit("lyrics_ready", song_path)
 
     def _choose_lyrics(
         self, song_path: str, query: str, results: list[dict]
-    ) -> tuple[str, float] | None:
-        """Pick lyrics and the offset that lines them up with this video.
+    ) -> tuple[str, float, bool] | None:
+        """Pick lyrics, the offset that lines them up with this video, and whether
+        that timing was worked out here rather than taken as timed.
 
         Lyrics of the video's own length are used as timed. Failing that, a
         separated lead vocal lets lyrics for another edit be moved onto the
-        singing, which rescues a music video with its own intro.
+        singing, which rescues a music video with its own intro, and lets lyrics
+        nobody timed be timed by recognizing the words sung.
         """
         if not results:
             return None
         duration = get_media_duration(song_path)
         lrc = pick_by_duration(results, duration) if duration is not None else None
         if lrc is not None:
-            return lrc, 0.0
+            return lrc, 0.0, False
         vocals = find_vocals(song_path)
-        activity = vocal_activity(vocals) if vocals else None
-        return best_alignment(results, activity, query) if activity else None
+        if vocals is None:
+            return None
+        activity = vocal_activity(vocals)
+        aligned = best_alignment(results, activity, query) if activity else None
+        if aligned is not None:
+            return *aligned, True
+        plain = pick_plain_lyrics(results, query)
+        if plain is None or not is_transcription_available():
+            return None
+        words = transcribe_words(vocals)
+        lrc = time_plain_lyrics(plain, words) if words else None
+        # Timed at the singing itself; hand-timed lyrics, and so the display, lead it.
+        return (lrc, -LRC_LEAD_S, True) if lrc is not None else None
 
     def _add_instrumental(self, song_path: str) -> None:
         # A zipped CDG is unpacked only for playback, so there is no audio file to split.

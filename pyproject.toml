@@ -41,6 +41,9 @@ vocal-removal = [
   "audio-separator[cpu]>=0.47.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   # audio-separator imports audioread, which librosa 1.0 no longer brings along
   "audioread; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+  # Times lyrics that have no timing by recognizing the separated lead vocal
+  "faster-whisper>=1.2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+  "opencc-python-reimplemented>=0.1.7; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 
 [dependency-groups]

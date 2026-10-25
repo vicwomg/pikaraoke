@@ -108,6 +108,10 @@ class StreamManager:
         """Prefix relative app paths when PiKaraoke is mounted under a subpath."""
         return f"{self.base_path}{path}" if self.base_path else path
 
+    def subtitle_url(self, stream_uid: str) -> str:
+        """Where the splash fetches the subtitle of the stream playing as `stream_uid`."""
+        return self._with_base_path(f"/subtitle/{stream_uid}")
+
     def play_file(self, file_path: str, semitones: int = 0) -> PlaybackResult:
         """Start playback of a media file.
 
@@ -173,7 +177,7 @@ class StreamManager:
 
         subtitle_url = None
         if fr.ass_file_path:
-            subtitle_url = self._with_base_path(f"/subtitle/{fr.stream_uid}")
+            subtitle_url = self.subtitle_url(str(fr.stream_uid))
             logging.debug(f"Subtitle file found: {fr.ass_file_path}. URL: {subtitle_url}")
 
         # Check if the stream is ready to play

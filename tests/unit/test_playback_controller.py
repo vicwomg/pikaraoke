@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.lyrics import lrc_to_ass
 from pikaraoke.lib.playback_controller import (
     OVERRUN_MARGIN_S,
     START_WATCHDOG_HARD_S,
@@ -584,6 +585,44 @@ class TestPlaybackControllerGetNowPlaying:
         assert state["now_playing_user"] == "TestUser"
         assert state["now_playing_transpose"] == 2
         assert state["is_paused"] is False
+
+
+class TestPlaybackControllerLyricsArrivingMidSong:
+    """Lyrics prepared after a song started are put on screen without a restart."""
+
+    def _playing(self, test_prefs, tmp_path, ass: str | None = None) -> PlaybackController:
+        song = tmp_path / "Song---abcdefghijk.mp4"
+        song.write_bytes(b"video")
+        if ass is not None:
+            (tmp_path / "Song---abcdefghijk.ass").write_text(ass, encoding="utf-8")
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: x)
+        pc.now_playing_filename = str(song)
+        pc.playback_id = PLAYBACK_UID
+        return pc
+
+    def test_new_lyrics_get_the_playing_stream_subtitle_url(self, test_prefs, tmp_path):
+        pc = self._playing(test_prefs, tmp_path, lrc_to_ass("[00:01.00]hi"))
+        assert pc.attach_lyrics() is True
+        assert pc.now_playing_subtitle_url == f"/subtitle/{PLAYBACK_UID}"
+
+    def test_nothing_to_attach_without_a_subtitle(self, test_prefs, tmp_path):
+        pc = self._playing(test_prefs, tmp_path)
+        assert pc.attach_lyrics() is False
+        assert pc.now_playing_subtitle_url is None
+
+    def test_lyrics_already_showing_are_left_as_they_are(self, test_prefs, tmp_path):
+        pc = self._playing(test_prefs, tmp_path, lrc_to_ass("[00:01.00]hi"))
+        pc.now_playing_subtitle_url = "/subtitle/x?shifted=1"
+        assert pc.attach_lyrics() is False
+        assert pc.now_playing_subtitle_url == "/subtitle/x?shifted=1"
+
+    def test_now_playing_says_whether_shown_lyrics_were_timed_automatically(
+        self, test_prefs, tmp_path
+    ):
+        pc = self._playing(test_prefs, tmp_path, lrc_to_ass("[00:01.00]hi", approximate=True))
+        assert pc.get_now_playing()["lyrics_approximate"] is False  # Not shown yet
+        pc.attach_lyrics()
+        assert pc.get_now_playing()["lyrics_approximate"] is True
 
 
 class TestPlaybackControllerResetNowPlaying:

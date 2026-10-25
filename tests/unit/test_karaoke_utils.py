@@ -532,6 +532,59 @@ class TestShiftLyrics:
         assert k.shift_lyrics(0.5) is False
 
 
+class TestShowNewLyrics:
+    """Lyrics finished while their song plays go straight on screen."""
+
+    def _start_playing(self, k, tmp_path, approximate=False):
+        from unittest.mock import MagicMock
+
+        from pikaraoke.lib.lyrics import lrc_to_ass
+
+        song = tmp_path / "Artist - Song---abcdefghijk.mp4"
+        song.write_bytes(b"video")
+        (tmp_path / "Artist - Song---abcdefghijk.ass").write_text(
+            lrc_to_ass("[00:01.00]line", approximate=approximate), encoding="utf-8"
+        )
+        pc = k.playback_controller
+        pc.now_playing = "Artist - Song"
+        pc.now_playing_filename = str(song)
+        pc.playback_id = "123"
+        pc.is_playing = True
+        k.socketio = MagicMock()
+        return str(song)
+
+    def _notifications(self, k):
+        return [c.args[1] for c in k.socketio.emit.call_args_list if c.args[0] == "notification"]
+
+    def test_playing_song_shows_its_new_lyrics(self, mock_karaoke_with_songs, tmp_path):
+        k = mock_karaoke_with_songs
+        song = self._start_playing(k, tmp_path)
+
+        k._show_new_lyrics(song)
+
+        assert k.playback_controller.now_playing_subtitle_url == "/subtitle/123"
+        assert len(self._notifications(k)) == 1
+
+    def test_automatically_timed_lyrics_come_with_a_warning(
+        self, mock_karaoke_with_songs, tmp_path
+    ):
+        k = mock_karaoke_with_songs
+        song = self._start_playing(k, tmp_path, approximate=True)
+
+        k._show_new_lyrics(song)
+
+        assert self._notifications(k)[-1].endswith("::is-warning")
+
+    def test_lyrics_for_another_song_change_nothing(self, mock_karaoke_with_songs, tmp_path):
+        k = mock_karaoke_with_songs
+        self._start_playing(k, tmp_path)
+
+        k._show_new_lyrics(str(tmp_path / "Other---abcdefghijk.mp4"))
+
+        assert k.playback_controller.now_playing_subtitle_url is None
+        assert self._notifications(k) == []
+
+
 class TestRegisterDownloadedSong:
     """Tests for the register_downloaded_song method."""
 

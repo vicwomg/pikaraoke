@@ -330,6 +330,7 @@ class Karaoke:
         self.song_preparer.start()
         self.events.on("queue_update", self.prepare_queued_songs)
         self.events.on("instrumental_ready", self._announce_instrumental)
+        self.events.on("lyrics_ready", self._show_new_lyrics)
 
         # Song library startup: warm cache from DB or blocking cold scan
         paths = self.db.get_all_song_paths()
@@ -645,6 +646,21 @@ class Karaoke:
             )
             self.update_now_playing_socket()
 
+    def _show_new_lyrics(self, song_path: str) -> None:
+        """Put lyrics on screen for a playing song that started without them."""
+        pc = self.playback_controller
+        if song_path != pc.now_playing_filename or not pc.attach_lyrics():
+            return
+        # MSG: Message shown when lyrics finish being prepared for the song that is playing
+        self.log_and_send(_("Lyrics ready: %s") % pc.now_playing, "success")
+        self._warn_if_lyrics_approximate()
+        self.update_now_playing_socket()
+
+    def _warn_if_lyrics_approximate(self) -> None:
+        if self.playback_controller.lyrics_approximate:
+            # MSG: Message shown when the playing song's lyrics were timed automatically and may be off
+            self.log_and_send(_("Lyrics timed automatically, they may be off"), "warning")
+
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.
 
@@ -815,6 +831,7 @@ class Karaoke:
                     # play_file() blocks only until the client connects, so this
                     # always lands before the song_ended that completes it.
                     if result.success:
+                        self._warn_if_lyrics_approximate()
                         song_id, youtube_id = self.db.get_song_identity(song["file"])
                         self.play_history.record_play(
                             song_id,

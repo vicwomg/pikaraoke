@@ -68,6 +68,7 @@
 		$("#vocals-on").toggleClass("is-primary is-selected", !np.now_playing_instrumental);
 		$("#vocals-off").toggleClass("is-primary is-selected", !!np.now_playing_instrumental);
 		$("#lyrics-timing").toggle(!!np.now_playing && !!np.now_playing_subtitle_url);
+		$("#lyrics-approximate").toggle(!!np.lyrics_approximate);
 
 		// set the volume slider to the current volume
 		if (np.volume != volume) {
@@ -371,6 +372,8 @@
 				<button class="button is-small lyrics-shift mb-0" data-seconds="0.5">{% trans %}Later{% endtrans %}</button>
 			</div>
 		</div>
+		{# MSG: Note under the lyrics timing control when the playing song's lyrics were timed automatically. #}
+		<p id="lyrics-approximate" class="help mt-2" style="display: none">{% trans %}Timed automatically: words or timing may be off.{% endtrans %}</p>
 	</div>
 
 	{% if mic_available %}
