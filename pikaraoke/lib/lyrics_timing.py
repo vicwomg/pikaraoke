@@ -118,7 +118,10 @@ def time_plain_lyrics(plain: str, words: list[tuple[str, float]]) -> str | None:
     last_heard = -1
     for i in range(len(lines)):
         resumes.append(
-            next((t for t in times[last_heard + 1 :] if last_heard < 0 or t > times[last_heard]), None)
+            next(
+                (t for t in times[last_heard + 1 :] if last_heard < 0 or t > times[last_heard]),
+                None,
+            )
         )
         if matches[i] and len(matches[i]) >= len(line_tokens[i]) * MIN_LINE_MATCH:
             in_line, at = matches[i][0]
@@ -144,15 +147,18 @@ def time_plain_lyrics(plain: str, words: list[tuple[str, float]]) -> str | None:
             starts[i] = max(0.0, starts[after] - UNPLACED_LINE_S * after)
         elif after is None:
             starts[i] = starts[i - 1] + UNPLACED_LINE_S
-        elif i - 1 in placed and resumes[i] is not None and starts[i - 1] < resumes[i] < starts[after]:
+        elif (
+            i - 1 in placed
+            and resumes[i] is not None
+            and starts[i - 1] < resumes[i] < starts[after]
+        ):
             # Heard but misheard past matching: it starts where the singing picks up,
             # which across an instrumental break is far from evenly spaced.
             starts[i] = resumes[i]
         else:
             starts[i] = starts[i - 1] + (starts[after] - starts[i - 1]) / (after - i + 1)
     return "".join(
-        f"[{int(start // 60):02d}:{start % 60:05.2f}]{line}\n"
-        for line, start in zip(lines, starts)
+        f"[{int(start // 60):02d}:{start % 60:05.2f}]{line}\n" for line, start in zip(lines, starts)
     )
 
 

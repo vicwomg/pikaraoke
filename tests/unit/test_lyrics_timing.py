@@ -25,7 +25,9 @@ class TestTimePlainLyrics:
     def test_lines_start_where_their_words_are_heard(self):
         lrc = time_plain_lyrics(
             "hello darkness my old friend\nI've come to talk with you again",
-            _heard((12.0, "hello darkness my old friend"), (16.0, "ive come to talk with you again")),
+            _heard(
+                (12.0, "hello darkness my old friend"), (16.0, "ive come to talk with you again")
+            ),
         )
         assert _starts(lrc) == pytest.approx([12.0, 16.0])
 
@@ -40,7 +42,11 @@ class TestTimePlainLyrics:
     def test_each_chorus_is_timed_to_its_own_singing(self):
         lrc = time_plain_lyrics(
             "sugar yes please\nverse line here now\nsugar yes please",
-            _heard((30.0, "sugar yes please"), (40.0, "verse line here now"), (60.0, "sugar yes please")),
+            _heard(
+                (30.0, "sugar yes please"),
+                (40.0, "verse line here now"),
+                (60.0, "sugar yes please"),
+            ),
         )
         assert _starts(lrc) == pytest.approx([30.0, 40.0, 60.0])
 
@@ -71,7 +77,12 @@ class TestTimePlainLyrics:
         assert _starts(lrc) == pytest.approx([10.0, 100.0, 104.0])
 
     def test_too_little_heard_to_trust(self):
-        assert time_plain_lyrics("one two three\nfour five six\nseven eight nine", _heard((5.0, "one two three"))) is None
+        assert (
+            time_plain_lyrics(
+                "one two three\nfour five six\nseven eight nine", _heard((5.0, "one two three"))
+            )
+            is None
+        )
 
 
 class TestTranscribeWords:
