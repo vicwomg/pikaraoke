@@ -221,8 +221,9 @@ const shouldBackgroundMediaPlay = () => {
   if (!autoplayConfirmed || nowPlaying.now_playing) return false;
   // A queued song with autoplay on is a brief splash-delay gap before it starts,
   // so hold the background off. With autoplay off that song waits indefinitely
-  // for its singer, so play the background through the wait rather than go dark.
-  return !nowPlaying.up_next || !nowPlaying.autoplay;
+  // for its singer, and while being prepared for minutes, so play the background
+  // through the wait rather than go dark.
+  return !nowPlaying.up_next || !nowPlaying.autoplay || !!nowPlaying.up_next_preparing;
 };
 
 // Asserts both media's desired state rather than acting on the one that moved,
@@ -327,6 +328,7 @@ const handleNowPlayingUpdate = (np) => {
   if (np.up_next) {
     $("#up-next-song").html(np.up_next);
     $("#up-next-singer").html(np.next_user);
+    $("#up-next-preparing").toggle(!np.now_playing && !!np.up_next_preparing);
     $("#up-next").fadeIn();
   } else {
     $("#up-next").fadeOut();

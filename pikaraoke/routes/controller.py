@@ -21,10 +21,11 @@ def skip():
 
 @controller_bp.route("/api/defer", methods=["POST"])
 def defer():
-    """Let the next song go first and play the current one after it."""
+    """Let the next song go first: the playing one, or the one waiting to start."""
     k = get_karaoke_instance()
-    deferred = k.defer_current()
-    if deferred:
+    playing = k.playback_controller.now_playing_filename is not None
+    deferred = k.let_next_go_first()
+    if deferred and playing:
         broadcast_event("skip", "defer")
     return jsonify({"success": deferred})
 

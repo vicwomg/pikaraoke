@@ -329,7 +329,7 @@ class MockKaraoke:
     set_vocals = Karaoke.set_vocals
     shift_lyrics = Karaoke.shift_lyrics
     _show_new_lyrics = Karaoke._show_new_lyrics
-    defer_current = Karaoke.defer_current
+    let_next_go_first = Karaoke.let_next_go_first
     _warn_if_lyrics_approximate = Karaoke._warn_if_lyrics_approximate
     vocals_toggle_restarts = Karaoke.vocals_toggle_restarts
     send_notification = Karaoke.send_notification

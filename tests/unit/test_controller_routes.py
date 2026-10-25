@@ -32,11 +32,11 @@ class TestControllerRoutes:
         mock_karaoke = MagicMock()
         mock_get_instance.return_value = mock_karaoke
 
-        mock_karaoke.defer_current.return_value = False
+        mock_karaoke.let_next_go_first.return_value = False
         assert json.loads(client.post("/api/defer").data) == {"success": False}
         mock_broadcast.assert_not_called()
 
-        mock_karaoke.defer_current.return_value = True
+        mock_karaoke.let_next_go_first.return_value = True
         assert json.loads(client.post("/api/defer").data) == {"success": True}
         mock_broadcast.assert_called_once_with("skip", "defer")
 

@@ -548,7 +548,7 @@ class TestDeferCurrent:
         k.queue_manager.enqueue("/songs/Artist - Song Three---ghi789.mp4", "Carol")
         path = self._start_playing(k)
 
-        assert k.defer_current() is True
+        assert k.let_next_go_first() is True
 
         assert [item["file"] for item in k.queue_manager.queue] == [
             "/songs/Artist - Song Two---def456.mp4",
@@ -557,11 +557,34 @@ class TestDeferCurrent:
         ]
         assert k.playback_controller.skipped_reasons == ["skip"]
 
+    def test_a_song_waiting_to_start_moves_down_a_place(self, mock_karaoke_with_songs):
+        k = mock_karaoke_with_songs
+        k.queue_manager.enqueue("/songs/Artist - Song One---abc123.mp4", "Alice")
+        k.queue_manager.enqueue("/songs/Artist - Song Two---def456.mp4", "Bob")
+
+        assert k.let_next_go_first() is True
+
+        assert [item["file"] for item in k.queue_manager.queue] == [
+            "/songs/Artist - Song Two---def456.mp4",
+            "/songs/Artist - Song One---abc123.mp4",
+        ]
+
+    def test_now_playing_reports_the_waiting_songs_preparation(self, mock_karaoke_with_songs):
+        k = mock_karaoke_with_songs
+        k.preferences.set("auto_lyrics", True)
+        k.queue_manager.enqueue("/songs/Artist - Song One---abc123.mp4", "Alice")
+        k.song_preparer.prepare("/songs/Artist - Song One---abc123.mp4")
+
+        np = k.get_now_playing()
+
+        assert np["up_next_preparing"] == {"task": "waiting", "remaining_s": None}
+        assert np["queue_length"] == 1
+
     def test_nobody_waiting_keeps_the_song_playing(self, mock_karaoke_with_songs):
         k = mock_karaoke_with_songs
         self._start_playing(k)
 
-        assert k.defer_current() is False
+        assert k.let_next_go_first() is False
 
         assert k.playback_controller.skipped_reasons == []
         assert k.queue_manager.queue == []

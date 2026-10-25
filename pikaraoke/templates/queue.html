@@ -528,9 +528,10 @@
       // Reset all options to visible first
       $('#opt-up, #opt-top, #opt-down, #opt-bottom').show();
 
-      // "Play now" only for the head song, and only while it waits (autoplay off).
+      // "Play now" only for the head song, and only while it waits: autoplay off,
+      // or for its instrumental and lyrics.
       var np = window.queuePageState.nowPlaying;
-      var waiting = np && !np.now_playing && np.autoplay === false;
+      var waiting = np && !np.now_playing && (np.autoplay === false || !!np.up_next_preparing);
       $('#opt-play').toggle(index === 0 && !!waiting);
 
       // Hide "Up"/"Play Next" if first in queue (index 0)

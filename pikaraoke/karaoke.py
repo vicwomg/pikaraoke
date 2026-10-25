@@ -653,15 +653,23 @@ class Karaoke:
             self.socketio.emit("queue_update", namespace="/")
         self.update_now_playing_socket()
 
-    def defer_current(self) -> bool:
-        """Let the next singer go first, and play the current song again after them.
+    def _next_is_preparing(self) -> bool:
+        queue = self.queue_manager.queue
+        return bool(queue) and self.song_preparer.progress(queue[0]["file"]) is not None
 
-        For a song still being prepared: by its next turn it has its instrumental.
-        Returns False when nothing is playing or no one is waiting to go first.
+    def let_next_go_first(self) -> bool:
+        """Swap the song still being prepared with the one after it.
+
+        A playing song is requeued after the next one; a song waiting to start
+        moves down a place. By its turn it has its instrumental. Returns False
+        when there is no one to go first.
         """
         pc = self.playback_controller
         filename, user = pc.now_playing_filename, pc.now_playing_user
-        if filename is None or user is None or not self.queue_manager.queue:
+        if filename is None or user is None:
+            queue = self.queue_manager.queue
+            return len(queue) > 1 and self.queue_manager.queue_edit(queue[0]["file"], "down")
+        if not self.queue_manager.queue:
             return False
         title = pc.now_playing
         queued, message = self.queue_manager.enqueue(filename, user, pc.now_playing_transpose, True)
@@ -766,6 +774,10 @@ class Karaoke:
             **playback_state,
             "now_playing_preparing": self.song_preparer.progress(filename) if filename else None,
             "up_next": next_song["title"] if next_song else None,
+            "up_next_preparing": (
+                self.song_preparer.progress(next_song["file"]) if next_song else None
+            ),
+            "queue_length": len(queue),
             "next_user": next_song["user"] if next_song else None,
             # Drive the waiting-song panel: the control box when autoplay is off,
             # showing and setting the key the next song will start in.
@@ -830,12 +842,16 @@ class Karaoke:
                     self.reset_now_playing()
 
                 # Start next song from queue if not currently playing. With
-                # autoplay off, the head of the queue waits for a manual start.
+                # autoplay off, the head of the queue waits for a manual start,
+                # and with it on, for its instrumental and lyrics to be ready.
                 autoplay = self.preferences.get_or_default("autoplay")
                 if (
                     len(self.queue_manager.queue) > 0
                     and not self.playback_controller.is_playing
-                    and (autoplay or self.playback_controller.start_requested)
+                    and (
+                        (autoplay and not self._next_is_preparing())
+                        or self.playback_controller.start_requested
+                    )
                 ):
                     self.reset_now_playing()
                     # Splash delay between songs, skipped for the human-driven manual wait

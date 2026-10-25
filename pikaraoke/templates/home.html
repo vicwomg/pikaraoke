@@ -21,7 +21,8 @@
 
 	function handleNowPlaying(np) {
 		console.log(np);
-		pikaWaiting = !np.now_playing && !!np.up_next && !np.autoplay;
+		// The head song waits for a manual start, or for its instrumental and lyrics.
+		pikaWaiting = !np.now_playing && !!np.up_next && (!np.autoplay || !!np.up_next_preparing);
 		pikaWaitingSong = np.up_next_file;
 		if (np.now_playing) {
 			var nowPlayingHtml = `<p class="mb-1">${np.now_playing}</p>
@@ -91,11 +92,11 @@
 		}
 	}
 
-	// While the playing song is still being prepared, say so, and while its vocals
-	// are coming off, let the next singer go first.
+	// While the playing or waiting song is still being prepared, say so, and while
+	// its vocals are coming off, let the next singer go first.
 	function showPreparing(np) {
-		var prep = np.now_playing ? np.now_playing_preparing : null;
-		$("#preparing-control").toggle(!!prep);
+		var prep = np.now_playing ? np.now_playing_preparing : np.up_next_preparing;
+		$("#preparing-control").toggle(!!prep && (!!np.now_playing || !!np.up_next));
 		if (!prep) return;
 		var text;
 		if (prep.task === "vocals") {
@@ -113,7 +114,10 @@
 			text = {{ _("Waiting to prepare") | tojson }};
 		}
 		$("#preparing-status").text(text);
-		$("#defer-song").toggle(prep.task === "vocals" && !!np.up_next);
+		// Waiting to start: it starts by itself when ready, or now with the play button.
+		$("#preparing-hint").toggle(!np.now_playing);
+		var someoneNext = np.now_playing ? !!np.up_next : np.queue_length > 1;
+		$("#defer-song").toggle(prep.task === "vocals" && someoneNext);
 	}
 
 	$(function () {
@@ -397,6 +401,8 @@
 			{# MSG: Button that plays the next song first and the playing one, still having its vocals removed, after it. #}
 			<button id="defer-song" class="button is-small is-warning is-light mb-0">{% trans %}Let the next song go first{% endtrans %}</button>
 		</div>
+		{# MSG: Note under the status of a song waiting to start until its vocals are removed and lyrics added. #}
+		<p id="preparing-hint" class="help mt-2" style="display: none">{% trans %}Starts by itself when ready. Press play to start now with the original vocals.{% endtrans %}</p>
 	</div>
 
 	<div id="lyrics-timing" style="display: none">
