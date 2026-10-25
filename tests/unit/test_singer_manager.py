@@ -166,6 +166,16 @@ class TestBackfill:
         singers.backfill()
         assert db.query("SELECT COUNT(*) FROM singers")[0][0] == 0
 
+    def test_a_legacy_name_is_stored_normalised(self, db, singers, unlinked_plays):
+        # A double space must not seed its own singer: it is stored canonical, so
+        # a later normalised play resolves to it instead of splitting off a second.
+        unlinked_plays("Mike  Jones")
+        singers.backfill()
+        names = [row["name"] for row in db.query("SELECT name FROM singers")]
+        assert names == ["Mike Jones"]
+        linked = db.query("SELECT singer_id FROM plays")[0]["singer_id"]
+        assert singers.get_or_create("Mike Jones") == linked
+
 
 class TestFavourites:
     @pytest.fixture
