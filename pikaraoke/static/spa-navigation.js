@@ -221,7 +221,6 @@
             const joining = !currentName;
             window.promptForIdentity({
                 title: joining ? window.translations.identityJoinTitle : window.translations.identityProfileTitle,
-                message: joining ? window.translations.identityJoinMessage : "",
                 label: window.translations.usernameLabel,
                 help: window.translations.usernameHelp,
                 submitLabel: joining ? window.translations.identityJoinAction : window.translations.identityProfileAction,

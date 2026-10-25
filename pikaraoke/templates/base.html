@@ -40,15 +40,13 @@
       identityJoinTitle: {{ _('Join in') | tojson }},
       // {# MSG: Title of the identity dialog when an existing singer edits their profile. #}
       identityProfileTitle: {{ _('Profile') | tojson }},
-      // {# MSG: Lead line in the identity dialog while joining, explaining why to give a name. #}
-      identityJoinMessage: {{ _('Create a profile and start singing') | tojson }},
       // {# MSG: Primary button in the identity dialog while joining. #}
       identityJoinAction: {{ _('Join') | tojson }},
       // {# MSG: Primary button in the identity dialog when saving profile changes. #}
       identityProfileAction: {{ _('Save') | tojson }},
       // {# MSG: Label on the name field in the identity dialog. #}
-      usernameLabel: {{ _('Username') | tojson }},
-      // {# MSG: Hint under the username field noting the name is public. #}
+      usernameLabel: {{ _('Name') | tojson }},
+      // {# MSG: Hint under the name field noting the name is public. #}
       usernameHelp: {{ _('This name is visible to everyone.') | tojson }},
       // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
       promptClearQueue: {{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') | tojson }},
@@ -191,7 +189,6 @@
       }
       window.promptForIdentity({
         title: window.translations.identityJoinTitle,
-        message: window.translations.identityJoinMessage,
         label: window.translations.usernameLabel,
         help: window.translations.usernameHelp,
         submitLabel: window.translations.identityJoinAction,
