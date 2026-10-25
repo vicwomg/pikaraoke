@@ -179,11 +179,13 @@
     // Who a queue add is attributed to, resolved async so the name can come from
     // a modal: the KJ singer field, else this device's cookie, else the Join in
     // dialog (which writes the cookie). Rejects on dismissal, so nothing queues.
-    function resolveSinger() {
+    // ignoreKjField skips the field for a favourite, which belongs to this
+    // device's cookie singer -- the identity its stars are drawn from.
+    function resolveSinger(ignoreKjField) {
       var d = $.Deferred();
       // Non-admins have no field; trim guards a stray space stored as a name.
       var singer = ($("#singer-name").val() || "").trim();
-      if (singer) {
+      if (singer && !ignoreKjField) {
         return d.resolve(singer);
       }
       var user = getUserCookie();
@@ -348,13 +350,12 @@
       });
     };
 
-    // Star or unstar a song for this device's singer, resolving the name the same
-    // way a queue add does (the cookie, else the Join in dialog). onDone(starred)
-    // runs only on success, so the caller flips its star to match what was saved.
-    // The one entry point for a favourite change, so it is where `favourite:changed`
-    // fires -- the Favourites view listens instead of every caller re-notifying.
+    // Star or unstar a song for this device's cookie singer (else the Join in
+    // dialog) -- the identity its stars are drawn from, not the KJ field a queue
+    // add may use. onDone(starred) runs only on success. The one entry point for a
+    // favourite change, so it fires `favourite:changed` for the Favourites view.
     window.favouriteSong = function (encodedPath, makeStarred, title, onDone) {
-      resolveSinger().done(function (name, changed) {
+      resolveSinger(true).done(function (name, changed) {
         var body =
           "song=" + encodedPath +
           "&starred=" + (makeStarred ? "true" : "false") +
