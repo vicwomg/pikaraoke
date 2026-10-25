@@ -209,6 +209,8 @@
 		$(document)
 			.off("favourite:changed.favview")
 			.on("favourite:changed.favview", function (e) {
+				// Bound to document, so it outlives this page -- do nothing once gone.
+				if (!document.getElementById("browse-results")) return;
 				// jQuery wraps the native CustomEvent; the payload is on originalEvent.
 				if (VIEW !== "favourites" || e.originalEvent.detail.starred) return;
 				swapBrowseFragment(new URLSearchParams(window.location.search))

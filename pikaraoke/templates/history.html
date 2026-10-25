@@ -284,6 +284,9 @@
 		$(document)
 			.off("favourite:changed.history")
 			.on("favourite:changed.history", function (e) {
+				// Bound to document, so it outlives this page; skip the decode (which
+				// can throw on a non-UTF-8 path) once the play log is gone.
+				if (!document.getElementById("plays-body")) return;
 				var path = decodeURIComponent(e.originalEvent.detail.song);
 				var starred = !!e.originalEvent.detail.starred;
 				$("#plays-body .row-options-btn").each(function () {
