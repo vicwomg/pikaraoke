@@ -6,7 +6,7 @@ import pytest
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
-from pikaraoke.lib.singer_manager import SingerManager
+from pikaraoke.lib.singer_manager import SingerManager, normalize_name
 
 
 def _display_name(path):
@@ -35,6 +35,39 @@ def _performer(db, singer_id):
     return db.query("SELECT name FROM singers WHERE id = ?", (singer_id,))[0]["name"]
 
 
+ZERO_WIDTH_SPACE = chr(0x200B)
+COMBINING_ACUTE = chr(0x0301)
+
+
+class TestNormalizeName:
+    def test_trims_and_collapses_whitespace(self):
+        assert normalize_name("  Jo   B  ") == "Jo B"
+
+    def test_a_tab_separates_rather_than_vanishing(self):
+        assert normalize_name("Jo	B") == "Jo B"
+
+    def test_composes_to_nfc(self):
+        # "Jose" + combining acute composes to the precomposed "Jose".
+        assert normalize_name("Jose" + COMBINING_ACUTE) == "Jos" + chr(0xE9)
+
+    def test_strips_a_zero_width_space(self):
+        assert normalize_name("Jo" + ZERO_WIDTH_SPACE + "B") == "JoB"
+
+    def test_strips_control_characters(self):
+        assert normalize_name("Jo" + chr(0)) == "Jo"
+
+    def test_keeps_cjk_and_punctuation(self):
+        assert normalize_name(" 王菲 ") == "王菲"
+        assert normalize_name("DJ_Mike") == "DJ_Mike"
+
+    def test_is_idempotent(self):
+        once = normalize_name("  Jose" + COMBINING_ACUTE + "  " + ZERO_WIDTH_SPACE)
+        assert normalize_name(once) == once
+
+    def test_all_whitespace_is_blank(self):
+        assert normalize_name("  	 ") == ""
+
+
 class TestGetOrCreate:
     def test_creates_a_row_on_first_use(self, db, singers):
         singer_id = singers.get_or_create("Alice")
@@ -57,6 +90,14 @@ class TestGetOrCreate:
         updated_before = db.query("SELECT name FROM singers WHERE id = ?", (singer_id,))
         singers.get_or_create("Mike")
         assert db.query("SELECT name FROM singers WHERE id = ?", (singer_id,)) == updated_before
+
+    def test_the_name_is_stored_normalised(self, db, singers):
+        singer_id = singers.get_or_create("  Alice  ")
+        assert _performer(db, singer_id) == "Alice"
+
+    def test_a_look_alike_name_does_not_fork_the_singer(self, singers):
+        # A zero-width space must not mint a second, invisible-twin singer.
+        assert singers.get_or_create("Alice") == singers.get_or_create("Alice" + ZERO_WIDTH_SPACE)
 
 
 class TestFind:

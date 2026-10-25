@@ -1,9 +1,30 @@
 """Singers: one row per performer, the id everything saved hangs off."""
 
+import unicodedata
 from collections.abc import Callable
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+
+# The name is the singer's identity -- plays, favourites and the coming
+# name-lock all key on it -- so it is canonicalised to one shape before storage
+# or comparison, and a look-alike cannot shadow it. No minimum beyond one
+# visible character, so a single ideograph is a valid name.
+SINGER_NAME_MAX_LENGTH = 30
+
+
+def normalize_name(raw: str) -> str:
+    """Canonical form of a singer name: the one shape stored and compared.
+
+    NFC (not NFKC, which would rewrite full-width and compatibility CJK), drop
+    control and format characters, collapse internal whitespace, trim. Idempotent.
+    An empty result is a blank name; callers also reject over SINGER_NAME_MAX_LENGTH.
+    """
+    text = unicodedata.normalize("NFC", raw)
+    # Drop non-whitespace control/format chars (a tab is Cc, but split() below
+    # must still see it as a separator, so whitespace is kept through this).
+    text = "".join(c for c in text if c.isspace() or unicodedata.category(c) not in ("Cc", "Cf"))
+    return " ".join(text.split())
 
 
 class SingerManager:
@@ -57,7 +78,11 @@ class SingerManager:
 
         refresh_casing is off for a star, which is not a performance and whose
         name may come from another device's cookie.
+
+        Normalised here too, so a caller bypassing the route cannot store an
+        uncanonicalised name; NFC keeps case, so casing still refreshes.
         """
+        name = normalize_name(name)
         rows = self.db.query("SELECT id, name FROM singers WHERE name = ? COLLATE NOCASE", (name,))
         if rows:
             singer_id, stored = rows[0]["id"], rows[0]["name"]
@@ -72,6 +97,7 @@ class SingerManager:
         secret_hash is deliberately not selected: it must never ride along in an
         ordinary identity read.
         """
+        name = normalize_name(name)
         rows = self.db.query(
             "SELECT id, name, created_at FROM singers WHERE name = ? COLLATE NOCASE", (name,)
         )

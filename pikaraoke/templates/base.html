@@ -29,7 +29,8 @@
       // Likewise: the splash page renders no add links.
       enqueueUrl: "{% if not blank_page %}{{ url_for('queue_api.enqueue_form') }}{% endif %}",
       // Likewise: the splash page renders no favourite controls.
-      favouriteUrl: "{% if not blank_page %}{{ url_for('singers_api.set_favourite') }}{% endif %}"
+      favouriteUrl: "{% if not blank_page %}{{ url_for('singers_api.set_favourite') }}{% endif %}",
+      singerNameMaxLength: {{ singer_name_max_length }}
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
     // Gettext output is Markup, so Jinja never autoescapes it. Inside a <script> a
@@ -48,6 +49,8 @@
       usernameLabel: {{ _('Name') | tojson }},
       // {# MSG: Hint under the name field noting the name is public. #}
       usernameHelp: {{ _('This name is visible to everyone.') | tojson }},
+      // {# MSG: Placeholder shown in the empty name field of the identity dialog. #}
+      usernamePlaceholder: {{ _('Your name') | tojson }},
       // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
       promptClearQueue: {{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') | tojson }},
       // {# MSG: Confirmation dialog when permanently deleting a song file from the library #}
@@ -191,6 +194,8 @@
         title: window.translations.identityJoinTitle,
         label: window.translations.usernameLabel,
         help: window.translations.usernameHelp,
+        placeholder: window.translations.usernamePlaceholder,
+        maxlength: window.pikaraokeConfig.singerNameMaxLength,
         submitLabel: window.translations.identityJoinAction,
         value: ""
       }).done(function (res) {

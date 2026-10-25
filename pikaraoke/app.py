@@ -31,6 +31,7 @@ from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, has_js_runtime, is_windows
 from pikaraoke.lib.login_throttle import LoginThrottle
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -149,12 +150,13 @@ def get_locale() -> str | None:
 
 
 @app.context_processor
-def inject_path_config() -> dict[str, str]:
-    """Expose path-prefix settings to templates."""
+def inject_path_config() -> dict[str, object]:
+    """Expose path-prefix settings and the singer-name cap to templates."""
     return {
         "base_path": app.config["PIKARAOKE_BASE_PATH"],
         "socketio_path": app.config["PIKARAOKE_SOCKETIO_PATH"],
         "cookie_path": app.config["SESSION_COOKIE_PATH"],
+        "singer_name_max_length": SINGER_NAME_MAX_LENGTH,
     }
 
 

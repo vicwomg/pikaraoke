@@ -93,6 +93,8 @@
         $('#text-prompt-label').text(opts.label || '').toggleClass('is-hidden', !opts.label);
         $('#text-prompt-help').text(opts.help || '').toggleClass('is-hidden', !opts.help);
         $input.val(opts.value || '').attr('placeholder', opts.placeholder || '');
+        // Null clears it, so a cap never leaks into another caller of this prompt.
+        $input.attr('maxlength', opts.maxlength || null);
         if (opts.submitLabel) { $ok.text(opts.submitLabel); }
 
         // Namespaced so a prior, unclosed prompt leaves no handler behind.
@@ -223,6 +225,8 @@
                 title: joining ? window.translations.identityJoinTitle : window.translations.identityProfileTitle,
                 label: window.translations.usernameLabel,
                 help: window.translations.usernameHelp,
+                placeholder: window.translations.usernamePlaceholder,
+                maxlength: window.pikaraokeConfig.singerNameMaxLength,
                 submitLabel: joining ? window.translations.identityJoinAction : window.translations.identityProfileAction,
                 value: currentName
             }).done(function (res) {
