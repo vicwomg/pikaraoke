@@ -318,6 +318,7 @@ class MockKaraoke:
     _recue_current = Karaoke._recue_current
     transpose_current = Karaoke.transpose_current
     set_vocals = Karaoke.set_vocals
+    shift_lyrics = Karaoke.shift_lyrics
     vocals_toggle_restarts = Karaoke.vocals_toggle_restarts
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send

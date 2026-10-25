@@ -150,6 +150,16 @@ class TestDelete:
         sm.delete(_native(song))
         assert not instrumental.exists()
 
+    def test_deletes_vocals_companion(self, tmp_path, mock_db):
+        song = tmp_path / "Test---abc.mp4"
+        vocals = tmp_path / "Test---abc.vocals.m4a"
+        song.write_text("fake")
+        vocals.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        sm.songs.add_if_valid(_native(song))
+        sm.delete(_native(song))
+        assert not vocals.exists()
+
     def test_deletes_ass_companion(self, tmp_path, mock_db):
         song = tmp_path / "Test---abc.mp4"
         ass = tmp_path / "Test---abc.ass"

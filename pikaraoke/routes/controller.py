@@ -1,4 +1,6 @@
-"""Playback control routes for skip, pause, volume, transpose, and vocals."""
+"""Playback control routes for skip, pause, volume, transpose, vocals, and lyrics timing."""
+
+import math
 
 from flask import jsonify
 from flask_smorest import Blueprint
@@ -61,6 +63,23 @@ def vocals(state):
         broadcast_event("skip", "vocals toggle")
     k.set_vocals(enabled)
     return jsonify({"success": True})
+
+
+# One press moves lyrics by a fraction of a second; anything bigger is a mistake.
+MAX_LYRICS_SHIFT_S = 5.0
+
+
+@controller_bp.route("/api/lyrics/shift/<seconds>", methods=["POST"])
+def shift_lyrics(seconds):
+    """Move the playing song's lyrics later (positive seconds) or earlier (negative)."""
+    try:
+        amount = float(seconds)
+    except ValueError:
+        return jsonify({"success": False}), 400
+    if not math.isfinite(amount) or amount == 0 or abs(amount) > MAX_LYRICS_SHIFT_S:
+        return jsonify({"success": False}), 400
+    k = get_karaoke_instance()
+    return jsonify({"success": k.shift_lyrics(amount)})
 
 
 @controller_bp.route("/api/restart", methods=["POST"])

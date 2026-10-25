@@ -20,6 +20,7 @@ from pikaraoke.lib.ffmpeg import (
     is_transpose_enabled,
     supports_hardware_h264_encoding,
 )
+from pikaraoke.lib.file_resolver import find_ass_file
 from pikaraoke.lib.get_platform import (
     get_data_directory,
     get_os_version,
@@ -29,6 +30,7 @@ from pikaraoke.lib.get_platform import (
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
+from pikaraoke.lib.lyrics import shift_ass
 from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
@@ -602,6 +604,32 @@ class Karaoke:
         pc = self.playback_controller
         # Playing the instrumental means vocals are off, so a change is a match here.
         return pc.instrumental_available and pc.now_playing_instrumental == enabled
+
+    def shift_lyrics(self, seconds: float) -> bool:
+        """Move the playing song's lyrics later by `seconds`, or earlier if negative.
+
+        Rewrites the song's .ass, so the correction holds for every later play.
+        Returns False when the playing song has no lyrics to move.
+        """
+        pc = self.playback_controller
+        ass_path = find_ass_file(pc.now_playing_filename) if pc.now_playing_filename else None
+        if ass_path is None or pc.now_playing_subtitle_url is None:
+            return False
+        with open(ass_path, encoding="utf-8") as f:
+            shifted = shift_ass(f.read(), seconds)
+        with open(ass_path, "w", encoding="utf-8") as f:
+            f.write(shifted)
+        # A new URL makes the splash fetch the rewritten file instead of reusing the old one.
+        base_url = pc.now_playing_subtitle_url.split("?", 1)[0]
+        pc.now_playing_subtitle_url = f"{base_url}?shifted={time.monotonic_ns()}"
+        self.update_now_playing_socket()
+        if seconds > 0:
+            # MSG: Message shown after moving the playing song's lyrics later. The number is seconds.
+            self.log_and_send(_("Lyrics %.1fs later") % seconds)
+        else:
+            # MSG: Message shown after moving the playing song's lyrics earlier. The number is seconds.
+            self.log_and_send(_("Lyrics %.1fs earlier") % -seconds)
+        return True
 
     def prepare_queued_songs(self) -> None:
         """Hand every queued song to the preparer, which skips work already done."""

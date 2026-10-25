@@ -490,6 +490,48 @@ class TestSetVocals:
         assert k.playback_controller.skipped_reasons == []
 
 
+class TestShiftLyrics:
+    """Tests for nudging the playing song's lyrics earlier or later."""
+
+    def _start_playing(self, k, tmp_path, with_lyrics=True):
+        song = tmp_path / "Artist - Song---abcdefghijk.mp4"
+        song.write_bytes(b"video")
+        if with_lyrics:
+            (tmp_path / "Artist - Song---abcdefghijk.ass").write_text(
+                "[Events]\nDialogue: 0,0:00:10.00,0:00:13.00,Upper,,0,0,0,,line\n"
+            )
+        pc = k.playback_controller
+        pc.now_playing = "Artist - Song"
+        pc.now_playing_filename = str(song)
+        pc.now_playing_subtitle_url = "/subtitle/123" if with_lyrics else None
+        pc.is_playing = True
+
+    def test_rewrites_the_subtitle_and_makes_the_splash_refetch_it(
+        self, mock_karaoke_with_songs, tmp_path
+    ):
+        k = mock_karaoke_with_songs
+        self._start_playing(k, tmp_path)
+
+        assert k.shift_lyrics(0.5) is True
+
+        ass = (tmp_path / "Artist - Song---abcdefghijk.ass").read_text()
+        assert "Dialogue: 0,0:00:10.50,0:00:13.50," in ass
+        url = k.playback_controller.now_playing_subtitle_url
+        assert url.startswith("/subtitle/123?") and url != "/subtitle/123"
+
+    def test_two_nudges_keep_one_query_string(self, mock_karaoke_with_songs, tmp_path):
+        k = mock_karaoke_with_songs
+        self._start_playing(k, tmp_path)
+        k.shift_lyrics(0.5)
+        k.shift_lyrics(-0.5)
+        assert k.playback_controller.now_playing_subtitle_url.count("?") == 1
+
+    def test_song_without_lyrics_is_left_alone(self, mock_karaoke_with_songs, tmp_path):
+        k = mock_karaoke_with_songs
+        self._start_playing(k, tmp_path, with_lyrics=False)
+        assert k.shift_lyrics(0.5) is False
+
+
 class TestRegisterDownloadedSong:
     """Tests for the register_downloaded_song method."""
 

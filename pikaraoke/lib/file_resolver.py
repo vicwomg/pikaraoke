@@ -99,6 +99,17 @@ def is_cdg_file(file_path: str) -> bool:
     return file_extension == ".zip" or file_extension == ".mp3"
 
 
+def find_ass_file(file_path: str) -> str | None:
+    """The ASS subtitle file sharing a media file's name, if there is one."""
+    base_name = os.path.splitext(file_path)[0]
+    # Check common case variations without listing directory
+    for ext in (".ass", ".ASS", ".Ass"):
+        ass_path = base_name + ext
+        if os.path.exists(ass_path):
+            return ass_path
+    return None
+
+
 def is_transcoding_required(file_path: str) -> bool:
     """Check if a file requires transcoding for browser playback.
 
@@ -191,17 +202,13 @@ class FileResolver:
         Returns:
             True if ASS file found, False otherwise.
         """
-        base_name = os.path.splitext(file_path)[0]
-
-        # Check common case variations without listing directory
-        for ext in (".ass", ".ASS", ".Ass"):
-            ass_path = base_name + ext
-            if os.path.exists(ass_path):
-                self.file_path = file_path
-                self.ass_file_path = ass_path
-                logging.debug(f"Subtitle file found: {ass_path}")
-                return True
-        return False
+        ass_path = find_ass_file(file_path)
+        if ass_path is None:
+            return False
+        self.file_path = file_path
+        self.ass_file_path = ass_path
+        logging.debug(f"Subtitle file found: {ass_path}")
+        return True
 
     def handle_zipped_cdg(self, file_path: str) -> None:
         """Extract zipped CDG + MP3 files into a temporary directory.

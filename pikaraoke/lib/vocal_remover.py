@@ -10,9 +10,11 @@ import tempfile
 
 from pikaraoke.lib.get_platform import get_data_directory, use_spare_capacity
 
-# The track lives next to its song under the same name, so the library's rename
-# and delete carry it along like a .cdg or .ass.
+# The tracks live next to their song under the same name, so the library's rename
+# and delete carry them along like a .cdg or .ass. The lead vocal is kept to time
+# lyrics against.
 INSTRUMENTAL_SUFFIX = ".instrumental.m4a"
+VOCALS_SUFFIX = ".vocals.m4a"
 
 # A karaoke model: it takes out the lead vocal and keeps the backing vocals,
 # which a singer sings along with and a full vocal remover would strip.
@@ -38,6 +40,17 @@ def instrumental_path(song_path: str) -> str:
     return os.path.splitext(song_path)[0] + INSTRUMENTAL_SUFFIX
 
 
+def vocals_path(song_path: str) -> str:
+    """Where a song's separated lead vocal is, or would be written."""
+    return os.path.splitext(song_path)[0] + VOCALS_SUFFIX
+
+
+def find_vocals(song_path: str) -> str | None:
+    """The song's separated lead vocal, if it has one."""
+    path = vocals_path(song_path)
+    return path if os.path.isfile(path) else None
+
+
 def find_instrumental(song_path: str) -> str | None:
     """The song's karaoke track, if it has been separated."""
     path = instrumental_path(song_path)
@@ -56,8 +69,6 @@ def _separation_command(audio_path: str, out_dir: str) -> list[str]:
         SEPARATION_MODEL,
         "--mdxc_overlap",
         SEPARATION_OVERLAP,
-        "--single_stem",
-        "Instrumental",
         "--output_format",
         "WAV",
         "--output_dir",
@@ -81,8 +92,26 @@ def _run(cmd: list[str]) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(cmd, process.returncode, output)
 
 
+def _encode_beside(stem: str, target: str) -> bool:
+    """Encode a stem to `target`, appearing only once complete.
+
+    Encoded under a partial name first, so playback never picks up a half-written track.
+    """
+    partial = target.removesuffix(".m4a") + ".part.m4a"
+    encode = _run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", stem, "-c:a", "aac", "-b:a", "192k", partial]
+    )
+    if encode.returncode != 0:
+        logging.error(f"Encoding {target} failed: {encode.stdout}")
+        if os.path.exists(partial):
+            os.remove(partial)
+        return False
+    os.replace(partial, target)
+    return True
+
+
 def separate_vocals(song_path: str) -> bool:
-    """Write the song's karaoke track beside it. Returns True on success."""
+    """Write the song's karaoke track and lead-vocal stem beside it. True on success."""
     with tempfile.TemporaryDirectory(prefix="pikaraoke-separation-") as work_dir:
         # The separator reads audio files only, not the video containers songs come in.
         audio = os.path.join(work_dir, "audio.wav")
@@ -93,24 +122,16 @@ def separate_vocals(song_path: str) -> bool:
 
         out_dir = os.path.join(work_dir, "out")
         result = _run(_separation_command(audio, out_dir))
-        stems = glob.glob(os.path.join(out_dir, "*.wav"))
-        if result.returncode != 0 or len(stems) != 1:
+        instrumental = glob.glob(os.path.join(out_dir, "*(Instrumental)*.wav"))
+        vocals = glob.glob(os.path.join(out_dir, "*(Vocals)*.wav"))
+        if result.returncode != 0 or len(instrumental) != 1 or len(vocals) != 1:
             logging.error(f"Vocal separation failed for {song_path}: {result.stdout[-2000:]}")
             return False
 
-        target = instrumental_path(song_path)
-        # Encode beside the song, then rename into place, so playback never picks up
-        # a half-written track.
-        partial = os.path.splitext(song_path)[0] + ".instrumental.part.m4a"
-        encode = _run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", stems[0]]
-            + ["-c:a", "aac", "-b:a", "192k", partial]
-        )
-        if encode.returncode != 0:
-            logging.error(f"Encoding instrumental failed for {song_path}: {encode.stdout}")
-            if os.path.exists(partial):
-                os.remove(partial)
+        # The instrumental goes last: its presence is what marks a song as separated.
+        if not _encode_beside(vocals[0], vocals_path(song_path)):
             return False
-        os.replace(partial, target)
-    logging.info(f"Separated vocals: {target}")
+        if not _encode_beside(instrumental[0], instrumental_path(song_path)):
+            return False
+    logging.info(f"Separated vocals: {song_path}")
     return True

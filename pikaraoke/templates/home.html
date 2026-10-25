@@ -67,6 +67,7 @@
 		$("#vocals-control").toggle(!!np.now_playing && np.instrumental_available);
 		$("#vocals-on").toggleClass("is-primary is-selected", !np.now_playing_instrumental);
 		$("#vocals-off").toggleClass("is-primary is-selected", !!np.now_playing_instrumental);
+		$("#lyrics-timing").toggle(!!np.now_playing && !!np.now_playing_subtitle_url);
 
 		// set the volume slider to the current volume
 		if (np.volume != volume) {
@@ -151,6 +152,10 @@
 			if (r) {
 				$.post(window.pikaraokeConfig.basePath + "/api/vocals/" + $(this).data("vocals"));
 			}
+		});
+
+		$(".lyrics-shift").click(function () {
+			$.post(window.pikaraokeConfig.basePath + "/api/lyrics/shift/" + $(this).data("seconds"));
 		});
 
 		$("#vol-up").click(function () {
@@ -350,6 +355,20 @@
 				<button id="vocals-on" class="button is-small vocals-toggle mb-0" data-vocals="on">{% trans %}Original{% endtrans %}</button>
 				{# MSG: Button that plays the song's instrumental track, with the vocals removed. #}
 				<button id="vocals-off" class="button is-small vocals-toggle mb-0" data-vocals="off">{% trans %}Instrumental{% endtrans %}</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="lyrics-timing" style="display: none">
+		<hr />
+		<div class="is-flex is-justify-content-space-between is-align-items-center">
+			{# MSG: Title of a control that moves the playing song's lyrics earlier or later. #}
+			<h4 class="mb-0">{% trans %}Lyrics timing{% endtrans %}</h4>
+			<div class="buttons has-addons mb-0">
+				{# MSG: Button that shows the playing song's lyrics half a second earlier. #}
+				<button class="button is-small lyrics-shift mb-0" data-seconds="-0.5">{% trans %}Earlier{% endtrans %}</button>
+				{# MSG: Button that shows the playing song's lyrics half a second later. #}
+				<button class="button is-small lyrics-shift mb-0" data-seconds="0.5">{% trans %}Later{% endtrans %}</button>
 			</div>
 		</div>
 	</div>

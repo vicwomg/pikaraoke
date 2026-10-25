@@ -70,3 +70,19 @@ class TestControllerRoutes:
         response = client.post("/api/vocals/maybe")
         assert response.status_code == 400
         mock_get_instance.return_value.set_vocals.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_lyrics_shift_moves_the_playing_songs_lyrics(self, mock_get_instance, client):
+        mock_get_instance.return_value.shift_lyrics.return_value = True
+
+        response = client.post("/api/lyrics/shift/-0.5")
+
+        assert json.loads(response.data) == {"success": True}
+        mock_get_instance.return_value.shift_lyrics.assert_called_once_with(-0.5)
+
+    @pytest.mark.parametrize("seconds", ["abc", "0", "nan", "inf", "30"])
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_lyrics_shift_rejects_bad_amounts(self, mock_get_instance, seconds, client):
+        response = client.post(f"/api/lyrics/shift/{seconds}")
+        assert response.status_code == 400
+        mock_get_instance.return_value.shift_lyrics.assert_not_called()

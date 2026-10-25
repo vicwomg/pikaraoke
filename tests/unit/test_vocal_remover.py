@@ -30,10 +30,9 @@ class TestInstrumentalPath:
 
 class TestSeparationCommand:
     @patch("pikaraoke.lib.vocal_remover.get_data_directory", return_value="/data")
-    def test_keeps_only_the_karaoke_stem_and_the_model_with_app_data(self, mock_data_dir):
+    def test_uses_the_karaoke_model_kept_with_app_data(self, mock_data_dir):
         cmd = _separation_command("/songs/a.mp4", "/tmp/out")
         assert cmd[cmd.index("-m") + 1] == SEPARATION_MODEL
-        assert cmd[cmd.index("--single_stem") + 1] == "Instrumental"
         assert cmd[cmd.index("--output_dir") + 1] == "/tmp/out"
         assert cmd[cmd.index("--model_file_dir") + 1] == os.path.join("/data", "separation-models")
         assert cmd[-1] == "/songs/a.mp4"
@@ -46,8 +45,9 @@ class TestSeparateVocals:
                 out_dir = cmd[cmd.index("--output_dir") + 1]
                 if separation_rc == 0:
                     os.makedirs(out_dir)
-                    with open(os.path.join(out_dir, "a_(Instrumental)_model.wav"), "wb") as f:
-                        f.write(b"wav")
+                    for stem in ("Instrumental", "Vocals"):
+                        with open(os.path.join(out_dir, f"a_({stem})_model.wav"), "wb") as f:
+                            f.write(b"wav")
                 return _completed(separation_rc, "separator log")
             if cmd[-1].endswith("audio.wav"):
                 return _completed(0, "")  # Audio extraction
@@ -58,13 +58,16 @@ class TestSeparateVocals:
 
         return run
 
-    def test_writes_instrumental_beside_song(self, tmp_path):
+    def test_writes_both_stems_beside_song(self, tmp_path):
         song = tmp_path / "Title---abc.mp4"
         song.write_bytes(b"video")
         with patch("pikaraoke.lib.vocal_remover._run", side_effect=self._fake_run()):
             assert separate_vocals(str(song)) is True
-        assert (tmp_path / "Title---abc.instrumental.m4a").read_bytes() == b"aac"
-        assert not (tmp_path / "Title---abc.instrumental.part.m4a").exists()
+        assert sorted(os.listdir(tmp_path)) == [
+            "Title---abc.instrumental.m4a",
+            "Title---abc.mp4",
+            "Title---abc.vocals.m4a",
+        ]
 
     def test_separates_the_extracted_audio_not_the_video(self, tmp_path):
         song = tmp_path / "Title---abc.mp4"

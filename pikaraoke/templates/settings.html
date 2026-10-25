@@ -468,7 +468,7 @@
 					<span>
 						{# MSG: Checkbox label which enables fetching synced lyrics for queued songs #} {% trans %}Add synced lyrics to queued songs{% endtrans %}
 						{# MSG: Explanation under the synced lyrics checkbox. #}
-						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Looks up lyrics on LRCLIB for videos that do not show their own. Only used when the lyrics' timing matches the video's length.{% endtrans %}</span>
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Looks up lyrics on LRCLIB for videos that do not show their own. With vocal removal on, lyrics are lined up with the singing; otherwise only lyrics of the video's length are used.{% endtrans %}</span>
 					</span>
 					<input id="pref-auto-lyrics" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="auto_lyrics" {% if auto_lyrics == True %}checked{% endif %}>
 				</label>

@@ -97,7 +97,7 @@ uv tool install "pikaraoke[vocal-removal]"
 
 Then turn on "Remove vocals from queued songs" in Settings. Songs are processed in the background as they are queued, and the player controls gain an Original/Instrumental switch once a song is ready. The first run downloads a 900MB model. A three-minute song takes about 2.5 minutes on an Apple Silicon Mac; expect it to be far slower on a CPU-only machine, and impractical on a Raspberry Pi. Intel Macs are not supported.
 
-Synced lyrics need no extra: turn on "Add synced lyrics to queued songs" in Settings. Lyrics come from [LRCLIB](https://lrclib.net) and are only added to videos that don't show lyrics themselves, when the lyrics' timing matches the video's length.
+Synced lyrics need no extra: turn on "Add synced lyrics to queued songs" in Settings. Lyrics come from [LRCLIB](https://lrclib.net) and are only added to videos that don't show lyrics themselves. Lyrics timed to a recording of the video's length are used as they are. With vocal removal on, lyrics for a different edit, such as a music video with its own intro, are also lined up against the separated lead vocal. If a song's lyrics still run early or late, the Lyrics timing buttons in the player controls move them half a second at a time, and the correction is saved with the song.
 
 ## Usage
 

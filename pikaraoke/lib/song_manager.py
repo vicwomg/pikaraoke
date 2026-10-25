@@ -15,11 +15,11 @@ from pikaraoke.lib.metadata_parser import (
     youtube_id_suffix,
 )
 from pikaraoke.lib.song_list import SongList
-from pikaraoke.lib.vocal_remover import INSTRUMENTAL_SUFFIX
+from pikaraoke.lib.vocal_remover import INSTRUMENTAL_SUFFIX, VOCALS_SUFFIX
 
 # Files that share a song's name and go wherever it goes: CDG graphics, subtitles,
-# and a separated instrumental. Matched lowercase.
-_COMPANION_SUFFIXES = (".cdg", ".mcg", ".ass", INSTRUMENTAL_SUFFIX)
+# and separated stems. Matched lowercase.
+_COMPANION_SUFFIXES = (".cdg", ".mcg", ".ass", INSTRUMENTAL_SUFFIX, VOCALS_SUFFIX)
 
 
 def _is_same_file(src: str, dst: str) -> bool:
