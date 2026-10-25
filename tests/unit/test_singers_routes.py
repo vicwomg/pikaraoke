@@ -10,6 +10,7 @@ from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.current_app import current_singer_name
 from pikaraoke.lib.preference_manager import PreferenceManager
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.routes.singers_api import singers_api_bp
 
 
@@ -64,6 +65,25 @@ class TestSetFavourite:
         )
         assert resp.status_code == 422
         karaoke.singer_manager.add_favourite.assert_not_called()
+
+    def test_a_name_over_the_cap_is_refused(self, client, karaoke):
+        resp = client.post(
+            "/api/singer/favourite",
+            data={
+                "song": "/s/a.mp4",
+                "starred": "true",
+                "song_added_by": "x" * (SINGER_NAME_MAX_LENGTH + 1),
+            },
+        )
+        assert resp.status_code == 422
+        karaoke.singer_manager.add_favourite.assert_not_called()
+
+    def test_the_name_is_normalised_before_the_manager_sees_it(self, client, karaoke):
+        client.post(
+            "/api/singer/favourite",
+            data={"song": "/s/a.mp4", "starred": "true", "song_added_by": "  Jo   B  "},
+        )
+        karaoke.singer_manager.add_favourite.assert_called_once_with("Jo B", "/s/a.mp4")
 
 
 class TestCurrentSingerName:
