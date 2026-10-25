@@ -442,6 +442,54 @@ class TestTransposeCurrent:
         assert mock_karaoke_with_songs.playback_controller.skipped_reasons == []
 
 
+class TestSetVocals:
+    """Tests for switching the playing song between its vocals and its instrumental."""
+
+    def _start_playing(self, k, tmp_path, separated=True, instrumental=True):
+        song = tmp_path / "Artist - Song---abcdefghijk.mp4"
+        song.write_bytes(b"video")
+        if separated:
+            (tmp_path / "Artist - Song---abcdefghijk.instrumental.m4a").write_bytes(b"aac")
+        k.song_manager.songs.add(str(song))
+        pc = k.playback_controller
+        pc.now_playing = "Artist - Song"
+        pc.now_playing_filename = str(song)
+        pc.now_playing_user = "Alice"
+        pc.now_playing_instrumental = separated and instrumental
+        pc.is_playing = True
+        return str(song)
+
+    def test_switching_vocals_back_on_restarts_the_song(self, mock_karaoke_with_songs, tmp_path):
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k, tmp_path)
+
+        k.set_vocals(True)
+
+        assert k.preferences.get_or_default("play_instrumental") is False
+        assert k.queue_manager.queue[0]["file"] == path
+        assert k.playback_controller.skipped_reasons == ["restart"]
+
+    def test_choosing_what_is_already_playing_only_saves_the_choice(
+        self, mock_karaoke_with_songs, tmp_path
+    ):
+        k = mock_karaoke_with_songs
+        self._start_playing(k, tmp_path)
+
+        k.set_vocals(False)
+
+        assert k.preferences.get_or_default("play_instrumental") is True
+        assert k.playback_controller.skipped_reasons == []
+
+    def test_song_without_an_instrumental_keeps_playing(self, mock_karaoke_with_songs, tmp_path):
+        k = mock_karaoke_with_songs
+        self._start_playing(k, tmp_path, separated=False)
+
+        k.set_vocals(False)
+
+        assert k.preferences.get_or_default("play_instrumental") is True
+        assert k.playback_controller.skipped_reasons == []
+
+
 class TestRegisterDownloadedSong:
     """Tests for the register_downloaded_song method."""
 

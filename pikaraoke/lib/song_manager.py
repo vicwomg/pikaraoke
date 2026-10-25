@@ -15,6 +15,11 @@ from pikaraoke.lib.metadata_parser import (
     youtube_id_suffix,
 )
 from pikaraoke.lib.song_list import SongList
+from pikaraoke.lib.vocal_remover import INSTRUMENTAL_SUFFIX
+
+# Files that share a song's name and go wherever it goes: CDG graphics, subtitles,
+# and a separated instrumental. Matched lowercase.
+_COMPANION_SUFFIXES = (".cdg", ".mcg", ".ass", INSTRUMENTAL_SUFFIX)
 
 
 def _is_same_file(src: str, dst: str) -> bool:
@@ -246,8 +251,11 @@ class SongManager:
         """Songs sitting directly in `folder`, excluding its subfolders, in list order."""
         return [path for _, path in self._scoped_index(folder)]
 
-    def _get_companion_files(self, song_path: str) -> list[str]:
-        """Return paths to companion files (.cdg, .mcg, .ass) that exist alongside a song."""
+    def _get_companion_files(self, song_path: str) -> list[tuple[str, str]]:
+        """Return (path, suffix) for each companion file that exists alongside a song.
+
+        The suffix is as spelled on disk, so a rename keeps its case.
+        """
         dirpath = os.path.dirname(song_path)
         base = os.path.splitext(os.path.basename(song_path))[0]
         try:
@@ -257,9 +265,10 @@ class SongManager:
         base_lower = base.lower()
         companions = []
         for f in files:
-            f_base, f_ext = os.path.splitext(f)
-            if f_base.lower() == base_lower and f_ext.lower() in (".cdg", ".mcg", ".ass"):
-                companions.append(os.path.join(dirpath, f))
+            f_lower = f.lower()
+            for suffix in _COMPANION_SUFFIXES:
+                if f_lower == base_lower + suffix:
+                    companions.append((os.path.join(dirpath, f), f[len(f) - len(suffix) :]))
         return companions
 
     def _require_in_library(self, song_path: str) -> None:
@@ -281,7 +290,7 @@ class SongManager:
         companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
             os.remove(song_path)
-        for companion in companions:
+        for companion, _ in companions:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(companion)
         self.songs.remove(song_path)
@@ -320,9 +329,8 @@ class SongManager:
         if rename_collides(song_path, new_path):
             raise FileExistsError(f"'{os.path.basename(new_path)}' already exists")
         _rename_path(song_path, new_path)
-        for companion in companions:
-            companion_ext = os.path.splitext(companion)[1]
-            _rename_path(companion, os.path.join(dirpath, new_name + companion_ext))
+        for companion, suffix in companions:
+            _rename_path(companion, os.path.join(dirpath, new_name + suffix))
         self.songs.rename(song_path, new_path)
         self._db.update_path(song_path, new_path)
         # A rename is the user correcting the name, not a display preference, so

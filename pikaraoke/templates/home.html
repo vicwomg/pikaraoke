@@ -63,6 +63,11 @@
 		$("#transpose").val(shownTranspose);
 		$("#semitones-label").html(getSemitonesLabel(shownTranspose));
 
+		// The vocals switch needs a separated instrumental, which a song gains in the background.
+		$("#vocals-control").toggle(!!np.now_playing && np.instrumental_available);
+		$("#vocals-on").toggleClass("is-primary is-selected", !np.now_playing_instrumental);
+		$("#vocals-off").toggleClass("is-primary is-selected", !!np.now_playing_instrumental);
+
 		// set the volume slider to the current volume
 		if (np.volume != volume) {
 			volume = np.volume;
@@ -135,6 +140,17 @@
 			}
 			$.post(window.pikaraokeConfig.basePath + "/api/pause");
 			togglePausePlayButton();
+		});
+
+		$(".vocals-toggle").click(function () {
+			if ($(this).hasClass("is-selected")) return;
+			r = confirm(
+				// {# MSG: Confirmation message when switching the vocals of the playing song on or off. It restarts the song. #}
+				{{ _("This restarts the song. Continue?") | tojson }}
+			);
+			if (r) {
+				$.post(window.pikaraokeConfig.basePath + "/api/vocals/" + $(this).data("vocals"));
+			}
 		});
 
 		$("#vol-up").click(function () {
@@ -322,6 +338,21 @@
 		</button>
 	</div>
 	{% endif %}
+
+	<div id="vocals-control" style="display: none">
+		{# The box already ends in a rule when there is no key control above. #}
+		{% if is_transpose_enabled %}<hr />{% endif %}
+		<div class="is-flex is-justify-content-space-between is-align-items-center">
+			{# MSG: Title of a control to switch the original vocals of the playing song on or off. #}
+			<h4 class="mb-0">{% trans %}Vocals{% endtrans %}</h4>
+			<div class="buttons has-addons mb-0">
+				{# MSG: Button that plays the song with its original vocals. #}
+				<button id="vocals-on" class="button is-small vocals-toggle mb-0" data-vocals="on">{% trans %}Original{% endtrans %}</button>
+				{# MSG: Button that plays the song's instrumental track, with the vocals removed. #}
+				<button id="vocals-off" class="button is-small vocals-toggle mb-0" data-vocals="off">{% trans %}Instrumental{% endtrans %}</button>
+			</div>
+		</div>
+	</div>
 
 	{% if mic_available %}
 	<div id="mic-live-panel" style="display: none">

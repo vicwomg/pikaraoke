@@ -8,6 +8,8 @@ PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" 
 - 📺 Dedicated Player: High-performance splash screen that can be opened on any web browser for a true karaoke room feel.
 - 🌐 YouTube & Local Media: Play your own files or access more from the web.
 - 🎹 Live Pitch Shifting: Adjust the key of any song to match your vocal range.
+- 🎤 AI Vocal Removal (optional): Turn any music video into a karaoke track, keeping the backing vocals.
+- 📝 Synced Lyrics: Overlay KTV-style lyrics on videos that don't show their own.
 - 🛠️ Admin Control: Manage the queue and settings via a password-protected admin mode.
 - 📊 Session Management: Every night is recorded automatically—browse the play history, then see which songs and performers topped the charts.
 - 🎯 Hyper-accurate vocal performance scoring system: (not really, it's random. But kind of fun!)
@@ -84,6 +86,18 @@ uv tool install pikaraoke
 ```
 
 You may alternately use the standard python `pip install pikaraoke` installer if you are familiar with virtual environments or you are not concerned with global package isolation.
+
+#### Optional: AI vocal removal
+
+Removing vocals runs an AI model ([Mel-Band RoFormer karaoke](https://github.com/nomadkaraoke/python-audio-separator)) that takes out the lead vocal and keeps the backing vocals. It needs PyTorch, about 2GB, so it is a separate extra:
+
+```sh
+uv tool install "pikaraoke[vocal-removal]"
+```
+
+Then turn on "Remove vocals from queued songs" in Settings. Songs are processed in the background as they are queued, and the player controls gain an Original/Instrumental switch once a song is ready. The first run downloads a 900MB model. A three-minute song takes about 2.5 minutes on an Apple Silicon Mac; expect it to be far slower on a CPU-only machine, and impractical on a Raspberry Pi. Intel Macs are not supported.
+
+Synced lyrics need no extra: turn on "Add synced lyrics to queued songs" in Settings. Lyrics come from [LRCLIB](https://lrclib.net) and are only added to videos that don't show lyrics themselves, when the lyrics' timing matches the video's length.
 
 ## Usage
 

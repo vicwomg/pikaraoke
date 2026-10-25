@@ -10,6 +10,7 @@ from flask_babel import Babel
 
 from pikaraoke.lib.auth import document_auth, install_auth_gate, public
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
@@ -133,9 +134,12 @@ class MockPlaybackController:
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
+    now_playing_instrumental: bool = False
     now_playing_position: float | None = None
     is_paused: bool = True
     is_playing: bool = False
+
+    instrumental_available = PlaybackController.instrumental_available
 
     def __init__(self) -> None:
         # End reasons passed to skip(), in order. Held on the instance so one
@@ -313,6 +317,8 @@ class MockKaraoke:
     reset_now_playing = Karaoke.reset_now_playing
     _recue_current = Karaoke._recue_current
     transpose_current = Karaoke.transpose_current
+    set_vocals = Karaoke.set_vocals
+    vocals_toggle_restarts = Karaoke.vocals_toggle_restarts
     send_notification = Karaoke.send_notification
     log_and_send = Karaoke.log_and_send
     update_now_playing_socket = Karaoke.update_now_playing_socket

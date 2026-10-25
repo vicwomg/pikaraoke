@@ -520,6 +520,42 @@ class TestStreamManagerPlayFile:
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
     @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_transcodes_in_the_instrumental(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs, tmp_path
+    ):
+        """A separated instrumental forces a transcode, which swaps in its audio."""
+        song = tmp_path / "test.mp4"
+        instrumental = tmp_path / "test.instrumental.m4a"
+        instrumental.write_bytes(b"aac")
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        mock_fr = self._setup_resolver(mock_resolver_class)
+
+        with patch.object(sm, "_transcode_file", return_value=(True, False)) as mock_transcode:
+            result = sm.play_file(str(song))
+
+        mock_transcode.assert_called_once_with(mock_fr, 0, False, str(instrumental))
+        assert result.is_instrumental is True
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
+    def test_play_file_keeps_vocals_when_instrumental_is_switched_off(
+        self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs, tmp_path
+    ):
+        test_prefs.set("play_instrumental", False)
+        (tmp_path / "test.instrumental.m4a").write_bytes(b"aac")
+        sm = StreamManager(test_prefs, streaming_format="mp4")
+        self._setup_resolver(mock_resolver_class)
+
+        with patch.object(sm, "_copy_file", return_value=True) as mock_copy:
+            result = sm.play_file(str(tmp_path / "test.mp4"))
+
+        mock_copy.assert_called_once()
+        assert result.is_instrumental is False
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("pikaraoke.lib.stream_manager.is_transcoding_required", return_value=False)
+    @patch("pikaraoke.lib.stream_manager.FileResolver")
     def test_play_file_hls_stream_url(
         self, mock_resolver_class, mock_transcode_check, mock_gettext, test_prefs
     ):

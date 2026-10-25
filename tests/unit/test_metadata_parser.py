@@ -10,8 +10,10 @@ from pikaraoke.lib.metadata_parser import (
     get_best_result,
     get_song_correct_name,
     has_artist_title_separator,
+    has_on_screen_lyrics,
     has_youtube_id,
     is_discardable_qualifier,
+    is_karaoke_title,
     lookup_lastfm,
     regex_tidy,
     sanitize_filename,
@@ -119,6 +121,29 @@ def _clear_cache():
     clear_song_name_cache()
     yield
     clear_song_name_cache()
+
+
+class TestHasOnScreenLyrics:
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "Artist - Song (Karaoke Version)",
+            "Artist - Song (Official Lyric Video)",
+            "Artist - Song (Lyrics)",
+            "歌手 - 歌名 KTV 伴奏",
+            "歌手 - 歌名【動態歌詞】",
+        ],
+    )
+    def test_karaoke_and_lyric_videos(self, name):
+        assert has_on_screen_lyrics(name)
+
+    @pytest.mark.parametrize("name", ["Maroon 5 - This Love", "Artist - Song (Official Video)"])
+    def test_plain_music_videos(self, name):
+        assert not has_on_screen_lyrics(name)
+
+    def test_a_lyric_video_still_has_its_vocals(self):
+        assert not is_karaoke_title("Artist - Song (Official Lyric Video)")
+        assert is_karaoke_title("Artist - Song (Instrumental)")
 
 
 class TestCleanSearchQuery:

@@ -1,4 +1,4 @@
-"""Playback control routes for skip, pause, volume, and transpose."""
+"""Playback control routes for skip, pause, volume, transpose, and vocals."""
 
 from flask import jsonify
 from flask_smorest import Blueprint
@@ -47,6 +47,19 @@ def transpose(semitones):
     k = get_karaoke_instance()
     broadcast_event("skip", "transpose current")
     k.transpose_current(int(semitones))
+    return jsonify({"success": True})
+
+
+@controller_bp.route("/api/vocals/<state>", methods=["POST"])
+def vocals(state):
+    """Switch the original vocals on or off, using the song's separated instrumental."""
+    if state not in ("on", "off"):
+        return jsonify({"success": False}), 400
+    k = get_karaoke_instance()
+    enabled = state == "on"
+    if k.vocals_toggle_restarts(enabled):
+        broadcast_event("skip", "vocals toggle")
+    k.set_vocals(enabled)
     return jsonify({"success": True})
 
 

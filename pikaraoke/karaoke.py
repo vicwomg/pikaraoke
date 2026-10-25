@@ -35,6 +35,7 @@ from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
+from pikaraoke.lib.song_preparer import SongPreparer
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
@@ -318,6 +319,16 @@ class Karaoke:
         )
         self.download_manager.start()
 
+        # Lyrics and vocal separation run as songs are queued, ahead of their turn
+        self.song_preparer = SongPreparer(
+            events=self.events,
+            preferences=self.preferences,
+            filename_from_path=self.song_manager.display_name_from_path,
+        )
+        self.song_preparer.start()
+        self.events.on("queue_update", self.prepare_queued_songs)
+        self.events.on("instrumental_ready", self._announce_instrumental)
+
         # Song library startup: warm cache from DB or blocking cold scan
         paths = self.db.get_all_song_paths()
         if paths:
@@ -565,6 +576,46 @@ class Karaoke:
         if self._recue_current(semitones, "transpose"):
             # MSG: Message shown after the song is transposed, first is the semitones and then the song name
             self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
+
+    def set_vocals(self, enabled: bool) -> None:
+        """Choose between the original vocals and the separated instrumental.
+
+        The choice sticks for later songs; the playing song restarts to apply it
+        when it has an instrumental to switch to.
+        """
+        restarts = self.vocals_toggle_restarts(enabled)
+        self.preferences.set("play_instrumental", not enabled)
+        if not restarts:
+            self.update_now_playing_socket()
+            return
+        now_playing = self.playback_controller.now_playing
+        if self._recue_current(self.playback_controller.now_playing_transpose, "restart"):
+            if enabled:
+                # MSG: Message shown after switching the playing song back to its original vocals
+                self.log_and_send(_("Vocals on: %s") % now_playing)
+            else:
+                # MSG: Message shown after switching the playing song to its instrumental track
+                self.log_and_send(_("Vocals off: %s") % now_playing)
+
+    def vocals_toggle_restarts(self, enabled: bool) -> bool:
+        """Whether switching vocals to `enabled` changes what the playing song plays."""
+        pc = self.playback_controller
+        # Playing the instrumental means vocals are off, so a change is a match here.
+        return pc.instrumental_available and pc.now_playing_instrumental == enabled
+
+    def prepare_queued_songs(self) -> None:
+        """Hand every queued song to the preparer, which skips work already done."""
+        for item in self.queue_manager.queue:
+            self.song_preparer.prepare(item["file"])
+
+    def _announce_instrumental(self, song_path: str) -> None:
+        """Let the room know a playing song's vocals can now be switched off."""
+        if song_path == self.playback_controller.now_playing_filename:
+            # MSG: Message shown when vocal separation finishes for the song that is playing
+            self.log_and_send(
+                _("Instrumental ready: %s") % self.playback_controller.now_playing, "success"
+            )
+            self.update_now_playing_socket()
 
     def volume_change(self, vol_level: float) -> bool:
         """Set the volume level.

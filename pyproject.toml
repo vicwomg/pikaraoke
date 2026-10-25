@@ -34,6 +34,14 @@ dev = [
   "pytest-cov>=7.0.0",
 
 ]
+# AI vocal separation. Pulls in PyTorch (about 2GB), so it is opt-in. PyTorch
+# stopped publishing Intel macOS wheels at 2.2, which would pin every platform
+# back to it, so Intel Macs are left out.
+vocal-removal = [
+  "audio-separator[cpu]>=0.47.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+  # audio-separator imports audioread, which librosa 1.0 no longer brings along
+  "audioread; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+]
 
 [dependency-groups]
 dev = [

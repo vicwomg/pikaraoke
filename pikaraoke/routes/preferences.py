@@ -9,6 +9,7 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.routes.splash import _get_active_score_phrases
 
 _SCORE_PHRASE_KEYS = {"low_score_phrases", "mid_score_phrases", "high_score_phrases"}
+_SONG_PREPARATION_KEYS = {"vocal_removal", "auto_lyrics"}
 
 preferences_bp = Blueprint("preferences", __name__)
 
@@ -32,6 +33,9 @@ def change_preferences(form):
         broadcast_event("preferences_update", {"key": preference, "value": val})
         if preference in _SCORE_PHRASE_KEYS:
             broadcast_event("score_phrases_update", _get_active_score_phrases(k))
+        if preference in _SONG_PREPARATION_KEYS:
+            # Songs already waiting would otherwise go unprepared until the queue changes.
+            k.prepare_queued_songs()
     return jsonify([success, message])
 
 

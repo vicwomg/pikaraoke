@@ -1,10 +1,14 @@
 """Platform detection utilities for PiKaraoke."""
 
 import io
+import logging
 import os
 import platform
 import shutil
+import subprocess
 import sys
+
+import psutil
 
 
 def is_raspberry_pi() -> bool:
@@ -183,3 +187,21 @@ def get_data_directory() -> str:
 def is_running_in_docker():
     """Check if we're running in a container using existence of /.dockerenv."""
     return os.path.exists("/.dockerenv")
+
+
+def use_spare_capacity(process: subprocess.Popen) -> None:
+    """Drop background work to spare-capacity priority so it never competes with playback.
+
+    Priority is inherited, which is what covers the processes the work spawns.
+    """
+    try:
+        child = psutil.Process(process.pid)
+        if is_windows():
+            child.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)
+            child.ionice(psutil.IOPRIO_VERYLOW)
+        else:
+            child.nice(10)
+            # macOS has no ionice at all, hence AttributeError below.
+            child.ionice(psutil.IOPRIO_CLASS_IDLE)
+    except (psutil.Error, AttributeError, NotImplementedError, OSError) as e:
+        logging.debug(f"Could not lower process priority: {e}")

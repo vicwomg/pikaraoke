@@ -35,3 +35,38 @@ class TestControllerRoutes:
         assert response.status_code == 200
         assert json.loads(response.data) == {"success": True}
         mock_karaoke.playback_controller.request_start.assert_called_once_with()
+
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_vocals_toggle_stops_player_when_it_restarts_song(
+        self, mock_get_instance, mock_broadcast, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.vocals_toggle_restarts.return_value = True
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post("/api/vocals/off")
+
+        assert response.status_code == 200
+        mock_broadcast.assert_called_once_with("skip", "vocals toggle")
+        mock_karaoke.set_vocals.assert_called_once_with(False)
+
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_vocals_toggle_leaves_player_alone_otherwise(
+        self, mock_get_instance, mock_broadcast, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.vocals_toggle_restarts.return_value = False
+        mock_get_instance.return_value = mock_karaoke
+
+        client.post("/api/vocals/on")
+
+        mock_broadcast.assert_not_called()
+        mock_karaoke.set_vocals.assert_called_once_with(True)
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_vocals_toggle_rejects_unknown_state(self, mock_get_instance, client):
+        response = client.post("/api/vocals/maybe")
+        assert response.status_code == 400
+        mock_get_instance.return_value.set_vocals.assert_not_called()

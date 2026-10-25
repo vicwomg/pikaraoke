@@ -11,6 +11,7 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.file_resolver import delete_stream_files
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.stream_manager import PlaybackResult, StreamManager
+from pikaraoke.lib.vocal_remover import find_instrumental
 
 if TYPE_CHECKING:
     import subprocess
@@ -46,6 +47,7 @@ class PlaybackController:
         now_playing_duration: Duration of current song in seconds.
         now_playing_url: Stream URL for current song.
         now_playing_subtitle_url: URL path for subtitles.
+        now_playing_instrumental: Whether the separated instrumental is playing.
         now_playing_position: Current playback position in seconds.
         playback_id: Stream uid of the current playback, None when nothing is loaded.
         is_paused: Whether playback is paused.
@@ -60,6 +62,7 @@ class PlaybackController:
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
     now_playing_subtitle_url: str | None = None
+    now_playing_instrumental: bool = False
     now_playing_position: float | None = None
     playback_id: str | None = None
     is_paused: bool = True
@@ -138,6 +141,7 @@ class PlaybackController:
         self.now_playing_duration = result.duration
         self.now_playing_url = result.stream_url
         self.now_playing_subtitle_url = result.subtitle_url
+        self.now_playing_instrumental = result.is_instrumental
         self.is_paused = False
 
         self.events.emit("playback_started")
@@ -349,6 +353,14 @@ class PlaybackController:
                 self._deadline += now - self._paused_at
             self._paused_at = None
 
+    @property
+    def instrumental_available(self) -> bool:
+        """Whether the loaded song has a separated instrumental to switch to.
+
+        Checked live rather than at play time: a separation can finish mid-song.
+        """
+        return bool(self.now_playing_filename and find_instrumental(self.now_playing_filename))
+
     def get_now_playing(self) -> dict[str, str | int | float | bool | None]:
         """Get the current playback state.
 
@@ -363,6 +375,8 @@ class PlaybackController:
             "now_playing_transpose": self.now_playing_transpose,
             "now_playing_url": self.now_playing_url,
             "now_playing_subtitle_url": self.now_playing_subtitle_url,
+            "now_playing_instrumental": self.now_playing_instrumental,
+            "instrumental_available": self.instrumental_available,
             "now_playing_position": self.now_playing_position,
             "is_paused": self.is_paused,
         }
@@ -375,6 +389,7 @@ class PlaybackController:
         self.now_playing_user = None
         self.now_playing_url = None
         self.now_playing_subtitle_url = None
+        self.now_playing_instrumental = False
         self.is_paused = True
         self.is_playing = False
         self.start_requested = False

@@ -94,6 +94,35 @@ class TestBuildFfmpegCmdCdg:
         assert args[pipe - 4 : pipe + 1] == ["-f", "cdg", "-copyts", "-i", "pipe:"]
 
 
+class TestBuildFfmpegCmdInstrumental:
+    """Tests for playing a separated instrumental in place of a song's audio."""
+
+    def _fr(self):
+        fr = MagicMock()
+        fr.file_path = "/songs/song.mp4"
+        fr.file_extension = ".mp4"
+        fr.cdg_file_path = None
+        fr.cdg_stream = None
+        fr.output_file = "/tmp/1.m3u8"
+        fr.init_filename = "1_init.mp4"
+        fr.segment_pattern = "/tmp/1_segment_%03d.m4s"
+        return fr
+
+    @patch("pikaraoke.lib.ffmpeg.supports_hardware_h264_encoding", return_value=False)
+    def test_takes_audio_from_instrumental_and_video_from_song(self, mock_hw):
+        args = build_ffmpeg_cmd(
+            self._fr(), normalize_audio=False, instrumental_path="/songs/song.instrumental.m4a"
+        ).get_args()
+        inputs = [args[i + 1] for i, a in enumerate(args) if a == "-i"]
+        assert inputs == ["/songs/song.instrumental.m4a", "/songs/song.mp4"]
+        assert args[args.index("-map") : args.index("-map") + 4] == ["-map", "0:a", "-map", "1:v"]
+
+    @patch("pikaraoke.lib.ffmpeg.supports_hardware_h264_encoding", return_value=False)
+    def test_uses_song_audio_without_one(self, mock_hw):
+        args = build_ffmpeg_cmd(self._fr()).get_args()
+        assert [args[i + 1] for i, a in enumerate(args) if a == "-i"] == ["/songs/song.mp4"]
+
+
 class TestSupportsHardwareH264Encoding:
     """Tests for the supports_hardware_h264_encoding function."""
 

@@ -14,6 +14,7 @@ from pikaraoke.lib.current_app import (
     is_admin,
 )
 from pikaraoke.lib.get_platform import is_linux, is_running_in_docker
+from pikaraoke.lib.vocal_remover import is_vocal_removal_available
 
 _ = flask_babel.gettext
 
@@ -53,6 +54,9 @@ def settings():
         splash_scale=k.splash_scale,
         splash_delay=k.splash_delay,
         normalize_audio=k.normalize_audio,
+        vocal_removal=k.vocal_removal,
+        vocal_removal_available=is_vocal_removal_available(),
+        auto_lyrics=k.auto_lyrics,
         cdg_pixel_scaling=k.cdg_pixel_scaling,
         high_quality=k.high_quality,
         complete_transcode_before_play=k.complete_transcode_before_play,

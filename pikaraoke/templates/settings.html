@@ -450,6 +450,28 @@
 					<span>{# MSG: Checkbox label which enable/disables audio volume normalization #} {% trans %}Normalize audio volume{% endtrans %}</span>
 					<input id="pref-normalize" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="normalize_audio" {% if normalize_audio == True %}checked{% endif %}>
 				</label>
+				{% if vocal_removal_available %}
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enables AI separation of the vocals from queued songs #} {% trans %}Remove vocals from queued songs{% endtrans %}
+						{# MSG: Explanation under the vocal removal checkbox. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Takes out the lead vocal in the background and keeps the backing vocals, so the singer can switch it off from the player controls. Uses a lot of CPU, and downloads a 900MB model the first time.{% endtrans %}</span>
+					</span>
+					<input id="pref-vocal-removal" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="vocal_removal" {% if vocal_removal == True %}checked{% endif %}>
+				</label>
+				{% else %}
+				<div class="panel-block px-5 py-3 is-size-7 has-text-grey-light">
+					{# MSG: Shown instead of the vocal removal checkbox when the vocal removal extra is not installed. #} {% trans %}Remove vocals: install the vocal-removal extra (pip install "pikaraoke[vocal-removal]") to enable.{% endtrans %}
+				</div>
+				{% endif %}
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which enables fetching synced lyrics for queued songs #} {% trans %}Add synced lyrics to queued songs{% endtrans %}
+						{# MSG: Explanation under the synced lyrics checkbox. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Looks up lyrics on LRCLIB for videos that do not show their own. Only used when the lyrics' timing matches the video's length.{% endtrans %}</span>
+					</span>
+					<input id="pref-auto-lyrics" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="auto_lyrics" {% if auto_lyrics == True %}checked{% endif %}>
+				</label>
 				<label class="panel-block px-5 py-3 is-justify-content-space-between">
 					<span>
 						{# MSG: Checkbox label which enable/disables full transcode before playback #} {% trans %}Transcode fully before playing{% endtrans %}

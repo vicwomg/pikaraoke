@@ -17,6 +17,7 @@ from pikaraoke.lib.ffmpeg import build_ffmpeg_cmd
 from pikaraoke.lib.file_resolver import FileResolver, is_transcoding_required
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.url_prefix import normalize_url_base_path
+from pikaraoke.lib.vocal_remover import find_instrumental
 
 
 @dataclass
@@ -28,6 +29,7 @@ class PlaybackResult:
         stream_url: URL path for the video stream.
         stream_uid: Identifier of this playback, unique per play of a file.
         subtitle_url: URL path for subtitles (if present).
+        is_instrumental: Whether the separated instrumental plays in place of the audio.
         duration: Video duration in seconds.
         error: Error message if playback failed.
     """
@@ -36,6 +38,7 @@ class PlaybackResult:
     stream_url: str | None = None
     stream_uid: str | None = None
     subtitle_url: str | None = None
+    is_instrumental: bool = False
     duration: int | None = None
     error: str | None = None
 
@@ -127,9 +130,15 @@ class StreamManager:
         )
 
         is_hls = streaming_format == "hls"
+        instrumental = (
+            find_instrumental(file_path)
+            if self.preferences.get_or_default("play_instrumental")
+            else None
+        )
 
         requires_transcoding = (
-            semitones != 0
+            instrumental is not None
+            or semitones != 0
             or normalize_audio
             or is_transcoding_required(file_path)
             or avsync != 0
@@ -159,7 +168,7 @@ class StreamManager:
             is_buffering_complete = True
         else:
             is_transcoding_complete, is_buffering_complete = self._transcode_file(
-                fr, semitones, is_hls
+                fr, semitones, is_hls, instrumental
             )
 
         subtitle_url = None
@@ -175,6 +184,7 @@ class StreamManager:
                 stream_url=stream_url_path,
                 stream_uid=str(fr.stream_uid),
                 subtitle_url=subtitle_url,
+                is_instrumental=instrumental is not None,
                 duration=fr.duration,
             )
         else:
@@ -202,13 +212,16 @@ class StreamManager:
         logging.debug(f"Copying file failed: {dest_path}")
         return False
 
-    def _transcode_file(self, fr: FileResolver, semitones: int, is_hls: bool) -> tuple[bool, bool]:
+    def _transcode_file(
+        self, fr: FileResolver, semitones: int, is_hls: bool, instrumental: str | None = None
+    ) -> tuple[bool, bool]:
         """Transcode a file using FFmpeg.
 
         Args:
             fr: FileResolver instance with file information.
             semitones: Semitones to transpose.
             is_hls: Whether to use HLS streaming format.
+            instrumental: Separated instrumental track to play in place of the audio.
 
         Returns:
             Tuple of (is_transcoding_complete, is_buffering_complete).
@@ -233,6 +246,7 @@ class StreamManager:
             complete_transcode_before_play,
             avsync,
             cdg_pixel_scaling,
+            instrumental,
         )
         self.ffmpeg_process = ffmpeg_cmd.run_async(pipe_stderr=True, pipe_stdin=True)
 

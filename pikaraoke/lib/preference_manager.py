@@ -57,6 +57,9 @@ class PreferenceManager:
         "metadata_provider": "itunes",
         "itunes_search_country": "US",
         "suggestion_name_order": "artist_title",
+        "vocal_removal": False,
+        "play_instrumental": True,
+        "auto_lyrics": False,
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:

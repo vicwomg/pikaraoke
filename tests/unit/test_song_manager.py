@@ -140,6 +140,16 @@ class TestDelete:
         sm.delete(_native(song))
         assert not mcg.exists()
 
+    def test_deletes_instrumental_companion(self, tmp_path, mock_db):
+        song = tmp_path / "Test---abc.mp4"
+        instrumental = tmp_path / "Test---abc.instrumental.m4a"
+        song.write_text("fake")
+        instrumental.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        sm.songs.add_if_valid(_native(song))
+        sm.delete(_native(song))
+        assert not instrumental.exists()
+
     def test_deletes_ass_companion(self, tmp_path, mock_db):
         song = tmp_path / "Test---abc.mp4"
         ass = tmp_path / "Test---abc.ass"
@@ -212,6 +222,17 @@ class TestRename:
         sm.rename(_native(song), "New")
         assert (tmp_path / "New.mcg").exists()
         assert not mcg.exists()
+
+    def test_renames_instrumental_companion(self, tmp_path, mock_db):
+        song = tmp_path / "Old---abc.mp4"
+        instrumental = tmp_path / "Old---abc.instrumental.m4a"
+        song.write_text("fake")
+        instrumental.write_text("fake")
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        sm.songs.add_if_valid(_native(song))
+        sm.rename(_native(song), "New---abc")
+        assert (tmp_path / "New---abc.instrumental.m4a").exists()
+        assert not instrumental.exists()
 
     def test_renames_ass_companion(self, tmp_path, mock_db):
         song = tmp_path / "Old---abc.mp4"

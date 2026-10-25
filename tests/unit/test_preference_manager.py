@@ -296,6 +296,9 @@ def test_preference_manager_defaults_exist():
         "metadata_provider",
         "itunes_search_country",
         "suggestion_name_order",
+        "vocal_removal",
+        "play_instrumental",
+        "auto_lyrics",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys

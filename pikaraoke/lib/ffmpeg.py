@@ -39,6 +39,7 @@ def build_ffmpeg_cmd(
     buffer_fully_before_playback: bool = False,
     avsync: float = 0,
     cdg_pixel_scaling: bool = False,
+    instrumental_path: str | None = None,
 ) -> Any:
     """Build an ffmpeg command for transcoding media.
 
@@ -52,6 +53,7 @@ def build_ffmpeg_cmd(
         force_mp4_encoding: If True, force mp4 encoding.
         avsync: Audio/video sync adjustment in seconds.
         cdg_pixel_scaling: Enable pixel scaling for CDG rendering.
+        instrumental_path: Separated instrumental track to play instead of the song's audio.
 
     Returns:
         ffmpeg stream object ready to execute with run_async().
@@ -92,7 +94,8 @@ def build_ffmpeg_cmd(
         input = ffmpeg.input(fr.file_path, **{"fflags": "+genpts"})
     else:
         input = ffmpeg.input(fr.file_path)
-    audio = input.audio
+    # A separated instrumental starts where the song does, so it swaps in directly.
+    audio = ffmpeg.input(instrumental_path).audio if instrumental_path else input.audio
 
     # Audio sync adjustment: delay or trim
     if avsync > 0:

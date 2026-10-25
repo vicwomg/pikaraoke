@@ -350,6 +350,25 @@ def _split_query_parts(query: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 
+_KARAOKE_TITLE_RE = re.compile(_KARAOKE_KEYWORDS_ALT, flags=re.IGNORECASE)
+_ON_SCREEN_LYRICS_RE = re.compile(
+    rf"{_KARAOKE_KEYWORDS_ALT}|\blyrics?\b|歌詞|歌词", flags=re.IGNORECASE
+)
+
+
+def is_karaoke_title(song_name: str) -> bool:
+    """True when a title says it is already a karaoke or instrumental version."""
+    return bool(_KARAOKE_TITLE_RE.search(song_name))
+
+
+def has_on_screen_lyrics(song_name: str) -> bool:
+    """True when a title says its video already shows lyrics: a karaoke or lyric video.
+
+    Overlaying fetched lyrics on such a video would print every line twice.
+    """
+    return bool(_ON_SCREEN_LYRICS_RE.search(song_name))
+
+
 def clean_search_query(song_name: str) -> str:
     """Strip noise words, brackets, and emoji to isolate the core song identity."""
     song_name = EMOJI_PATTERN.sub(" ", song_name)
