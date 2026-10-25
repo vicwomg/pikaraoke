@@ -104,36 +104,24 @@ class SingerManager:
         return dict(rows[0]) if rows else None
 
     def backfill(self) -> None:
-        """Give every play a singer_id, one row per distinct performer.
+        """Give every pre-singers play a singer_id; the one-time history upgrade.
 
-        The one-time upgrade of a history recorded before singers existed.
-        Idempotent: on a database whose plays already point at a singer it
-        inserts and updates nothing, so it is safe to run on every start-up.
-        idx_plays_singer keeps the "still unlinked?" check off a table scan.
-
-        Each new row takes the most recent casing of its name -- the row with
-        the greatest id in the NOCASE group, id being monotonic with play order
-        -- so a backfilled name reads the way _latest_casing() rendered it.
+        Reads only unlinked plays (idx_plays_singer), so it is a no-op once they
+        are all linked and safe to run on every start-up. Each name goes through
+        get_or_create, so a legacy name is normalised like every live path -- a
+        raw copy would split from later plays -- taking the latest casing, oldest
+        play first.
         """
-        self.db.execute("""
-            INSERT INTO singers (name)
-            SELECT p.performer
-            FROM plays p
-            JOIN (
-                SELECT MAX(id) AS latest_id
-                FROM plays
-                GROUP BY performer COLLATE NOCASE
-            ) latest ON p.id = latest.latest_id
-            WHERE NOT EXISTS (
-                SELECT 1 FROM singers s WHERE s.name = p.performer COLLATE NOCASE
+        rows = self.db.query(
+            "SELECT performer, MAX(id) AS latest_id FROM plays "
+            "WHERE singer_id IS NULL GROUP BY performer ORDER BY latest_id"
+        )
+        for row in rows:
+            singer_id = self.get_or_create(row["performer"])
+            self.db.execute(
+                "UPDATE plays SET singer_id = ? WHERE performer = ? AND singer_id IS NULL",
+                (singer_id, row["performer"]),
             )
-            """)
-        self.db.execute("""
-            UPDATE plays SET singer_id = (
-                SELECT id FROM singers WHERE name = plays.performer COLLATE NOCASE
-            )
-            WHERE singer_id IS NULL
-            """)
 
     # ------------------------------------------------------------------
     # Favourites
