@@ -14,6 +14,7 @@ from pikaraoke.lib.file_resolver import find_ass_file
 from pikaraoke.lib.lyrics import (
     LRC_LEAD_S,
     best_alignment,
+    by_artist_in,
     cjk_title,
     lrc_to_ass,
     pick_by_duration,
@@ -185,7 +186,7 @@ class SongPreparer:
         results = search_lyrics(query)
         title = cjk_title(query) if not results else None
         if title:
-            query, results = title, search_lyrics(title)
+            query, results = title, by_artist_in(search_lyrics(title), query)
         lyrics = self._choose_lyrics(song_path, query, results)
         if lyrics is None:
             logging.info(f"No lyrics fit '{query}'")

@@ -12,6 +12,7 @@ from pikaraoke.lib.lyrics import (
     MIN_ALIGNMENT_AGREEMENT,
     align_lyrics,
     best_alignment,
+    by_artist_in,
     cjk_title,
     has_approximate_timing,
     lrc_to_ass,
@@ -126,9 +127,26 @@ class TestCjkTitle:
     def test_takes_the_title_after_the_artist(self):
         assert cjk_title("陳奕迅 - 沙龍") == "沙龍"
 
+    def test_a_marked_title_beats_a_longer_artist_name(self):
+        assert cjk_title("薛之謙 Joker Xue【演員】") == "演員"
+        assert cjk_title("周杰倫 Jay Chou《稻香》") == "稻香"
+
     def test_nothing_new_to_search_for(self):
         assert cjk_title("夏夜晴朗的晚上") is None
         assert cjk_title("Maroon 5 - Sugar") is None
+
+
+class TestByArtistIn:
+    RESULTS = [
+        {"artistName": "田馥甄", "trackName": "演員"},
+        {"artistName": "Joker Xue", "trackName": "演員"},
+    ]
+
+    def test_keeps_the_artist_the_video_names(self):
+        assert by_artist_in(self.RESULTS, "薛之謙 Joker Xue【演員】") == [self.RESULTS[1]]
+
+    def test_keeps_all_when_no_artist_is_named(self):
+        assert by_artist_in(self.RESULTS, "演員 MV") == self.RESULTS
 
 
 class TestApproximateTiming:

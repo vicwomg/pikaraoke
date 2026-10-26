@@ -51,6 +51,8 @@ APPROXIMATE_TIMING_NOTE = "; PiKaraoke: timed automatically, may be off"
 
 # A run of Chinese, Japanese or Korean characters.
 _CJK_RUN_RE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]{2,}")
+# The marks Chinese and Japanese uploads put around a song's title.
+_TITLE_MARKS_RE = re.compile(r"【([^】]+)】|《([^》]+)》|「([^」]+)」")
 
 _TIMESTAMP_RE = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
 
@@ -215,11 +217,25 @@ def cjk_title(query: str) -> str | None:
 
     Chinese uploads often surround the title with the artist's names in two scripts
     and an English translation, which no LRCLIB search matches as a whole. The
-    title is usually the longest run of CJK characters, after the artist's dash if any.
+    title is the one in title marks such as 【】, or else usually the longest run
+    of CJK characters, after the artist's dash if any.
     """
-    runs = _CJK_RUN_RE.findall(query.rsplit(" - ", 1)[-1])
+    marked = [m for groups in _TITLE_MARKS_RE.findall(query) for m in groups if m]
+    runs = [run for m in marked for run in _CJK_RUN_RE.findall(m)]
+    if not runs:
+        runs = _CJK_RUN_RE.findall(query.rsplit(" - ", 1)[-1])
     title = max(runs, key=len) if runs else None
     return title if title and title != query.strip() else None
+
+
+def by_artist_in(results: list[dict], text: str) -> list[dict]:
+    """The results by an artist named in `text`, or all of them if none is.
+
+    A search by title alone finds every singer's song of that name.
+    """
+    lowered = text.lower()
+    named = [r for r in results if r.get("artistName") and r["artistName"].lower() in lowered]
+    return named or results
 
 
 def pick_by_duration(results: list[dict], duration: float) -> str | None:
