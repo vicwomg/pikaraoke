@@ -41,14 +41,19 @@ def preparer(events, prefs):
 
 def _run_pending(preparer: SongPreparer) -> None:
     """Drain the queue the way the worker greenlet would, without spawning it."""
-    while not preparer._pending.empty():
-        preparer._prepare_next()
+    for lane in preparer._lanes:
+        while not lane.pending.empty():
+            preparer._prepare_next(lane)
+
+
+def _pending(preparer: SongPreparer) -> int:
+    return sum(lane.pending.qsize() for lane in preparer._lanes)
 
 
 class TestPrepare:
     def test_nothing_queued_when_both_features_are_off(self, preparer):
         preparer.prepare("/songs/a.mp4")
-        assert preparer._pending.empty()
+        assert _pending(preparer) == 0
 
     @patch("pikaraoke.lib.song_preparer.search_lyrics", side_effect=RuntimeError("boom"))
     def test_one_failing_song_does_not_stop_the_next(self, mock_fetch, preparer, prefs, tmp_path):
@@ -59,19 +64,19 @@ class TestPrepare:
         preparer.prepare(second)
         _run_pending(preparer)
         assert mock_fetch.call_count == 2
-        assert not preparer._waiting
+        assert preparer.progress(first) is None
 
     def test_a_song_waits_in_line_only_once(self, preparer, prefs):
         prefs.set("auto_lyrics", True)
         preparer.prepare("/songs/a.mp4")
         preparer.prepare("/songs/a.mp4")
-        assert preparer._pending.qsize() == 1
+        assert _pending(preparer) == 1
 
     @patch("pikaraoke.lib.song_preparer.is_vocal_removal_available", return_value=False)
     def test_vocal_removal_needs_the_extra_installed(self, mock_available, preparer, prefs):
         prefs.set("vocal_removal", True)
         preparer.prepare("/songs/a.mp4")
-        assert preparer._pending.empty()
+        assert _pending(preparer) == 0
 
     @patch("pikaraoke.lib.song_preparer.search_lyrics", return_value=[])
     def test_a_lyrics_miss_is_not_looked_up_again(self, mock_fetch, preparer, prefs, tmp_path):
@@ -80,7 +85,7 @@ class TestPrepare:
         preparer.prepare(song)
         _run_pending(preparer)
         preparer.prepare(song)
-        assert preparer._pending.empty()
+        assert _pending(preparer) == 0
         mock_fetch.assert_called_once()
 
     @patch("pikaraoke.lib.song_preparer.is_vocal_removal_available", return_value=True)
@@ -93,7 +98,26 @@ class TestPrepare:
         _run_pending(preparer)
         prefs.set("vocal_removal", True)
         preparer.prepare(song)
-        assert preparer._pending.qsize() == 1
+        assert _pending(preparer) == 1
+
+    @patch("pikaraoke.lib.song_preparer.is_vocal_removal_available", return_value=True)
+    @patch("pikaraoke.lib.song_preparer.search_lyrics", return_value=[])
+    def test_lyrics_do_not_wait_behind_a_separation(
+        self, mock_search, mock_available, preparer, prefs, tmp_path
+    ):
+        prefs.set("vocal_removal", True)
+        prefs.set("auto_lyrics", True)
+        first = str(tmp_path / "Artist - One---abcdefghijk.mp4")
+        second = str(tmp_path / "Artist - Two---abcdefghijk.mp4")
+        preparer.prepare(first)
+        preparer.prepare(second)
+
+        while not preparer._lyrics.pending.empty():
+            preparer._prepare_next(preparer._lyrics)
+
+        assert mock_search.call_count == 2
+        assert preparer._separation.pending.qsize() == 2
+        assert preparer.progress(second) == {"task": "waiting", "remaining_s": None}
 
 
 class TestProgress:
@@ -108,8 +132,8 @@ class TestProgress:
         updates = []
         events.on("preparation_update", lambda: updates.append(preparer.progress("/s/a.mp4")))
 
-        preparer._set_working("vocals", "/s/a.mp4")
-        preparer._set_working(None, "/s/a.mp4")
+        preparer._set_working(preparer._separation, "vocals", "/s/a.mp4")
+        preparer._set_working(preparer._separation, None, "/s/a.mp4")
 
         assert updates == [{"task": "vocals", "remaining_s": None}, None]
 
@@ -120,13 +144,13 @@ class TestProgress:
     ):
         song = str(tmp_path / "Title---abcdefghijk.mp4")
         mock_clock.return_value = 1000.0
-        preparer._set_working("vocals", song)
+        preparer._set_working(preparer._separation, "vocals", song)
         mock_clock.return_value = 1160.0  # 160s for 200s of song
         with patch("pikaraoke.lib.song_preparer.separate_vocals", return_value=True):
             preparer._add_instrumental(song)
 
         other = str(tmp_path / "Other---abcdefghijk.mp4")
-        preparer._set_working("vocals", other)
+        preparer._set_working(preparer._separation, "vocals", other)
         mock_clock.return_value = 1200.0
 
         assert preparer.progress(other) == {"task": "vocals", "remaining_s": 120}
@@ -262,6 +286,23 @@ class TestAddLyrics:
         preparer._add_lyrics(str(tmp_path / "Artist - Title.mp3"))
         mock_fetch.assert_not_called()
 
+    @patch("pikaraoke.lib.song_preparer.get_media_duration", return_value=200.0)
+    def test_lyrics_written_meanwhile_are_kept(self, mock_duration, preparer, events, tmp_path):
+        song = tmp_path / "Artist - Title---abcdefghijk.mp4"
+        ass = tmp_path / "Artist - Title---abcdefghijk.ass"
+        ready = []
+        events.on("lyrics_ready", ready.append)
+
+        def search(query):
+            ass.write_text("written meanwhile")
+            return [{"duration": 200.0, "syncedLyrics": LRC}]
+
+        with patch("pikaraoke.lib.song_preparer.search_lyrics", side_effect=search):
+            preparer._add_lyrics(str(song))
+
+        assert ass.read_text() == "written meanwhile"
+        assert ready == []
+
 
 class TestAddInstrumental:
     @patch("pikaraoke.lib.song_preparer.separate_vocals", return_value=True)
@@ -380,4 +421,4 @@ class TestRemoveAllVocals:
     @patch("pikaraoke.lib.song_preparer.has_all_vocals_removed", return_value=True)
     def test_nothing_to_do_for_a_track_already_without_them(self, mock_removed, preparer):
         assert preparer.remove_all_vocals("/songs/a.mp4") is False
-        assert preparer._pending.empty()
+        assert _pending(preparer) == 0

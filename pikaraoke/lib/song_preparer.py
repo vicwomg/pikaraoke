@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from queue import Queue
 
 from gevent import Greenlet, spawn
@@ -46,12 +47,25 @@ from pikaraoke.lib.vocal_remover import (
 _SUBTITLED_EXTENSIONS = (".mp4", ".webm", ".mkv", ".mov", ".avi")
 
 
-class SongPreparer:
-    """Readies songs as they are queued, one at a time, ahead of their turn.
+@dataclass
+class _Lane:
+    """One line of songs waiting for one kind of task, worked one song at a time."""
 
-    Serial on purpose: a separation takes a CPU-minute or more, and two at once
-    would only finish both later. Each task is attempted once per song per run,
-    so a lyrics miss is not looked up again every time the queue changes.
+    tasks: tuple[str, ...]
+    pending: Queue = field(default_factory=Queue)
+    waiting: set[str] = field(default_factory=set)
+    # The task under way, as (task, song).
+    working: tuple[str, str] | None = None
+
+
+class SongPreparer:
+    """Readies songs as they are queued, ahead of their turn.
+
+    Separations run one at a time: one takes a CPU-minute or more, and two at
+    once would only finish both later. Lyrics take seconds to look up, so they
+    have their own lane rather than waiting behind separations. Each task is
+    attempted once per song per run, so a lyrics miss is not looked up again
+    every time the queue changes.
     """
 
     def __init__(
@@ -63,28 +77,30 @@ class SongPreparer:
         self._events = events
         self._preferences = preferences
         self._filename_from_path = filename_from_path
-        self._pending: Queue = Queue()
-        self._waiting: set[str] = set()
+        self._separation = _Lane(("vocals", "all_vocals"))
+        self._lyrics = _Lane(("lyrics",))
         self._attempted: set[tuple[str, str]] = set()
         # Songs someone asked to have every voice taken out of, backing vocals included.
         self._all_vocals_requested: set[str] = set()
         # Whether a song's instrumental has every voice out, read from the file once.
         self._all_vocals_removed: dict[str, bool] = {}
-        self._worker: Greenlet | None = None
-        # The task under way, as (task, song), and when it started.
-        self._working: tuple[str, str] | None = None
+        self._workers: list[Greenlet] = []
+        # When the separation under way started, and the length of its song.
         self._working_since = 0.0
         self._working_duration: float | None = None
         # Seconds a separation takes per second of song, from the last one; None until then.
         self._separation_rate: float | None = None
 
     def start(self) -> None:
-        """Start the worker greenlet."""
-        self._worker = spawn(self._process_queue)
+        """Start a worker greenlet for each lane."""
+        self._workers = [spawn(self._process_lane, lane) for lane in self._lanes]
 
-    def _due_tasks(self, song_path: str) -> list[str]:
+    @property
+    def _lanes(self) -> tuple[_Lane, _Lane]:
+        return self._separation, self._lyrics
+
+    def _due_tasks(self, song_path: str, lane: _Lane) -> list[str]:
         tasks = []
-        # Vocals first: the separated lead vocal is what lyrics are aligned against.
         # A song already having the result is skipped, so it is not shown waiting.
         if (
             self._preferences.get_or_default("vocal_removal")
@@ -96,14 +112,14 @@ class SongPreparer:
             tasks.append("lyrics")
         if song_path in self._all_vocals_requested:
             tasks.append("all_vocals")
-        return [t for t in tasks if (t, song_path) not in self._attempted]
+        return [t for t in tasks if t in lane.tasks and (t, song_path) not in self._attempted]
 
     def prepare(self, song_path: str) -> None:
         """Queue a song for whatever preparation is enabled and not yet tried."""
-        if song_path in self._waiting or not self._due_tasks(song_path):
-            return
-        self._waiting.add(song_path)
-        self._pending.put(song_path)
+        for lane in self._lanes:
+            if song_path not in lane.waiting and self._due_tasks(song_path, lane):
+                lane.waiting.add(song_path)
+                lane.pending.put(song_path)
 
     def remove_all_vocals(self, song_path: str) -> bool:
         """Separate a song again with every voice taken out, backing vocals included.
@@ -130,37 +146,42 @@ class SongPreparer:
 
         `task` is "vocals" or "lyrics" while under way, or "waiting" while songs ahead
         of it are prepared. A separation also gives `remaining_s` once one has been timed.
+        A separation is the one shown when both are under way: it is the long one.
         """
-        if self._working is not None and self._working[1] == song_path:
-            # Singers see one "removing vocals", however many passes it takes.
-            task = "vocals" if self._working[0] == "all_vocals" else self._working[0]
+        if self._separation.working and self._separation.working[1] == song_path:
+            if self._separation.working[0] == "lyrics":
+                return {"task": "lyrics", "remaining_s": None}
             remaining = None
-            if task == "vocals" and self._separation_rate and self._working_duration:
+            if self._separation_rate and self._working_duration:
                 elapsed = time.monotonic() - self._working_since
                 remaining = max(0, round(self._working_duration * self._separation_rate - elapsed))
-            return {"task": task, "remaining_s": remaining}
-        if song_path in self._waiting:
+            # Singers see one "removing vocals", however many passes it takes.
+            return {"task": "vocals", "remaining_s": remaining}
+        if self._lyrics.working and self._lyrics.working[1] == song_path:
+            return {"task": "lyrics", "remaining_s": None}
+        if any(song_path in lane.waiting for lane in self._lanes):
             return {"task": "waiting", "remaining_s": None}
         return None
 
-    def _set_working(self, task: str | None, song_path: str) -> None:
-        self._working = (task, song_path) if task else None
-        self._working_since = time.monotonic()
-        separating = task in ("vocals", "all_vocals")
-        self._working_duration = get_media_duration(song_path) if separating else None
+    def _set_working(self, lane: _Lane, task: str | None, song_path: str) -> None:
+        lane.working = (task, song_path) if task else None
+        if lane is self._separation:
+            self._working_since = time.monotonic()
+            separating = task in self._separation.tasks
+            self._working_duration = get_media_duration(song_path) if separating else None
         self._events.emit("preparation_update")
 
-    def _process_queue(self) -> None:
+    def _process_lane(self, lane: _Lane) -> None:
         while True:
-            self._prepare_next()
+            self._prepare_next(lane)
 
-    def _prepare_next(self) -> None:
-        """Take the next waiting song and run its due tasks."""
-        song_path = self._pending.get()
+    def _prepare_next(self, lane: _Lane) -> None:
+        """Take the lane's next waiting song and run its due tasks."""
+        song_path = lane.pending.get()
         try:
-            for task in self._due_tasks(song_path):
+            for task in self._due_tasks(song_path, lane):
                 self._attempted.add((task, song_path))
-                self._set_working(task, song_path)
+                self._set_working(lane, task, song_path)
                 if task == "lyrics":
                     self._add_lyrics(song_path)
                 elif task == "all_vocals":
@@ -171,8 +192,8 @@ class SongPreparer:
             # Deliberately broad: one bad song must not stop the worker for the rest.
             logging.error(f"Error preparing {song_path}: {e}")
         finally:
-            self._waiting.discard(song_path)
-            self._set_working(None, song_path)
+            lane.waiting.discard(song_path)
+            self._set_working(lane, None, song_path)
 
     def _add_lyrics(self, song_path: str) -> None:
         base, ext = os.path.splitext(song_path)
@@ -192,8 +213,12 @@ class SongPreparer:
             logging.info(f"No lyrics fit '{query}'")
             return
         lrc, offset, approximate = lyrics
-        with open(ass_path, "w", encoding="utf-8") as f:
-            f.write(lrc_to_ass(lrc, offset, approximate))
+        try:
+            # Exclusive: lyrics written meanwhile, by the other lane or by hand, are kept.
+            with open(ass_path, "x", encoding="utf-8") as f:
+                f.write(lrc_to_ass(lrc, offset, approximate))
+        except FileExistsError:
+            return
         self._events.emit("lyrics_ready", song_path)
 
     def _choose_lyrics(
@@ -249,7 +274,7 @@ class SongPreparer:
             if ("lyrics", song_path) in self._attempted and self._preferences.get_or_default(
                 "auto_lyrics"
             ):
-                self._set_working("lyrics", song_path)
+                self._set_working(self._separation, "lyrics", song_path)
                 self._add_lyrics(song_path)
 
     def _lead_left_in(self, song_path: str) -> bool:
