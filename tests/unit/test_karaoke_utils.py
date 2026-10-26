@@ -1,5 +1,7 @@
 """Unit tests for Karaoke utility methods."""
 
+from unittest.mock import patch
+
 
 class TestConvertPreferenceValue:
     """Tests for the _convert_value method (now in PreferenceManager)."""
@@ -588,6 +590,36 @@ class TestDeferCurrent:
 
         assert k.playback_controller.skipped_reasons == []
         assert k.queue_manager.queue == []
+
+
+class TestRemoveAllVocals:
+    """Taking the backing vocals out too, for a lead the karaoke track kept."""
+
+    def _play_instrumental(self, k, tmp_path):
+        song = tmp_path / "Artist - Song---abc123.mp4"
+        (tmp_path / "Artist - Song---abc123.instrumental.m4a").write_bytes(b"aac")
+        k.playback_controller.now_playing = "Artist - Song"
+        k.playback_controller.now_playing_filename = str(song)
+        k.playback_controller.now_playing_instrumental = True
+        return str(song)
+
+    @patch("pikaraoke.lib.song_preparer.has_all_vocals_removed", return_value=False)
+    def test_offered_while_the_karaoke_track_plays_until_asked(
+        self, mock_removed, mock_karaoke_with_songs, tmp_path
+    ):
+        k = mock_karaoke_with_songs
+        song = self._play_instrumental(k, tmp_path)
+        assert k.get_now_playing()["all_vocals_removable"] is True
+
+        assert k.remove_all_vocals() is True
+
+        assert k.get_now_playing()["all_vocals_removable"] is False
+        assert k.song_preparer.progress(song) == {"task": "waiting", "remaining_s": None}
+
+    def test_nothing_to_redo_without_an_instrumental(self, mock_karaoke_with_songs):
+        k = mock_karaoke_with_songs
+        k.playback_controller.now_playing_filename = "/songs/Artist - Song---abc123.mp4"
+        assert k.remove_all_vocals() is False
 
 
 class TestShowNewLyrics:

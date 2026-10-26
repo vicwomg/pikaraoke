@@ -5,9 +5,12 @@ import subprocess
 from unittest.mock import patch
 
 from pikaraoke.lib.vocal_remover import (
+    ALL_VOCALS_MODEL,
+    ALL_VOCALS_REMOVED_TAG,
     SEPARATION_MODEL,
     _separation_command,
     find_instrumental,
+    has_all_vocals_removed,
     instrumental_path,
     separate_vocals,
 )
@@ -31,7 +34,7 @@ class TestInstrumentalPath:
 class TestSeparationCommand:
     @patch("pikaraoke.lib.vocal_remover.get_data_directory", return_value="/data")
     def test_uses_the_karaoke_model_kept_with_app_data(self, mock_data_dir):
-        cmd = _separation_command("/songs/a.mp4", "/tmp/out")
+        cmd = _separation_command("/songs/a.mp4", "/tmp/out", SEPARATION_MODEL)
         assert cmd[cmd.index("-m") + 1] == SEPARATION_MODEL
         assert cmd[cmd.index("--output_dir") + 1] == "/tmp/out"
         assert cmd[cmd.index("--model_file_dir") + 1] == os.path.join("/data", "separation-models")
@@ -105,3 +108,30 @@ class TestSeparateVocals:
         with patch("pikaraoke.lib.vocal_remover._run", side_effect=run):
             assert separate_vocals(str(song)) is False
         assert sorted(os.listdir(tmp_path)) == ["Title---abc.mp4"]
+
+    def test_removing_all_vocals_uses_the_full_model_and_marks_the_track(self, tmp_path):
+        song = tmp_path / "Title---abc.mp4"
+        song.write_bytes(b"video")
+        calls = []
+
+        def run(cmd):
+            calls.append(cmd)
+            return self._fake_run()(cmd)
+
+        with patch("pikaraoke.lib.vocal_remover._run", side_effect=run):
+            assert separate_vocals(str(song), keep_backing=False) is True
+        separate, encode_instrumental = calls[1], calls[-1]
+        assert separate[separate.index("-m") + 1] == ALL_VOCALS_MODEL
+        assert f"comment={ALL_VOCALS_REMOVED_TAG}" in encode_instrumental
+
+
+class TestHasAllVocalsRemoved:
+    def test_reads_the_mark_on_the_instrumental(self, tmp_path):
+        song = str(tmp_path / "Title---abc.mp4")
+        assert has_all_vocals_removed(song) is False
+        (tmp_path / "Title---abc.instrumental.m4a").write_bytes(b"aac")
+        probe = {"format": {"tags": {"comment": ALL_VOCALS_REMOVED_TAG}}}
+        with patch("pikaraoke.lib.vocal_remover.ffmpeg.probe", return_value=probe):
+            assert has_all_vocals_removed(song) is True
+        with patch("pikaraoke.lib.vocal_remover.ffmpeg.probe", return_value={"format": {}}):
+            assert has_all_vocals_removed(song) is False

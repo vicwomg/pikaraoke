@@ -17,6 +17,13 @@ def _name(path: str, remove_youtube_id: bool = False) -> str:
     return os.path.basename(path).rsplit("---", 1)[0]
 
 
+@pytest.fixture(autouse=True)
+def no_recognizer():
+    """Keep the real recognizer out of tests that do not ask for it."""
+    with patch("pikaraoke.lib.song_preparer.is_transcription_available", return_value=False):
+        yield
+
+
 @pytest.fixture
 def prefs(tmp_path):
     return PreferenceManager(str(tmp_path / "config.ini"))
@@ -297,3 +304,65 @@ class TestAddInstrumental:
     def test_skips_zipped_cdg(self, mock_separate, preparer):
         preparer._add_instrumental("/songs/Title.zip")
         mock_separate.assert_not_called()
+
+
+def _write_stems(song_path: str, keep_backing: bool = True) -> bool:
+    base = os.path.splitext(song_path)[0]
+    for suffix in (".vocals.m4a", ".instrumental.m4a"):
+        with open(base + suffix, "wb") as f:
+            f.write(b"aac")
+    return True
+
+
+class TestLeadLeftIn:
+    @patch("pikaraoke.lib.song_preparer.is_transcription_available", return_value=True)
+    @patch("pikaraoke.lib.song_preparer.lead_vocal_left_in", return_value=True)
+    @patch("pikaraoke.lib.song_preparer.transcribe_words", return_value=[("要", 1.0)])
+    @patch("pikaraoke.lib.song_preparer.separate_vocals")
+    def test_a_lead_left_in_the_karaoke_track_takes_all_vocals_out(
+        self, mock_separate, mock_transcribe, mock_left_in, mock_available, preparer, tmp_path
+    ):
+        song = str(tmp_path / "Title---abcdefghijk.mp4")
+        mock_separate.side_effect = _write_stems
+
+        preparer._add_instrumental(song)
+
+        assert mock_transcribe.call_args.kwargs == {"in_music": True}
+        assert mock_separate.call_args_list[-1] == ((song,), {"keep_backing": False})
+
+    @patch("pikaraoke.lib.song_preparer.is_transcription_available", return_value=True)
+    @patch("pikaraoke.lib.song_preparer.lead_vocal_left_in", return_value=False)
+    @patch("pikaraoke.lib.song_preparer.transcribe_words", return_value=[])
+    @patch("pikaraoke.lib.song_preparer.separate_vocals")
+    def test_a_clean_karaoke_track_is_kept(
+        self, mock_separate, mock_transcribe, mock_left_in, mock_available, preparer, tmp_path
+    ):
+        song = str(tmp_path / "Title---abcdefghijk.mp4")
+        mock_separate.side_effect = _write_stems
+
+        preparer._add_instrumental(song)
+
+        mock_separate.assert_called_once_with(song)
+
+
+class TestRemoveAllVocals:
+    @patch("pikaraoke.lib.song_preparer.has_all_vocals_removed", return_value=False)
+    @patch("pikaraoke.lib.song_preparer.separate_vocals", return_value=True)
+    def test_separates_again_without_backing_vocals_once(
+        self, mock_separate, mock_removed, preparer, events
+    ):
+        done = []
+        events.on("all_vocals_removed", done.append)
+
+        assert preparer.remove_all_vocals("/songs/a.mp4") is True
+        assert preparer.remove_all_vocals("/songs/a.mp4") is False
+        assert preparer.all_vocals_removable("/songs/a.mp4") is False
+        _run_pending(preparer)
+
+        mock_separate.assert_called_once_with("/songs/a.mp4", keep_backing=False)
+        assert done == ["/songs/a.mp4"]
+
+    @patch("pikaraoke.lib.song_preparer.has_all_vocals_removed", return_value=True)
+    def test_nothing_to_do_for_a_track_already_without_them(self, mock_removed, preparer):
+        assert preparer.remove_all_vocals("/songs/a.mp4") is False
+        assert preparer._pending.empty()

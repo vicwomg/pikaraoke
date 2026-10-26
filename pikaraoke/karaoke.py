@@ -330,6 +330,7 @@ class Karaoke:
         self.song_preparer.start()
         self.events.on("queue_update", self.prepare_queued_songs)
         self.events.on("instrumental_ready", self._announce_instrumental)
+        self.events.on("all_vocals_removed", self._announce_all_vocals_removed)
         self.events.on("lyrics_ready", self._show_new_lyrics)
         self.events.on("preparation_update", self._broadcast_preparation)
 
@@ -647,6 +648,31 @@ class Karaoke:
             )
             self.update_now_playing_socket()
 
+    def remove_all_vocals(self) -> bool:
+        """Take the backing vocals out of the playing song's instrumental too.
+
+        For when the lead can still be heard in it. False when there is no
+        instrumental yet, or it is already done or under way.
+        """
+        pc = self.playback_controller
+        if not pc.instrumental_available or not self.song_preparer.remove_all_vocals(
+            pc.now_playing_filename
+        ):
+            return False
+        # MSG: Message shown after asking to take every voice out of the playing song's instrumental
+        self.log_and_send(_("Removing all vocals: %s") % pc.now_playing)
+        self.update_now_playing_socket()
+        return True
+
+    def _announce_all_vocals_removed(self, song_path: str) -> None:
+        if song_path == self.playback_controller.now_playing_filename:
+            # MSG: Message shown when every voice is out of the playing song's instrumental. It is heard from the song's next play.
+            self.log_and_send(
+                _("All vocals removed, from the next play: %s")
+                % self.playback_controller.now_playing,
+                "success",
+            )
+
     def _broadcast_preparation(self) -> None:
         """Refresh the queue and player controls, which show what is being prepared."""
         if self.socketio:
@@ -773,6 +799,11 @@ class Karaoke:
         return {
             **playback_state,
             "now_playing_preparing": self.song_preparer.progress(filename) if filename else None,
+            # Offered while the karaoke track plays, for a lead it left in.
+            "all_vocals_removable": bool(
+                self.playback_controller.now_playing_instrumental
+                and self.song_preparer.all_vocals_removable(filename)
+            ),
             "up_next": next_song["title"] if next_song else None,
             "up_next_preparing": (
                 self.song_preparer.progress(next_song["file"]) if next_song else None

@@ -76,6 +76,13 @@ def vocals(state):
     return jsonify({"success": True})
 
 
+@controller_bp.route("/api/vocals/remove_all", methods=["POST"])
+def remove_all_vocals():
+    """Take the backing vocals out of the playing song's instrumental too."""
+    k = get_karaoke_instance()
+    return jsonify({"success": k.remove_all_vocals()})
+
+
 # One press moves lyrics by a fraction of a second; anything bigger is a mistake.
 MAX_LYRICS_SHIFT_S = 5.0
 

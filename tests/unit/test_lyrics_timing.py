@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pikaraoke.lib.lyrics import parse_lrc
-from pikaraoke.lib.lyrics_timing import time_plain_lyrics, transcribe_words
+from pikaraoke.lib.lyrics_timing import (
+    lead_vocal_left_in,
+    time_plain_lyrics,
+    transcribe_words,
+)
 
 
 def _heard(*phrases: tuple[float, str]) -> list[tuple[str, float]]:
@@ -103,3 +107,27 @@ class TestTranscribeWords:
     def test_recognizer_failure_gives_nothing(self, mock_popen, mock_spare):
         mock_popen.return_value = self._process(1, "")
         assert transcribe_words("/songs/a.vocals.m4a") is None
+
+
+class TestLeadVocalLeftIn:
+    def test_line_after_line_of_lyrics_is_a_lead_left_in(self):
+        heard = _heard(
+            *((90.0 + 4 * i, line) for i, line in enumerate(["要是能重来", "我要选李白"] * 3)),
+            (130.0, "几百年前做的好坏"),
+            (134.0, "没那么多人猜"),
+            (138.0, "至少我还能写写诗来澎湃"),
+        )
+        assert lead_vocal_left_in(heard) is True
+
+    def test_a_stock_phrase_invented_in_plain_music_is_not(self):
+        assert lead_vocal_left_in(_heard((120.0, "ご視聴ありがとうございました"))) is False
+        assert lead_vocal_left_in(_heard(*((30.0 * i, "thank you") for i in range(8)))) is False
+
+    @patch("pikaraoke.lib.lyrics_timing.use_spare_capacity")
+    @patch("pikaraoke.lib.lyrics_timing.subprocess.Popen")
+    def test_listening_in_music_is_asked_of_the_recognizer(self, mock_popen, mock_spare):
+        process = MagicMock(returncode=0)
+        process.communicate.return_value = ("[]", "")
+        mock_popen.return_value = process
+        transcribe_words("/songs/a.instrumental.m4a", in_music=True)
+        assert mock_popen.call_args.args[0][-1] == "in-music"

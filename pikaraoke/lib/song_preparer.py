@@ -23,6 +23,7 @@ from pikaraoke.lib.lyrics import (
 )
 from pikaraoke.lib.lyrics_timing import (
     is_transcription_available,
+    lead_vocal_left_in,
     time_plain_lyrics,
     transcribe_words,
 )
@@ -35,6 +36,7 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.vocal_remover import (
     find_instrumental,
     find_vocals,
+    has_all_vocals_removed,
     is_vocal_removal_available,
     separate_vocals,
 )
@@ -63,6 +65,10 @@ class SongPreparer:
         self._pending: Queue = Queue()
         self._waiting: set[str] = set()
         self._attempted: set[tuple[str, str]] = set()
+        # Songs someone asked to have every voice taken out of, backing vocals included.
+        self._all_vocals_requested: set[str] = set()
+        # Whether a song's instrumental has every voice out, read from the file once.
+        self._all_vocals_removed: dict[str, bool] = {}
         self._worker: Greenlet | None = None
         # The task under way, as (task, song), and when it started.
         self._working: tuple[str, str] | None = None
@@ -87,6 +93,8 @@ class SongPreparer:
             tasks.append("vocals")
         if self._preferences.get_or_default("auto_lyrics") and not find_ass_file(song_path):
             tasks.append("lyrics")
+        if song_path in self._all_vocals_requested:
+            tasks.append("all_vocals")
         return [t for t in tasks if (t, song_path) not in self._attempted]
 
     def prepare(self, song_path: str) -> None:
@@ -96,6 +104,26 @@ class SongPreparer:
         self._waiting.add(song_path)
         self._pending.put(song_path)
 
+    def remove_all_vocals(self, song_path: str) -> bool:
+        """Separate a song again with every voice taken out, backing vocals included.
+
+        For a song whose lead the karaoke separation left in. False when it is
+        already done or under way.
+        """
+        if not self.all_vocals_removable(song_path):
+            return False
+        self._all_vocals_requested.add(song_path)
+        self.prepare(song_path)
+        return True
+
+    def all_vocals_removable(self, song_path: str) -> bool:
+        """Whether a song's backing vocals are still in its instrumental, and not being removed."""
+        if song_path in self._all_vocals_requested:
+            return False
+        if song_path not in self._all_vocals_removed:
+            self._all_vocals_removed[song_path] = has_all_vocals_removed(song_path)
+        return not self._all_vocals_removed[song_path]
+
     def progress(self, song_path: str) -> dict[str, str | int | None] | None:
         """What is being done for a song, for showing singers, or None if nothing is due.
 
@@ -103,7 +131,8 @@ class SongPreparer:
         of it are prepared. A separation also gives `remaining_s` once one has been timed.
         """
         if self._working is not None and self._working[1] == song_path:
-            task = self._working[0]
+            # Singers see one "removing vocals", however many passes it takes.
+            task = "vocals" if self._working[0] == "all_vocals" else self._working[0]
             remaining = None
             if task == "vocals" and self._separation_rate and self._working_duration:
                 elapsed = time.monotonic() - self._working_since
@@ -116,7 +145,8 @@ class SongPreparer:
     def _set_working(self, task: str | None, song_path: str) -> None:
         self._working = (task, song_path) if task else None
         self._working_since = time.monotonic()
-        self._working_duration = get_media_duration(song_path) if task == "vocals" else None
+        separating = task in ("vocals", "all_vocals")
+        self._working_duration = get_media_duration(song_path) if separating else None
         self._events.emit("preparation_update")
 
     def _process_queue(self) -> None:
@@ -132,6 +162,8 @@ class SongPreparer:
                 self._set_working(task, song_path)
                 if task == "lyrics":
                     self._add_lyrics(song_path)
+                elif task == "all_vocals":
+                    self._remove_all_vocals(song_path)
                 else:
                     self._add_instrumental(song_path)
         except Exception as e:
@@ -203,9 +235,13 @@ class SongPreparer:
         if is_karaoke_title(self._filename_from_path(song_path, remove_youtube_id=True)):
             return
         if separate_vocals(song_path):
+            self._all_vocals_removed.pop(song_path, None)
             if self._working_duration:
                 elapsed = time.monotonic() - self._working_since
                 self._separation_rate = elapsed / self._working_duration
+            if self._lead_left_in(song_path):
+                logging.info(f"Lead vocal left in, taking out all vocals: {song_path}")
+                separate_vocals(song_path, keep_backing=False)
             self._events.emit("instrumental_ready", song_path)
             # Lyrics tried before the vocals existed may now align where length alone did not.
             if ("lyrics", song_path) in self._attempted and self._preferences.get_or_default(
@@ -213,3 +249,18 @@ class SongPreparer:
             ):
                 self._set_working("lyrics", song_path)
                 self._add_lyrics(song_path)
+
+    def _lead_left_in(self, song_path: str) -> bool:
+        """Whether the karaoke track still has the lead singing in it.
+
+        A lead sung in stacked layers, common in pop choruses, can be taken for
+        backing vocals and kept, and recognition then hears its lyrics there.
+        """
+        if not is_transcription_available():
+            return False
+        heard = transcribe_words(find_instrumental(song_path), in_music=True)
+        return heard is not None and lead_vocal_left_in(heard)
+
+    def _remove_all_vocals(self, song_path: str) -> None:
+        if separate_vocals(song_path, keep_backing=False):
+            self._events.emit("all_vocals_removed", song_path)

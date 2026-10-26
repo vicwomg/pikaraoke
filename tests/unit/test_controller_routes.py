@@ -41,6 +41,13 @@ class TestControllerRoutes:
         mock_broadcast.assert_called_once_with("skip", "defer")
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    def test_remove_all_vocals_reports_whether_it_started(self, mock_get_instance, client):
+        mock_karaoke = MagicMock()
+        mock_get_instance.return_value = mock_karaoke
+        mock_karaoke.remove_all_vocals.return_value = True
+        assert json.loads(client.post("/api/vocals/remove_all").data) == {"success": True}
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
     def test_play_arms_manual_start(self, mock_get_instance, client):
         """POST /api/play arms the waiting song without touching the player."""
         mock_karaoke = MagicMock()

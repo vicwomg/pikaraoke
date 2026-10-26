@@ -35,6 +35,17 @@ UNPLACED_LINE_S = 3.0
 # A word heard this long after the one before it starts a new phrase.
 PHRASE_GAP_S = 1.5
 
+# Speech detection's threshold for a karaoke track: the default 0.5 skips most
+# singing under music, a lead left in included.
+IN_MUSIC_SPEECH_THRESHOLD = 0.2
+# Mean log-probability below which a recognized line is music misheard as words.
+MIN_CONFIDENT_LOGPROB = -0.7
+# Phrases and different words heard in a karaoke track that mean its lead was
+# left in. A lead left in through its choruses gave 34 phrases of 54 words; plain
+# music, at most one stock phrase of 13.
+LEFT_IN_MIN_PHRASES = 5
+LEFT_IN_MIN_WORDS = 20
+
 _WORD_RE = re.compile(r"[^\W_]+")
 
 
@@ -43,15 +54,18 @@ def is_transcription_available() -> bool:
     return importlib.util.find_spec("faster_whisper") is not None
 
 
-def transcribe_words(vocals_path: str) -> list[tuple[str, float]] | None:
-    """Each word heard in a lead vocal, with when it starts, or None on failure.
+def transcribe_words(audio_path: str, in_music: bool = False) -> list[tuple[str, float]] | None:
+    """Each word heard, with when it starts, or None on failure.
 
-    Recognition runs in its own process: it holds the CPU for tens of seconds,
-    which inside the server would stall every request.
+    `in_music` listens for singing buried in a karaoke track rather than in a
+    lead vocal, keeping only words heard with confidence. Recognition runs in its
+    own process: it holds the CPU for tens of seconds, which inside the server
+    would stall every request.
     """
     model_dir = os.path.join(get_data_directory(), "whisper-models")
+    mode = ["in-music"] if in_music else []
     process = subprocess.Popen(
-        [sys.executable, "-m", "pikaraoke.lib.lyrics_timing", vocals_path, model_dir],
+        [sys.executable, "-m", "pikaraoke.lib.lyrics_timing", audio_path, model_dir] + mode,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -64,7 +78,7 @@ def transcribe_words(vocals_path: str) -> list[tuple[str, float]] | None:
         process.kill()
         output, errors = process.communicate()
     if process.returncode != 0:
-        logging.error(f"Transcribing {vocals_path} failed: {errors[-2000:]}")
+        logging.error(f"Transcribing {audio_path} failed: {errors[-2000:]}")
         return None
     return [(word, start) for word, start in json.loads(output)]
 
@@ -162,13 +176,26 @@ def time_plain_lyrics(plain: str, words: list[tuple[str, float]]) -> str | None:
     )
 
 
-def _transcribe(vocals_path: str, model_dir: str) -> list[tuple[str, float]]:
+def lead_vocal_left_in(heard: list[tuple[str, float]]) -> bool:
+    """Whether the words heard in a karaoke track show its lead singing was left in.
+
+    Recognition invents a stock phrase or two in plain music, but a lead left in
+    gives line after line, of many different words.
+    """
+    phrases = sum(
+        1 for i, (_, start) in enumerate(heard) if i == 0 or start - heard[i - 1][1] > PHRASE_GAP_S
+    )
+    words = {token for word, _ in heard for token in _tokens(word)}
+    return phrases >= LEFT_IN_MIN_PHRASES and len(words) >= LEFT_IN_MIN_WORDS
+
+
+def _transcribe(audio_path: str, model_dir: str, in_music: bool) -> list[tuple[str, float]]:
     import numpy  # pylint: disable=import-outside-toplevel
     from faster_whisper import WhisperModel  # pylint: disable=import-outside-toplevel
 
     # Decoded by ffmpeg, which PiKaraoke already relies on to read every format.
     pcm = subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-i", vocals_path]
+        ["ffmpeg", "-loglevel", "error", "-i", audio_path]
         + ["-f", "f32le", "-ac", "1", "-ar", "16000", "-"],
         capture_output=True,
         check=True,
@@ -179,11 +206,22 @@ def _transcribe(vocals_path: str, model_dir: str) -> list[tuple[str, float]]:
         word_timestamps=True,
         # Skips the instrumental breaks, where recognition invents words.
         vad_filter=True,
+        vad_parameters={"threshold": IN_MUSIC_SPEECH_THRESHOLD} if in_music else None,
         # Each line on its own: carrying text over spreads one mishearing into a loop.
         condition_on_previous_text=False,
     )
-    return [(w.word, round(w.start, 2)) for segment in segments for w in segment.words or []]
+    return [
+        (w.word, round(w.start, 2))
+        for segment in segments
+        if not in_music or segment.avg_logprob > MIN_CONFIDENT_LOGPROB
+        for w in segment.words or []
+    ]
 
 
 if __name__ == "__main__":
-    print(json.dumps(_transcribe(sys.argv[1], sys.argv[2]), ensure_ascii=False))
+    print(
+        json.dumps(
+            _transcribe(sys.argv[1], sys.argv[2], in_music=sys.argv[3:] == ["in-music"]),
+            ensure_ascii=False,
+        )
+    )

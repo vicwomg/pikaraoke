@@ -68,6 +68,7 @@
 		$("#vocals-control").toggle(!!np.now_playing && np.instrumental_available);
 		$("#vocals-on").toggleClass("is-primary is-selected", !np.now_playing_instrumental);
 		$("#vocals-off").toggleClass("is-primary is-selected", !!np.now_playing_instrumental);
+		$("#remove-all-vocals").toggle(!!np.all_vocals_removable && !np.now_playing_preparing);
 		$("#lyrics-timing").toggle(!!np.now_playing && !!np.now_playing_subtitle_url);
 		$("#lyrics-approximate").toggle(!!np.lyrics_approximate);
 		showPreparing(np);
@@ -183,6 +184,10 @@
 			if (r) {
 				$.post(window.pikaraokeConfig.basePath + "/api/vocals/" + $(this).data("vocals"));
 			}
+		});
+
+		$("#remove-all-vocals-btn").click(function () {
+			$.post(window.pikaraokeConfig.basePath + "/api/vocals/remove_all");
 		});
 
 		$("#defer-song").click(function () {
@@ -391,6 +396,12 @@
 				{# MSG: Button that plays the song's instrumental track, with the vocals removed. #}
 				<button id="vocals-off" class="button is-small vocals-toggle mb-0" data-vocals="off">{% trans %}Instrumental{% endtrans %}</button>
 			</div>
+		</div>
+		<div id="remove-all-vocals" class="is-flex is-justify-content-space-between is-align-items-center mt-2" style="display: none">
+			{# MSG: Question beside a button, for when the singer can still be heard in the instrumental. #}
+			<span class="help mt-0">{% trans %}Still hear the singer?{% endtrans %}</span>
+			{# MSG: Button that removes every voice from the instrumental, backing vocals too. #}
+			<button id="remove-all-vocals-btn" class="button is-small mb-0">{% trans %}Remove all vocals{% endtrans %}</button>
 		</div>
 	</div>
 
