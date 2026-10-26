@@ -297,6 +297,7 @@ def test_preference_manager_defaults_exist():
         "itunes_search_country",
         "suggestion_name_order",
         "vocal_removal",
+        "keep_backing_vocals",
         "play_instrumental",
         "auto_lyrics",
     }

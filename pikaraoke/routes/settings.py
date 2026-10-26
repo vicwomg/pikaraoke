@@ -55,6 +55,7 @@ def settings():
         splash_delay=k.splash_delay,
         normalize_audio=k.normalize_audio,
         vocal_removal=k.vocal_removal,
+        keep_backing_vocals=k.keep_backing_vocals,
         vocal_removal_available=is_vocal_removal_available(),
         auto_lyrics=k.auto_lyrics,
         cdg_pixel_scaling=k.cdg_pixel_scaling,

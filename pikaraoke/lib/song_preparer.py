@@ -235,12 +235,13 @@ class SongPreparer:
         # A karaoke upload already has its vocals off; separating it spends minutes for nothing.
         if is_karaoke_title(self._filename_from_path(song_path, remove_youtube_id=True)):
             return
-        if separate_vocals(song_path):
+        keep_backing = self._preferences.get_or_default("keep_backing_vocals")
+        if separate_vocals(song_path, keep_backing=keep_backing):
             self._all_vocals_removed.pop(song_path, None)
             if self._working_duration:
                 elapsed = time.monotonic() - self._working_since
                 self._separation_rate = elapsed / self._working_duration
-            if self._lead_left_in(song_path):
+            if keep_backing and self._lead_left_in(song_path):
                 logging.info(f"Lead vocal left in, taking out all vocals: {song_path}")
                 separate_vocals(song_path, keep_backing=False)
             self._events.emit("instrumental_ready", song_path)

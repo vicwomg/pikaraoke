@@ -58,6 +58,7 @@ class PreferenceManager:
         "itunes_search_country": "US",
         "suggestion_name_order": "artist_title",
         "vocal_removal": False,
+        "keep_backing_vocals": True,
         "play_instrumental": True,
         "auto_lyrics": False,
     }

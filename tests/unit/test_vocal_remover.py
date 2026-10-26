@@ -65,7 +65,7 @@ class TestSeparateVocals:
         song = tmp_path / "Title---abc.mp4"
         song.write_bytes(b"video")
         with patch("pikaraoke.lib.vocal_remover._run", side_effect=self._fake_run()):
-            assert separate_vocals(str(song)) is True
+            assert separate_vocals(str(song), keep_backing=True) is True
         assert sorted(os.listdir(tmp_path)) == [
             "Title---abc.instrumental.m4a",
             "Title---abc.mp4",
@@ -82,7 +82,7 @@ class TestSeparateVocals:
             return self._fake_run()(cmd)
 
         with patch("pikaraoke.lib.vocal_remover._run", side_effect=run):
-            separate_vocals(str(song))
+            separate_vocals(str(song), keep_backing=True)
         extract, separate = calls[0], calls[1]
         assert extract[extract.index("-i") + 1] == str(song)
         assert separate[-1] == extract[-1]
@@ -91,7 +91,7 @@ class TestSeparateVocals:
         song = tmp_path / "Title---abc.mp4"
         song.write_bytes(b"video")
         with patch("pikaraoke.lib.vocal_remover._run", side_effect=self._fake_run(separation_rc=1)):
-            assert separate_vocals(str(song)) is False
+            assert separate_vocals(str(song), keep_backing=True) is False
         assert sorted(os.listdir(tmp_path)) == ["Title---abc.mp4"]
 
     def test_encode_failure_leaves_no_partial_track(self, tmp_path):
@@ -106,7 +106,7 @@ class TestSeparateVocals:
             return result
 
         with patch("pikaraoke.lib.vocal_remover._run", side_effect=run):
-            assert separate_vocals(str(song)) is False
+            assert separate_vocals(str(song), keep_backing=True) is False
         assert sorted(os.listdir(tmp_path)) == ["Title---abc.mp4"]
 
     def test_removing_all_vocals_uses_the_full_model_and_marks_the_track(self, tmp_path):

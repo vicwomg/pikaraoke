@@ -455,9 +455,17 @@
 					<span>
 						{# MSG: Checkbox label which enables AI separation of the vocals from queued songs #} {% trans %}Remove vocals from queued songs{% endtrans %}
 						{# MSG: Explanation under the vocal removal checkbox. #}
-						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Takes out the lead vocal in the background and keeps the backing vocals, so the singer can switch it off from the player controls. Uses a lot of CPU, and downloads a 900MB model the first time.{% endtrans %}</span>
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Takes out the vocals in the background, so the singer can switch them off from the player controls. Uses a lot of CPU, and downloads a model of up to 900MB the first time.{% endtrans %}</span>
 					</span>
 					<input id="pref-vocal-removal" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="vocal_removal" {% if vocal_removal == True %}checked{% endif %}>
+				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label which keeps the backing vocals when removing vocals from songs #} {% trans %}Keep backing vocals{% endtrans %}
+						{# MSG: Explanation under the keep backing vocals checkbox. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Takes out only the lead vocal. A song whose lead is still heard afterwards has all its vocals taken out instead. Off, every song loses all its vocals, which takes about twice as long. Applies to songs separated from now on.{% endtrans %}</span>
+					</span>
+					<input id="pref-keep-backing-vocals" type="checkbox" class="user-preference-checkbox checkbox ml-4 mr-0" data-pref="keep_backing_vocals" {% if keep_backing_vocals == True %}checked{% endif %}>
 				</label>
 				{% else %}
 				<div class="panel-block px-5 py-3 is-size-7 has-text-grey-light">

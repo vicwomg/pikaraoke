@@ -272,7 +272,7 @@ class TestAddInstrumental:
 
         preparer._add_instrumental(song)
 
-        mock_separate.assert_called_once_with(song)
+        mock_separate.assert_called_once_with(song, keep_backing=True)
         assert ready == [song]
 
     @patch("pikaraoke.lib.song_preparer.search_lyrics", return_value=[])
@@ -342,7 +342,22 @@ class TestLeadLeftIn:
 
         preparer._add_instrumental(song)
 
-        mock_separate.assert_called_once_with(song)
+        mock_separate.assert_called_once_with(song, keep_backing=True)
+
+    @patch("pikaraoke.lib.song_preparer.is_transcription_available", return_value=True)
+    @patch("pikaraoke.lib.song_preparer.transcribe_words")
+    @patch("pikaraoke.lib.song_preparer.separate_vocals")
+    def test_without_backing_vocals_all_come_out_with_nothing_to_check(
+        self, mock_separate, mock_transcribe, mock_available, preparer, prefs, tmp_path
+    ):
+        prefs.set("keep_backing_vocals", False)
+        song = str(tmp_path / "Title---abcdefghijk.mp4")
+        mock_separate.side_effect = _write_stems
+
+        preparer._add_instrumental(song)
+
+        mock_separate.assert_called_once_with(song, keep_backing=False)
+        mock_transcribe.assert_not_called()
 
 
 class TestRemoveAllVocals:

@@ -134,10 +134,11 @@ def _encode_beside(stem: str, target: str, comment: str | None = None) -> bool:
     return True
 
 
-def separate_vocals(song_path: str, keep_backing: bool = True) -> bool:
-    """Write the song's karaoke track and lead-vocal stem beside it. True on success.
+def separate_vocals(song_path: str, keep_backing: bool) -> bool:
+    """Write the song's karaoke track and vocal stem beside it, replacing any there.
 
-    Without `keep_backing` every voice comes out, replacing any karaoke track already there.
+    With `keep_backing` only the lead vocal comes out; otherwise every voice does.
+    True on success.
     """
     with tempfile.TemporaryDirectory(prefix="pikaraoke-separation-") as work_dir:
         # The separator reads audio files only, not the video containers songs come in.
