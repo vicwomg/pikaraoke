@@ -142,6 +142,13 @@
   }
 }
 
+/* Every data-table cell centres on its row, so an icon, a tag or a two-line wrap
+   all sit level against the text. Bulma top-aligns by default; this one rule
+   replaces the per-cell is-vcentered the row generators used to carry. */
+.table td {
+  vertical-align: middle;
+}
+
 /* Rows are told apart by the stripe, so the cell border is off. Bulma's stripe,
    a step stronger. Any hovered row takes the app's hover step. */
 .table {
@@ -215,19 +222,102 @@ a:not(.button, .navbar-item, .navbar-link, .navbar-burger, .panel-block, .delete
   opacity: 1;
 }
 
-/* Bulma puts .checkbox on the label that wraps a box, and accent-color inherits,
-   so this reaches the box either way. */
-.checkbox {
-  accent-color: var(--bulma-success);
+/* A preference that applies on click is a switch, not a checkbox. Bulma has none,
+   so it is drawn on a bare <input type="checkbox"> -- markup and :checked handlers
+   unchanged -- with the thumb as the input's ::before, green when on. */
+input.switch[type="checkbox"] {
+  appearance: none;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 2.5em;
+  height: 1.4em;
+  margin-right: 0.5em;
+  border-radius: var(--bulma-radius-rounded);
+  background-color: var(--bulma-border);
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+input.switch[type="checkbox"]::before {
+  content: "";
+  display: block;
+  width: calc(1.4em - 4px);
+  height: calc(1.4em - 4px);
+  margin: 2px;
+  border-radius: var(--bulma-radius-rounded);
+  background-color: var(--bulma-white);
+  transition: transform 0.2s ease;
+}
+input.switch[type="checkbox"]:checked {
+  background-color: var(--bulma-success);
+}
+input.switch[type="checkbox"]:checked::before {
+  transform: translateX(calc(2.5em - 1.4em));
+}
+input.switch[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--bulma-link);
+  outline-offset: 2px;
 }
 
-/* A touch target for the preference boxes, which carry .checkbox on the input
-   itself: Bulma leaves native checkboxes at the browser's size, and exposes no
-   variables for them. On a wrapping label these would inset it instead. */
-input.checkbox {
-  margin-right: 8px;
-  min-width: 20px;
-  min-height: 20px;
+/* The heading row baseline-aligns its action so a text action sits on the title's
+   baseline. A glyph action -- the autoplay switch, the bulk-rename icon -- has no
+   such baseline, so it centres on the title and centres its own glyph on its label;
+   the gap replaces the switch's default spacing. */
+.heading-action {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.heading-action input.switch[type="checkbox"] {
+  margin-right: 0;
+}
+
+/* ===================================
+   ICONS (Phosphor)
+   Every glyph is wrapped in Bulma's .icon, which flex-centres the glyph in its
+   box; a vertical-align on .icon (below) then seats that box on the adjacent
+   text -- so there is no bare <i class="ph"> to nudge and no per-glyph nudge.
+   Size is the .icon tier, the glyph sitting a little
+   inside its box so it reads a touch larger than Bulma's default.  Two bespoke
+   exceptions keep their own sizing: .sort-arrow (a sub-em header indicator the
+   1.5rem box is wrong for) and .singer-avatar (a themed slot, soon a photo).
+   =================================== */
+.ph:before {
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}
+/* .icon is inline-flex, so on its own in a line it aligns to the text baseline
+   and a box taller than the text rides high above it -- most visible on the
+   add-song plus in a browse or rankings cell. Centre the box on the text's
+   middle instead. Ignored wherever .icon is a flex item (buttons, navbar,
+   panel-block, .icon-text, the rankings wrapper), so only bare inline icons move. */
+.icon {
+  vertical-align: middle;
+}
+.icon .ph {
+  font-size: 1.25rem;
+}
+.icon.is-small .ph {
+  font-size: 1rem;
+}
+.icon.is-medium .ph {
+  font-size: 1.5rem;
+}
+.icon.is-large .ph {
+  font-size: 2rem;
+}
+/* An icon embedded in sized display text -- the singer marker and the playback
+   controls -- tracks that text's size rather than a fixed tier: the box hugs
+   the glyph and the glyph inherits the surrounding font-size (is-size-3 for the
+   controls, is-size-4 for the now-playing singer). */
+.icon.is-text-size {
+  width: auto;
+  height: auto;
+}
+.icon.is-text-size .ph {
+  font-size: 1em;
 }
 
 /* ===================================
@@ -296,6 +386,14 @@ a.navbar-item.is-active {
   display: block;
 }
 
+/* In the burger panel Bulma lays each item out as a block, so its .icon and label
+   share a text line where vertical-align leaves the icon slightly high. Flex-align
+   the item's contents to centre the icon on its label, as the desktop bar does. */
+.navbar-menu .navbar-item {
+  display: flex;
+  align-items: center;
+}
+
 /* The burger panel's chrome. Bulma scopes the background, shadow and padding to
    its touch breakpoint, so forcing burger mode on desktop would leave the panel
    see-through; re-assert them here at all widths, since the panel is a burger
@@ -323,19 +421,17 @@ a.navbar-item.is-active {
 #current-user .is-truncated {
   max-width: 8rem;
 }
-/* Avatar slot: today just the user-circle glyph, hugged like the other bar
-   icons; a later PR gives this span a fixed circular size and a cropped photo.
-   The circle fills its box where the line icons leave whitespace, so a little
-   right margin matches their visual gap to the label. */
+/* Avatar slot: today just the user-circle glyph, a cropped photo in a later PR.
+   It is its own flex wrapper rather than a Bulma .icon so the circle can fill the
+   slot edge to edge instead of sitting inside a padded box. The glyph is sized to
+   the full .icon box (1.5rem, not the 1.25rem tier) so its thin ring still reads
+   as large as the neighbouring bar icons, and it hugs its label the way they do. */
 .singer-avatar {
   display: inline-flex;
-  margin-right: 0.2rem;
+  margin-right: 0.125rem;
 }
-.singer-avatar .icon {
-  width: auto;
-}
-.singer-avatar .icon::before {
-  margin: 0;
+.singer-avatar .ph {
+  font-size: 1.5rem;
 }
 
 /* The box and the first navbar icon share one left inset, so the bar icons line
@@ -480,18 +576,10 @@ td {
   }
 }
 
-/* The cog opening a row's actions. Fontello gives every glyph side margins that
-   push it off the right edge the other cells sit flush against. */
+/* The cog opening a row's actions. The cog is an .icon.is-medium like any other
+   icon, so only the anchor's pointer cursor is set here. */
 .row-options-btn {
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1;
-}
-
-.row-options-btn .icon-cog:before {
-  margin-left: 0;
-  margin-right: 0;
 }
 
 /* The cog is deliberately dim until pointed at, so a column of them does not
@@ -585,6 +673,11 @@ td {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  input.switch[type="checkbox"],
+  input.switch[type="checkbox"]::before {
+    transition: none;
+  }
+
   .dl-bar-fill {
     transition: none;
   }

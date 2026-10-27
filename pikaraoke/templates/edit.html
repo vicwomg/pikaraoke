@@ -132,19 +132,19 @@
     <div class="buttons are-small mb-4">
       {# MSG: Label on button which applies automatic formatting to tidy the filename. #}
       <button type="button" class="button is-link" id="auto-format">
-        <span class="icon"><i class="icon-pencil"></i></span>
+        <span class="icon"><i class="ph ph-pencil-simple"></i></span>
         <span>{% trans %}Auto Format{% endtrans %}</span>
       </button>
       {# MSG: Label on button which swaps the artist and title around the dash separator. #}
       <button type="button" class="button is-link" id="swap-order">
-        <span class="icon"><i class="icon-exchange"></i></span>
+        <span class="icon"><i class="ph ph-swap"></i></span>
         <span>{% trans %}Swap Artist/Title{% endtrans %}</span>
       </button>
       <div class="field has-addons mb-0">
         <div class="control">
           {# MSG: Label on button which searches for track name suggestions from iTunes. #}
           <button type="button" class="button is-small is-info" id="suggest-title">
-            <span class="icon"><i class="icon-search-1"></i></span>
+            <span class="icon"><i class="ph ph-magnifying-glass"></i></span>
             <span>{% trans %}Suggest from iTunes{% endtrans %}</span>
           </button>
         </div>
@@ -175,12 +175,15 @@
     </div>
   </form>
   <div class="has-text-right mt-4">
-    <a class="confirm-delete-file has-text-danger"
-      href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}"><i class="icon icon-trash-empty"></i>
+    <a class="icon-text has-text-danger confirm-delete-file"
+      href="{{url_for('files.delete_file')}}?song={{url_escape(song)}}&referrer={{url_escape(referrer)}}">
+      <span class="icon"><i class="ph ph-trash"></i></span>
       {# MSG: Label on button which deletes the current song. #}
+      <span>
       {%- trans -%}
         Delete this song
       {%- endtrans -%}
+      </span>
     </a>
   </div>
 </div>

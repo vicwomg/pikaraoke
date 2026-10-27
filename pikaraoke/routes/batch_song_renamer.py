@@ -53,7 +53,7 @@ table_lines_template = """
     			href="#" data-old-name="{{ song.file }}"
 				title="{% trans %}Accept suggested name{% endtrans %}"
             {{ 'disabled' if song.is_equal or song.correct_name == none else '' }}>
-			  <i class="icon icon-ok"></i>
+			  <span class="icon"><i class="ph ph-check"></i></span>
         </a>
         </div>
     </td>
