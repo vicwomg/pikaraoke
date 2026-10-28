@@ -15,7 +15,6 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;700&display=swap">
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='phosphor/regular/style.css') }}">
-  <link rel="stylesheet" href="{{  url_for('static', filename='phosphor/fill/style.css') }}">
   <link rel="stylesheet" href="{{  url_for('static', filename='custom.css') }}">
   <link rel="icon" type="image/png" href="{{  url_for('static', filename='images/microphone.png') }}">
 
@@ -411,7 +410,6 @@
     // Shared by the row star and the options modal, so either keeps the row in step.
     window.setRowStar = function ($toggle, starred) {
       $toggle.attr("data-starred", starred ? "1" : "0");
-      $toggle.find("i").attr("class", starred ? "ph-fill ph-star" : "ph ph-star");
       $toggle
         .find(".icon")
         .toggleClass("has-text-warning", starred)
