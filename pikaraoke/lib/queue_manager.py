@@ -16,8 +16,9 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 
 # Names the system queues under when no singer asked for the song, so they are
-# exempt from per-singer limits and hold no turn in the fair queue.
-_PLACEHOLDER_SINGERS = frozenset({"pikaraoke", "randomizer"})
+# exempt from per-singer limits and hold no turn in the fair queue. Public
+# because a singer rename refuses either name (Karaoke.rename_singer reads it).
+PLACEHOLDER_SINGERS = frozenset({"pikaraoke", "randomizer"})
 
 
 class QueueManager:
@@ -48,7 +49,7 @@ class QueueManager:
         """Check if a user has reached their queue limit."""
         limit = self._preferences.get_or_default("limit_user_songs_by")
         singer = user.lower()
-        if limit == 0 or singer in _PLACEHOLDER_SINGERS:
+        if limit == 0 or singer in PLACEHOLDER_SINGERS:
             return False
 
         now_playing_user = self._get_now_playing_user() if self._get_now_playing_user else None
@@ -81,10 +82,10 @@ class QueueManager:
         """
         history = self._get_turns_taken() if self._get_turns_taken else {}
         turns_taken = {
-            singer: turns for singer, turns in history.items() if singer not in _PLACEHOLDER_SINGERS
+            singer: turns for singer, turns in history.items() if singer not in PLACEHOLDER_SINGERS
         }
         now_playing = self._get_now_playing_user() if self._get_now_playing_user else None
-        if now_playing and now_playing.lower() not in _PLACEHOLDER_SINGERS:
+        if now_playing and now_playing.lower() not in PLACEHOLDER_SINGERS:
             # History cannot count this one until it ends.
             singer = now_playing.lower()
             turns_taken[singer] = turns_taken.get(singer, 0) + 1
@@ -188,6 +189,28 @@ class QueueManager:
         self.queue[index]["file"] = new_path
         self.queue[index]["title"] = new_title
         return True
+
+    def has_user(self, name: str) -> bool:
+        """Whether any queued item was added under this name (case-insensitively)."""
+        singer = name.lower()
+        return any(item["user"].lower() == singer for item in self.queue)
+
+    def rename_singer(self, old_name: str, new_name: str) -> int:
+        """Re-attribute every queued item from old_name to new_name, and count them.
+
+        Matched case-insensitively, as the cap and fair queue match names. Emits
+        nothing: the caller moves the singer row and the song on screen too and
+        announces the whole rename at once. The fair queue needs no nudge -- it
+        reads turns by name and positions from item["user"], both just moved, so
+        the running order is unchanged.
+        """
+        old = old_name.lower()
+        moved = 0
+        for item in self.queue:
+            if item["user"].lower() == old:
+                item["user"] = new_name
+                moved += 1
+        return moved
 
     def queue_add_random(self, amount: int) -> bool:
         """Add random songs to the queue. Returns False if ran out of songs."""

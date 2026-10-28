@@ -41,6 +41,7 @@ STATE_CHANGING_ENDPOINTS = {
     "controller.vol_up",
     "controller.vol_down",
     "singers_api.set_favourite",
+    "singers_api.rename_singer",
 }
 
 

@@ -1410,3 +1410,27 @@ class TestSessionChangedEvent:
         names.clear()
         assert action(history) is False
         assert names == []
+
+
+class TestRenameCurrentPerformer:
+    def test_moves_a_matching_marker_case_insensitively(self, history):
+        history._current_performer = "Dvae"
+        history.rename_current_performer("dvae", "Davey")
+        assert history._current_performer == "Davey"
+
+    def test_leaves_a_different_name_alone(self, history):
+        history._current_performer = "Other"
+        history.rename_current_performer("Dvae", "Davey")
+        assert history._current_performer == "Other"
+
+    def test_a_transpose_after_a_mid_song_rename_reuses_the_open_row(
+        self, history, events, song_id
+    ):
+        history.record_play(song_id, None, "Dvae", "A")
+        # A transpose ends the stream but holds the play row open.
+        events.emit("song_ended", "transpose")
+        history.rename_current_performer("Dvae", "Davey")
+        # The restart under the new name must reuse the row, not log a second play.
+        history.record_play(song_id, None, "Davey", "A")
+        events.emit("song_ended", "complete")
+        assert len(history.get_plays()) == 1

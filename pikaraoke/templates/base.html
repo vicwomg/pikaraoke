@@ -29,6 +29,8 @@
       enqueueUrl: "{% if not blank_page %}{{ url_for('queue_api.enqueue_form') }}{% endif %}",
       // Likewise: the splash page renders no favourite controls.
       favouriteUrl: "{% if not blank_page %}{{ url_for('singers_api.set_favourite') }}{% endif %}",
+      // Likewise: the splash page has no identity dialog to rename from.
+      renameUrl: "{% if not blank_page %}{{ url_for('singers_api.rename_singer') }}{% endif %}",
       singerNameMaxLength: {{ singer_name_max_length }}
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
@@ -44,6 +46,12 @@
       identityJoinAction: {{ _('Join') | tojson }},
       // {# MSG: Primary button in the identity dialog when saving profile changes. #}
       identityProfileAction: {{ _('Save') | tojson }},
+      // {# MSG: Note under the name field when editing a profile, explaining that a rename carries the singer's songs and history. #}
+      identityRenameNote: {{ _('Your queued songs and history move to the new name.') | tojson }},
+      // {# MSG: Secondary button in the identity dialog that hands the device to a different singer, clearing the name. #}
+      identitySomeoneElse: {{ _('Someone else is singing') | tojson }},
+      // {# MSG: Toast confirming a singer renamed themselves. {name} is the new name. #}
+      identityRenamed: {{ _('You are now {name}') | tojson }},
       // {# MSG: Label on the name field in the identity dialog. #}
       usernameLabel: {{ _('Name') | tojson }},
       // {# MSG: Hint under the name field noting the name is public. #}
@@ -176,6 +184,16 @@
       Cookies.set("user", name, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
       window.setCurrentUser(name);
       return changed;
+    };
+
+    // Returns the device to anonymous: drops the cookie and restores the navbar
+    // item to its "Join in" invitation. Used when a shared device is handed to a
+    // different singer -- it moves nothing on the server, only this device.
+    window.clearIdentity = function () {
+      Cookies.remove("user", { path: window.pikaraokeConfig.cookiePath });
+      var invite = window.translations.identityJoinTitle;
+      $("#current-user .is-truncated").text(invite);
+      $("#current-user").attr({ title: invite, "aria-label": invite }).addClass("has-text-success");
     };
 
     // Who a queue add is attributed to, resolved async so the name can come from
@@ -762,6 +780,9 @@
           </div>
         </section>
         <footer class="modal-card-foot is-justify-content-flex-end">
+          {# Quiet, left-pushed by mr-auto: hands the device to a different singer.
+             Shown only when the dialog carries a secondary action (profile mode). #}
+          <button class="button is-ghost is-hidden mr-auto" id="text-prompt-secondary"></button>
           <button class="button text-prompt-cancel">{% trans %}Cancel{% endtrans %}</button>
           <button class="button is-primary" id="text-prompt-ok">{% trans %}Save{% endtrans %}</button>
         </footer>

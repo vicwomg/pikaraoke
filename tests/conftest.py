@@ -2,6 +2,7 @@
 
 import threading
 from pathlib import Path, PurePath
+from unittest.mock import MagicMock
 from urllib.parse import quote
 
 import pytest
@@ -34,6 +35,7 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/api/sessions/singers", "sessions_api.get_singers"),
     ("/api/enqueue", "queue_api.enqueue_form"),
     ("/api/singer/favourite", "singers_api.set_favourite"),
+    ("/api/singer/rename", "singers_api.rename_singer"),
 ]
 
 
@@ -231,6 +233,12 @@ class MockPlayHistory:
         # {lower-case name: songs sung tonight}, for staging a session already
         # under way.
         self.turns_taken = turns_taken or {}
+        # The performer of the play on screen, which a rename has to move.
+        self._current_performer = None
+
+    def rename_current_performer(self, old_name, new_name):
+        if self._current_performer and self._current_performer.lower() == old_name.lower():
+            self._current_performer = new_name
 
     def get_current_session(self) -> dict | None:
         return self.session
@@ -278,6 +286,9 @@ class MockKaraoke:
         self.playback_controller = MockPlaybackController()
         self._playback_lock = threading.Lock()
         self.play_history = MockPlayHistory()
+        # A stand-in for the singers table; rename tests configure its find().
+        self.singer_manager = MagicMock()
+        self.singer_manager.find.return_value = None
         self.volume = 0.85
         self.running = True
 
@@ -321,6 +332,7 @@ class MockKaraoke:
     get_now_playing = Karaoke.get_now_playing
     is_song_in_use = Karaoke.is_song_in_use
     rename_song = Karaoke.rename_song
+    rename_singer = Karaoke.rename_singer
     reset_now_playing = Karaoke.reset_now_playing
     _recue_current = Karaoke._recue_current
     transpose_current = Karaoke.transpose_current

@@ -37,6 +37,7 @@ EXPECTED_PUBLIC_ENDPOINTS = {
     "sessions.rankings",
     "sessions_api.get_plays",
     "settings.settings",
+    "singers_api.rename_singer",
     "singers_api.set_favourite",
     "splash.get_score_phrases",
     "splash.splash",
