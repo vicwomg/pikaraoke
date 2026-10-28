@@ -106,15 +106,23 @@
 
 		$("#submit-transpose").click(function () {
 			var value = slider ? slider.value : 0;
+			function notifyKeyChanged() {
+				showNotification(
+					window.translations.keyChanged.replace("{label}", getSemitonesLabel(value)),
+					"is-success"
+				);
+			}
 			if (pikaWaiting) {
 				// Pre-set the waiting song's key; no playing song to restart, so no confirm.
 				$.post(window.pikaraokeConfig.basePath + "/api/queue/pitch?song="
-					+ encodeURIComponent(pikaWaitingSong) + "&semitones=" + value);
+					+ encodeURIComponent(pikaWaitingSong) + "&semitones=" + value)
+					.done(notifyKeyChanged);
 				return;
 			}
 			r = confirm(window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)));
 			if (r) {
-				$.post(window.pikaraokeConfig.basePath + "/api/transpose/" + value);
+				$.post(window.pikaraokeConfig.basePath + "/api/transpose/" + value)
+					.done(notifyKeyChanged);
 			}
 			slider.value = 0;
 			output.innerHTML = getSemitonesLabel(slider.value);
