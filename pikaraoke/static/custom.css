@@ -478,6 +478,12 @@ a.navbar-item.is-active {
   color: var(--bulma-text-strong);
 }
 
+/* Dimmed and non-interactive while the controls wait out the autoplay gap. */
+.control-box.is-inert {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .pagination {
   margin-bottom: 7px;
 }

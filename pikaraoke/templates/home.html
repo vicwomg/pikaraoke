@@ -20,9 +20,13 @@
 	}
 
 	function handleNowPlaying(np) {
-		console.log(np);
 		pikaWaiting = !np.now_playing && !!np.up_next && !np.autoplay;
 		pikaWaitingSong = np.up_next_file;
+
+		// Autoplay's ~2s gap between songs; keep the controls up through it so
+		// they don't vanish and jump the page.
+		var autoplayGap = !np.now_playing && !!np.up_next && np.autoplay;
+
 		if (np.now_playing) {
 			var nowPlayingHtml = `<p class="mb-1">${np.now_playing}</p>
           <p class="has-text-text mb-1"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${np.now_playing_user}</p>`;
@@ -36,12 +40,9 @@
 			}
 
 			$("#now-playing").html(nowPlayingHtml);
-			$(".control-box").show();
 		} else {
 			// {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
 			$("#now-playing").html({{ _('Nothing is playing right now.') | tojson }});
-			// A song waiting for a manual start keeps the control box up.
-			$(".control-box").toggle(pikaWaiting);
 		}
 
 		// The now-playing marker shows only while a song is loaded, not during a
@@ -57,6 +58,10 @@
 			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
 			$("#up-next").html({{ _('No song is queued.') | tojson }});
 		}
+
+		// Up while playing or queued; inert (dimmed) through the autoplay gap.
+		$(".control-box").toggle(!!np.now_playing || !!np.up_next);
+		$(".control-box").toggleClass("is-inert", autoplayGap);
 
 		// While waiting, the slider reflects and sets the upcoming song's key.
 		var shownTranspose = pikaWaiting ? np.up_next_transpose : np.now_playing_transpose;
@@ -338,6 +343,4 @@
 	{% endif %}
 </div>
 {% endif %}
-
-<div></div>
 {% endblock %}
