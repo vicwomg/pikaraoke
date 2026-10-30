@@ -31,7 +31,6 @@
 <script src="{{ url_for('static', filename='js/splash.js') }}"></script>
 {% endblock %} {% block body %}
 <div id="top-container" class="overlay">
-<span class="icon is-invisible" style="position: absolute" title="Current singer"><i class="ph ph-microphone-stage"></i></span>
   <div
     id="now-playing"
     class="has-text-warning stroke is-size-4 has-text-right"
@@ -43,13 +42,13 @@
       style="margin-bottom: 5px"
     ></p>
     <div class="has-text-success">
-		</span><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>
+      <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>
       <span id="now-playing-singer"></span>
-		<br />
-		<span class="timestamp is-size-6">
+      <br />
+      <span class="timestamp is-size-6">
         <span id="current">00:00</span>
-		  <span id="duration">/00:00</span>
-		</span>
+        <span id="duration">/00:00</span>
+      </span>
     </div>
   </div>
 </div>

@@ -138,7 +138,10 @@ const endSong = async (reason = null, showScore = false) => {
   }
   // A song that started during the score screen has loaded itself into the
   // player already; tearing down now would leave the screen black.
-  if (currentPlaybackId === null) stopVideoPlayback();
+  if (currentPlaybackId === null) {
+    $("#now-playing").fadeOut();
+    stopVideoPlayback();
+  }
   if (isMaster) {
     socket.emit("end_song", reason, endedPlaybackId);
   } else {
@@ -373,6 +376,9 @@ const handleNowPlayingUpdate = (np) => {
     // A screen loading mid-song - a second screen, or this one reloaded - picks the
     // song up where it is. hls.js starts there; a plain <video> seeks once it can.
     const resumeAt = np.now_playing_position || 0;
+    // Seed the readout for the new song so the block never reappears showing the
+    // previous song's final time, before the first timeupdate lands.
+    $("#current").text(formatTime(resumeAt));
     const seekOnceLoaded = () => {
       if (resumeAt) {
         video.addEventListener("loadedmetadata", () => { video.currentTime = resumeAt; }, { once: true });
@@ -508,7 +514,11 @@ const setupVideoPlayer = () => {
   }, 1000);
 
   video.addEventListener("ended", () => { endSong("complete", true); });
-  video.addEventListener("timeupdate", (e) => { $("#current").text(formatTime(video.currentTime)); });
+  // Teardown nulls currentVideoUrl, then video.load() fires a final timeupdate at
+  // 0; the guard keeps that zero off the readout, which fades out with the block.
+  video.addEventListener("timeupdate", (e) => {
+    if (currentVideoUrl) $("#current").text(formatTime(video.currentTime));
+  });
   $("#video source")[0].addEventListener("error", (e) => {
     if (isMediaPlaying(video)) {
       endSong("error while playing");
@@ -655,6 +665,7 @@ const setupSocketEvents = () => {
   });
   socket.on('skip', (reason) => {
     const video = getVideoPlayer();
+    $("#now-playing").fadeOut();
     const currVolume = video.volume;
     if (isMediaPlaying(video)) {
       $(video).animate({ volume: 0 }, 1000, () => {
