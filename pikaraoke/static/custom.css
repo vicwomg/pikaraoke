@@ -518,6 +518,11 @@ a.navbar-item.is-active {
   min-height: 2.5rem;
   align-items: center;
 }
+/* Keep Bulma's horizontal gap between Start and Skip but drop the per-button
+   bottom margin, which otherwise leaves dead space before the Advanced toggle. */
+.focus-pending-actions .button {
+  margin-bottom: 0;
+}
 
 /* Advanced toggle: a caret that flips when its panel is open. */
 .js-show-advanced {
@@ -528,6 +533,11 @@ a.navbar-item.is-active {
 }
 .js-show-advanced[aria-expanded="true"] .icon {
   transform: rotate(90deg);
+}
+/* Tighten the opened Advanced panel: Bulma's default hr margin leaves too much
+   dead space under the toggle and around the rule between controls. */
+.js-advanced-panel hr {
+  margin: 0.6rem 0;
 }
 
 /* Now-playing progress bar. Shared markup/classes with the splash and queue bars
