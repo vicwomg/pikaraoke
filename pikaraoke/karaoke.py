@@ -13,6 +13,7 @@ import qrcode
 from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
+from pikaraoke.lib.alert_manager import Alert, AlertManager, socket_payload
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
@@ -264,6 +265,11 @@ class Karaoke:
             base_path=self.url_base_path,
         )
 
+        # Admin alerts: producers raise and clear through the event system;
+        # Karaoke owns the socket broadcast, keeping AlertManager socket-free.
+        self.alerts = AlertManager()
+        self._wire_alerts()
+
         # Event bridging: the coordinator wires manager events to the UI (SocketIO/notifications).
         self.events.on("notification", self.log_and_send)
         self._relay_to_browser("queue_update")
@@ -356,8 +362,23 @@ class Karaoke:
                 "Click 'Sync Now' to retry after fixing.",
                 "danger",
             )
+            # The toast fades; a remount later needs a standing signal.
+            self.events.emit(
+                "alert",
+                "library.unmounted",
+                "danger",
+                # MSG: Admin alert raised when a library scan stops because too many songs are missing.
+                _(
+                    "The song library stopped syncing - a drive may be unmounted. Reconnect it and sync again."
+                ),
+                # MSG: Button on the library-unmounted alert; jumps to the Sync Now control.
+                _("Sync Now"),
+                "#database",
+            )
             return
 
+        # A scan that completed without tripping clears the unmounted condition.
+        self.events.emit("alert_clear", "library.unmounted")
         logging.info(f"Scan complete: {result}")
 
     def sync_library(self) -> bool:
@@ -685,6 +706,30 @@ class Karaoke:
         self.events.on(
             event, lambda: self.socketio.emit(event, namespace="/") if self.socketio else None
         )
+
+    def _wire_alerts(self) -> None:
+        self.events.on("alert", self._raise_alert)
+        self.events.on("alert_clear", self._clear_alert)
+
+    def _raise_alert(
+        self,
+        key: str,
+        severity: str,
+        message: str,
+        action_label: str | None = None,
+        action_url: str | None = None,
+    ) -> None:
+        if self.alerts.raise_alert(Alert(key, severity, message, action_label, action_url)):
+            self._broadcast_alerts()
+
+    def _clear_alert(self, key: str) -> None:
+        if self.alerts.clear(key):
+            self._broadcast_alerts()
+
+    def _broadcast_alerts(self) -> None:
+        """Push the current count and top severity to the navbar bell."""
+        if self.socketio:
+            self.socketio.emit("alerts", socket_payload(self.alerts.active()), namespace="/")
 
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""

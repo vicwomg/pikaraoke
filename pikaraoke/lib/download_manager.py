@@ -206,7 +206,10 @@ class DownloadManager:
         """
         initial_len = len(self.download_errors)
         self.download_errors = [e for e in self.download_errors if e["id"] != error_id]
-        return len(self.download_errors) < initial_len
+        removed = len(self.download_errors) < initial_len
+        if removed:
+            self._sync_download_alert()
+        return removed
 
     def retry_error(self, error_id: str) -> bool:
         """Re-queue a failed download and drop its error entry.
@@ -229,6 +232,30 @@ class DownloadManager:
             title=entry["title"],
         )
         return True
+
+    def _sync_download_alert(self) -> None:
+        """Mirror the download-failure alert to the error list; called on every mutation."""
+        from flask_babel import _, ngettext
+
+        count = len(self.download_errors)
+        if count:
+            # MSG: Admin alert counting failed downloads. %(num)d is the number.
+            message = ngettext(
+                "%(num)d download failed",
+                "%(num)d downloads failed",
+                count,
+            )
+            self._events.emit(
+                "alert",
+                "downloads.failed",
+                "warning",
+                message,
+                # MSG: Button on the failed-downloads alert; opens the Queue page.
+                _("View queue"),
+                "/queue",
+            )
+        else:
+            self._events.emit("alert_clear", "downloads.failed")
 
     def queue_download(
         self,
@@ -498,6 +525,7 @@ class DownloadManager:
                     "error": _summarise_ytdl_failure(output),
                 }
             )
+            self._sync_download_alert()
         else:
             if self.active_download:
                 self.active_download["progress"] = 100

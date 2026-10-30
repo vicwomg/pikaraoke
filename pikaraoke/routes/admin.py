@@ -18,6 +18,7 @@ from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.auth import grant_admin_session, log_in, public
 from pikaraoke.lib.current_app import get_admin_auth, get_karaoke_instance
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
+from pikaraoke.lib.ytdl_health import reconcile_after_update
 
 _ = flask_babel.gettext
 
@@ -98,7 +99,12 @@ def update_ytdl():
 
     def update_youtube_dl():
         time.sleep(3)
+        before = k.youtubedl_version
         k.youtubedl_version = upgrade_youtubedl()
+        # If searches were flagged broken, the version change tells us whether
+        # this update could have helped: reshape the alert rather than guess.
+        if any(a.key == "ytdl.broken" for a in k.alerts.active()):
+            reconcile_after_update(k.events, before, k.youtubedl_version)
 
     flash(
         # MSG: Message shown after starting the yt-dlp update.
