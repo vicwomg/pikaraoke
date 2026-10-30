@@ -9,6 +9,7 @@ from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
 from pikaraoke.lib.metadata_parser import (
+    normalize_for_comparison,
     regex_tidy,
     remove_accents,
     sanitize_filename,
@@ -69,7 +70,7 @@ class SongManager:
         self._db = db
         self._events = events
         self._get_title_tidy = get_title_tidy
-        self._index: list[tuple[str, str]] = []  # (accent-folded raw filename key, path)
+        self._index: list[tuple[str, str, str]] = []  # (raw key, normalised key, path)
         self._index_version: int | None = None
         self._folders: dict[str, list[str]] = {}  # folder key -> immediate subfolder names
         self._folders_version: int | None = None
@@ -117,21 +118,28 @@ class SongManager:
     # also makes the key independent of the enable_title_tidy preference.
     # ------------------------------------------------------------------
 
-    def _match_index(self) -> list[tuple[str, str]]:
-        """(accent-folded lowercase raw filename, path) pairs, rebuilt when the song list changes."""
+    def _match_index(self) -> list[tuple[str, str, str]]:
+        """(raw key, normalised key, path) triples, rebuilt when the song list changes.
+
+        Raw is the accent-folded lowercase stem; normalised folds its punctuation too.
+        """
         # Read the version BEFORE iterating: a mutation racing this rebuild then stores
         # newer data under an older version and rebuilds next call. Reading it after
         # would cache stale data under the new version and never rebuild.
         version = self.songs.version
         if self._index_version != version:
             self._index = [
-                (remove_accents(self.filename_from_path(p, tidy=False)).lower(), p)
+                (
+                    raw := remove_accents(self.filename_from_path(p, tidy=False)).lower(),
+                    normalize_for_comparison(raw),
+                    p,
+                )
                 for p in self.songs
             ]
             self._index_version = version
         return self._index
 
-    def _scoped_index(self, folder: str | None) -> list[tuple[str, str]]:
+    def _scoped_index(self, folder: str | None) -> list[tuple[str, str, str]]:
         """Match index entries, narrowed to one folder's direct children.
 
         `None` means the whole library; `""` means the download path itself. The
@@ -143,21 +151,24 @@ class SongManager:
             return index
         target = self.folder_path(folder)
         return [
-            (name, path)
-            for name, path in index
+            (raw, norm, path)
+            for raw, norm, path in index
             if os.path.dirname(os.path.normpath(path)) == target
         ]
 
     def search(self, query: str, folder: str | None = None) -> list[str]:
-        """Songs whose filename contains every whitespace-separated term, in list order."""
-        terms = remove_accents(query).lower().split()
+        """Songs whose filename contains every term, in list order.
+
+        Query and filename are both punctuation-folded, so `AC/DC` finds `AC-DC`.
+        """
+        terms = normalize_for_comparison(remove_accents(query)).split()
         index = self._scoped_index(folder)
         if not terms:
-            return [path for _, path in index]
+            return [path for _, _, path in index]
         if len(terms) == 1:
             term = terms[0]
-            return [path for name, path in index if term in name]
-        return [path for name, path in index if all(t in name for t in terms)]
+            return [path for _, norm, path in index if term in norm]
+        return [path for _, norm, path in index if all(t in norm for t in terms)]
 
     def songs_by_letter(self, letter: str, folder: str | None = None) -> list[str]:
         """Songs whose filename starts with `letter`, or with a digit when 'numeric'.
@@ -167,9 +178,9 @@ class SongManager:
         """
         index = self._scoped_index(folder)
         if letter == "numeric":
-            return [path for name, path in index if name[:1].isnumeric()]
+            return [path for raw, _, path in index if raw[:1].isnumeric()]
         target = letter.lower()
-        return [path for name, path in index if name[:1] == target]
+        return [path for raw, _, path in index if raw[:1] == target]
 
     # ------------------------------------------------------------------
     # Folders
@@ -225,8 +236,8 @@ class SongManager:
         if self._initials_version != version:
             initials: dict[str | None, set[str]] = {None: set()}
             prefix = os.path.normpath(self.download_path) + os.sep
-            for name, path in self._match_index():
-                first = name[:1]
+            for raw, _, path in self._match_index():
+                first = raw[:1]
                 if not first:
                     continue
                 key = "numeric" if first.isnumeric() else first
@@ -244,7 +255,7 @@ class SongManager:
 
     def songs_in_folder(self, folder: str) -> list[str]:
         """Songs sitting directly in `folder`, excluding its subfolders, in list order."""
-        return [path for _, path in self._scoped_index(folder)]
+        return [path for *_, path in self._scoped_index(folder)]
 
     def _get_companion_files(self, song_path: str) -> list[str]:
         """Return paths to companion files (.cdg, .mcg, .ass) that exist alongside a song."""
