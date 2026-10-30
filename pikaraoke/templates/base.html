@@ -143,10 +143,10 @@
     window.setCurrentUser = function (name) {
       $("#current-user .is-truncated").text(name);
       $("#current-user").attr({ title: name, "aria-label": name }).removeClass("has-text-success");
-      // A named device has joined, so the Home idle "Join in" link is noise. This
-      // is the one place a name is set, so it hides it live even on the idle
-      // screen, which gets no now_playing event to re-run the toggle.
-      $("#home-join-in").hide();
+      // The one place a name is set. Pages that change when a device joins register
+      // this hook so they update live, without waiting for a server event (the Home
+      // welcome retires its Join button and switches its heading this way).
+      if (typeof window.onIdentitySet === "function") window.onIdentitySet();
     };
 
     // Who a queue add is attributed to, resolved async so the name can come from

@@ -12,6 +12,14 @@
 	var lastBarPosition = 0;
 	var NP_SNAP_THRESHOLD = 2;
 
+	// The heading a newcomer (or anyone on the idle lobby) sees; otherwise the
+	// heading is the playback state. Held here so joining can switch it without
+	// waiting for a now_playing event.
+	var welcomeHeading = {{ _('Welcome to %(name)s', name=site_title) | tojson }};
+	var currentStateTitle = "";
+	var currentStateLine = "";
+	var currentlyIdle = true;
+
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
 		window.socket = io({ path: window.pikaraokeConfig.socketioPath });
@@ -35,30 +43,28 @@
 		return (hours ? hours + ":" : "") + mm + ":" + String(total % 60).padStart(2, "0");
 	}
 
-	// Draw the progress bar. Snap (no animation) on a seed or a jump larger than a
-	// single tick - a song change, restart or seek - so the fill lands rather than
-	// sliding across the gap; otherwise the 1s CSS transition carries the tick.
+	// Draw the progress bar. With no duration (a cued song not yet loaded, or one
+	// ffprobe could not read) it sits as an empty track at zero rather than hiding,
+	// so it is already on screen when playback starts. With a duration it fills;
+	// snap (no animation) on a seed or a jump larger than a single tick - a song
+	// change, restart or seek - otherwise the 1s CSS transition carries the tick.
 	function renderBar(position, duration, snap) {
-		var $bar = $("#np-progress");
-		if (!duration) {
-			$bar.hide();
-			lastBarPosition = 0;
-			return;
-		}
-		$bar.show();
-		var clamped = Math.max(0, Math.min(position, duration));
 		var fill = $("#np-progress .np-bar-fill");
-		if (snap || Math.abs(clamped - lastBarPosition) > NP_SNAP_THRESHOLD) {
+		var ratio = duration ? Math.max(0, Math.min(position, duration)) / duration : 0;
+		if (snap || !duration || Math.abs(ratio * (duration || 0) - lastBarPosition) > NP_SNAP_THRESHOLD) {
 			fill.addClass("is-snapping");
-			fill.css("transform", "scaleX(" + clamped / duration + ")");
+			fill.css("transform", "scaleX(" + ratio + ")");
 			fill[0].offsetHeight; // commit the untransitioned value before re-enabling
 			fill.removeClass("is-snapping");
 		} else {
-			fill.css("transform", "scaleX(" + clamped / duration + ")");
+			fill.css("transform", "scaleX(" + ratio + ")");
 		}
+		var clamped = ratio * (duration || 0);
 		$("#np-progress .np-bar").attr("aria-valuenow", Math.round(clamped));
 		$("#np-progress .np-elapsed").text(formatTime(clamped));
-		$("#np-progress .np-remaining").text("-" + formatTime(duration - clamped));
+		// Remaining is blank until a duration is known, so the empty track reads as
+		// "ready" rather than showing a misleading -0:00.
+		$("#np-progress .np-remaining").text(duration ? "-" + formatTime(duration - clamped) : "");
 		lastBarPosition = clamped;
 	}
 
@@ -75,14 +81,21 @@
 
 		focusPendingFile = np.up_next_file;
 
-		// The page heading is the single state heading: one big line that reads the
-		// lifecycle, rather than a static "Now Playing" fighting an in-box label.
-		var label = (playing || gap)
-			? {{ _('Now Playing') | tojson }}
-			: manualWait
-				? {{ _('Ready to Start') | tojson }}
-				: {{ _('Nothing Playing') | tojson }};
-		$("#page-heading").text(label);
+		// The playback state in two registers: Title Case for when it is the main
+		// heading (a song is up and this device has joined), and a sentence for the
+		// secondary status line under the welcome. Idle is only ever the sub-line.
+		if (playing || gap) {
+			currentStateTitle = {{ _('Now Playing') | tojson }};
+			currentStateLine = {{ _('Now playing') | tojson }};
+		} else if (manualWait) {
+			currentStateTitle = {{ _('Ready to Start') | tojson }};
+			currentStateLine = {{ _('Ready to start') | tojson }};
+		} else {
+			currentStateTitle = {{ _('Nothing Playing') | tojson }};
+			currentStateLine = {{ _('Nothing is playing') | tojson }};
+		}
+		currentlyIdle = idle;
+		applyHeading();
 
 		// The focus song: the one playing, else the one about to play. Hidden only
 		// when idle, where the ways-in take the slot.
@@ -113,13 +126,12 @@
 
 		// The ways-in: shown only on the idle screen, so a guest has somewhere to go.
 		$("#home-signpost").toggle(idle);
-		if (idle) {
-			updateJoinInVisibility();
-		}
 
-		// Progress bar: seed from the payload (snap, so it lands exact on a load or
-		// a song change); the live socket ticks it between seeds. It holds a
-		// duration only while a song is loaded.
+		// Progress bar: on screen whenever there is a focus song - an empty track
+		// before playback, filling once a position and duration arrive. Seed from
+		// the payload (snap, so it lands exact on a load or a song change); the live
+		// socket ticks it between seeds.
+		$("#np-progress").toggle(!idle);
 		npDuration = (playing || gap) ? np.now_playing_duration : null;
 		renderBar(np.now_playing_position || 0, npDuration, true);
 
@@ -161,10 +173,24 @@
 		$(labelSel).html(getSemitonesLabel(semitones));
 	}
 
-	// The signpost's Join in is noise once this device has a name.
-	function updateJoinInVisibility() {
-		$("#home-join-in").toggle(!getUserCookie());
+	// The welcome shows on the idle lobby (where the screen would otherwise be bare)
+	// and to anyone who has not joined; the Join button only when not joined. When a
+	// song is up and this device has joined, the state rides the big heading instead.
+	function applyHeading() {
+		var joined = !!getUserCookie();
+		var showWelcome = !joined || currentlyIdle;
+		$("#newcomer").toggle(showWelcome);
+		$("#newcomer-join").toggle(!joined);
+		if (showWelcome) {
+			$("#page-heading").text(welcomeHeading);
+			$("#newcomer-state").text(currentStateLine);
+		} else {
+			$("#page-heading").text(currentStateTitle);
+		}
 	}
+
+	// base.html calls this the moment a name is set, from either Join button.
+	window.onIdentitySet = applyHeading;
 
 	$(function () {
 		// Advanced reveals the less-used controls in a dark panel, like the search
@@ -282,7 +308,7 @@
 			}
 		}
 
-		updateJoinInVisibility();
+		applyHeading();
 
 		//for first time load of splash screen
 		loadNowPlaying();
@@ -368,35 +394,53 @@
    content aligns to the same left edge as the heading and every other page. When
    idle it holds the ways-in instead of tearing down. #}
 <div id="focus-slot">
+	{# Newcomer welcome: shown only before this device has joined, in every state,
+	   so a guest gets one clear way in. The big "Welcome to ..." sits in the page
+	   heading; this is the Join button and, under it, the playback state. Once
+	   joined it hides and the heading becomes the state (see applyHeading). #}
+	<div id="newcomer" style="display: none">
+		<a class="button is-primary js-open-identity" id="newcomer-join">
+			<span class="icon"><i class="ph ph-user-circle"></i></span>
+			{# MSG: Button a guest taps to give their name and join in. #}
+			<span>{% trans %}Join in to sing{% endtrans %}</span>
+		</a>
+		{# A rule separating the welcome from the section below, in every state. #}
+		<hr class="mt-4 mb-0" />
+		<p id="newcomer-state" class="is-size-5 has-text-weight-semibold mt-4 mb-0"></p>
+	</div>
+
 	<div id="focus-song"><p class="is-size-4 has-text-warning mb-1">&nbsp;</p></div>
 
-	{# Playing state: progress, then the full transport, with only the two rarely
-	   touched panels (key, microphones) folded away. #}
-	<div id="focus-playing" style="display: none">
-		{# The bar reads for everyone, admin or not; it needs only a position and a
-		   duration. Markup and classes are shared with the splash and queue bars. #}
-		<div id="np-progress" class="mt-3" style="display: none">
-			<div class="np-bar" role="progressbar" aria-valuemin="0" aria-valuenow="0">
-				<div class="np-bar-fill"></div>
-			</div>
-			<div class="np-times is-size-7 has-text-grey-light">
-				<span class="np-elapsed">0:00</span>
-				<span class="np-remaining">-0:00</span>
-			</div>
+	{# The bar is on screen whenever there is a focus song: an empty track before
+	   playback, filling once a position and duration arrive, so it never pops in
+	   when a song starts. Reads for everyone, admin or not; markup and classes are
+	   shared with the splash and queue bars. #}
+	<div id="np-progress" class="mt-3" style="display: none">
+		<div class="np-bar" role="progressbar" aria-valuemin="0" aria-valuenow="0">
+			<div class="np-bar-fill"></div>
 		</div>
+		<div class="np-times is-size-7 has-text-grey-light">
+			<span class="np-elapsed">0:00</span>
+			<span class="np-remaining">-0:00</span>
+		</div>
+	</div>
 
+	{# Playing state: the control box. #}
+	<div id="focus-playing" style="display: none">
 		{% if admin %}
 		{# The controls sit in their own dark box; Advanced expands the key and mic
 		   panels within that same box rather than opening a separate one. #}
 		<div class="box has-background-dark mt-3">
 			<div class="focus-transport is-flex is-align-items-center is-justify-content-space-between is-size-4">
-				<span class="is-flex is-align-items-center">
+				{# Playback controls a size larger to fill the space; the lesser-used
+				   volume group stays is-size-4. Both centred, so they stay aligned. #}
+				<span class="is-flex is-align-items-center is-size-3">
 					{# MSG: Title attribute on the button to restart the current song. #}
-					<a title="{{ _('Restart Song') }}" id="restart" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-back"></i></span></a>
+					<a title="{{ _('Restart song') }}" id="restart" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-back"></i></span></a>
 					{# MSG: Title attribute on the button to play or pause the current song. #}
 					<a title="{{ _('Play/Pause') }}" class="is-flex is-align-items-center mx-4"><span class="icon is-text-size"><i id="pause-resume" class="ph ph-pause"></i></span></a>
 					{# MSG: Title attribute on the button to skip to the next song. #}
-					<a title="{{ _('Stop Current Song') }}" id="skip" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-forward"></i></span></a>
+					<a title="{{ _('Stop current song') }}" id="skip" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-forward"></i></span></a>
 				</span>
 				<span class="is-flex is-align-items-center">
 					<span class="icon is-text-size"><i id="vol-down" class="ph ph-speaker-low"></i></span>
@@ -428,7 +472,7 @@
 				{% if is_transpose_enabled %}
 				<div class="is-flex is-justify-content-space-between is-align-items-center">
 					{# MSG: Title of a control to change the key/pitch of the playing song. #}
-					<h5 class="mb-0">{% trans %}Change Key{% endtrans %}</h5>
+					<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
 					<span class="icon-text is-size-5 has-text-weight-bold">
 						<span id="semitones-label"></span>
 						<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
@@ -491,7 +535,7 @@
 				<div class="focus-gate" data-gate="key">
 					<div class="is-flex is-justify-content-space-between is-align-items-center">
 						{# MSG: Title of a control to change the key/pitch of the playing song. #}
-						<h5 class="mb-0">{% trans %}Change Key{% endtrans %}</h5>
+						<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
 						<span class="icon-text is-size-5 has-text-weight-bold">
 							<span id="pending-semitones-label"></span>
 							<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
@@ -513,29 +557,25 @@
 	{# The idle ways-in: a reflection of the navbar's three routes, shown only when
 	   nothing is playing and nothing is queued. Links to the nav destinations, not
 	   new surfaces. Not admin-gated - a guest needs these most. #}
-	<div id="home-signpost" class="buttons mt-3" style="display: none">
-		<a class="button is-fullwidth is-justify-content-flex-start" href="{{ url_for('files.browse') }}">
+	{% set song_count_display = "{:,}".format(song_count) %}
+	<div id="home-signpost" class="buttons mt-4" style="display: none">
+		<a class="button is-link is-fullwidth is-justify-content-flex-start" href="{{ url_for('files.browse') }}">
 			<span class="icon"><i class="ph ph-vinyl-record"></i></span>
-			{# MSG: Idle-screen link to the page listing songs already on this machine. #}
-			<span>{% trans %}Find a song to sing{% endtrans %}</span>
+			{# MSG: Idle-screen link to browse the library; the song count invites a choice. #}
+			<span>{% trans count=song_count_display %}Choose from {{ count }} songs{% endtrans %}</span>
 		</a>
 		<a class="button is-fullwidth is-justify-content-flex-start" href="{{ url_for('search.search') }}">
 			<span class="icon"><i class="ph ph-music-notes-plus"></i></span>
 			{# MSG: Idle-screen link to the page used to get new songs into the library. #}
-			<span>{% trans %}Add one from YouTube{% endtrans %}</span>
+			<span>{% trans %}Add a song from YouTube{% endtrans %}</span>
 		</a>
-		{# Join in: opens the same profile dialog as the navbar item, via the shared
-		   .js-open-identity hook. No href. #}
-		<a class="button is-fullwidth is-justify-content-flex-start has-text-success js-open-identity" id="home-join-in">
-			<span class="icon"><i class="ph ph-user-circle"></i></span>
-			{# MSG: Idle-screen link, shown until a guest has given a name, to join in. #}
-			<span>{% trans %}Join in - add your name{% endtrans %}</span>
-		</a>
+		{# No Join in here: the newcomer welcome above owns joining, so a guest is
+		   never shown two Join buttons at once. #}
 	</div>
 
 	<div id="next-song" style="display: none">
 		<hr class="my-3" />
-		<h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next Song{% endtrans %}</h3>
+		<h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next song{% endtrans %}</h3>
 		<p id="up-next" class="has-text-warning mb-0"></p>
 	</div>
 </div>

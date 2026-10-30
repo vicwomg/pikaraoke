@@ -504,6 +504,21 @@ a.navbar-item.is-active {
   pointer-events: none;
 }
 
+/* The newcomer's playback-state line reads as a heading, not muted body text, so
+   it matches the state heading a joined device sees. */
+#newcomer-state {
+  color: var(--bulma-text-strong);
+}
+
+/* The playing transport (icon row) and the ready-to-start Start/Skip (buttons) are
+   naturally different heights; matching them keeps the control box from jumping
+   when a song swaps from one state to the other. */
+.focus-transport,
+.focus-pending-actions {
+  min-height: 2.5rem;
+  align-items: center;
+}
+
 /* Advanced toggle: a caret that flips when its panel is open. */
 .js-show-advanced {
   cursor: pointer;
