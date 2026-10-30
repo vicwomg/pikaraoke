@@ -593,6 +593,25 @@ class Karaoke:
         self.volume_change(new_vol)
         logging.debug(f"Decreasing volume by 10%: {self.volume}")
 
+    def skip(self) -> bool:
+        """Skip the current song, or drop the song cued to start when autoplay is off.
+
+        With autoplay off a song waits at the head of the queue, not yet popped,
+        so skipping it is a queue removal. Either way the room is told, reusing
+        the playing skip's notification.
+
+        Returns True if a song was skipped, False if nothing is playing or queued.
+        """
+        if self.playback_controller.is_playing:
+            return self.playback_controller.skip()
+        if not self.queue_manager.queue:
+            logging.warning("Tried to skip, but nothing is playing or queued!")
+            return False
+        cued = self.queue_manager.queue[0]
+        # MSG: Message shown after the song is skipped, will be followed by song name
+        self.events.emit("notification", _("Skip: %s") % cued["title"], "info")
+        return self.queue_manager.queue_edit(cued["file"], "delete")
+
     def restart(self) -> bool:
         """Restart the current song, or re-cue it to wait when autoplay is off.
 

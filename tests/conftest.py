@@ -319,6 +319,7 @@ class MockKaraoke:
     volume_change = Karaoke.volume_change
     vol_up = Karaoke.vol_up
     vol_down = Karaoke.vol_down
+    skip = Karaoke.skip
     restart = Karaoke.restart
     stop = Karaoke.stop
 
