@@ -470,18 +470,74 @@ a.navbar-item.is-active {
   margin-left: 0;
 }
 
-.control-box a {
-  color: var(--bulma-text);
+/* Reserve a stable height so starting, changing or ending a song does not resize
+   the slot and shove the page up and down. Sized to the playing state; the shorter
+   ready-to-start and idle states leave space below rather than jump. */
+#focus-slot {
+  min-height: 15rem;
 }
 
-.control-box a:hover {
+/* The title, singer and Next Song span the full column so a long title does not
+   wrap early on desktop; only the player block (bar and controls) stays compact
+   rather than stretching the transport across the width. */
+#np-progress,
+#focus-playing > .box,
+#focus-pending > .box,
+#home-signpost {
+  max-width: 500px;
+}
+
+/* Transport and other icon links in the focus slot read as controls, not teal
+   hyperlinks; Start/Skip and the signpost are .button and keep their own colour,
+   and the Advanced toggle stays a link. */
+#focus-slot a:not(.button):not(.js-show-advanced) {
+  color: var(--bulma-text);
+}
+#focus-slot a:not(.button):not(.js-show-advanced):hover {
   color: var(--bulma-text-strong);
 }
 
-/* Dimmed and non-interactive while the controls wait out the autoplay gap. */
-.control-box.is-inert {
+/* Dimmed and non-interactive while the transport waits out the autoplay gap, so
+   the box holds its height without the controls flashing in and out. */
+#focus-playing.is-inert {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* Advanced toggle: a caret that flips when its panel is open. */
+.js-show-advanced {
+  cursor: pointer;
+}
+.js-show-advanced .icon {
+  transition: transform 120ms ease;
+}
+.js-show-advanced[aria-expanded="true"] .icon {
+  transform: rotate(90deg);
+}
+
+/* Now-playing progress bar. Shared markup/classes with the splash and queue bars
+   (their plan owns those surfaces); heights are set per surface. scaleX rather
+   than width so the Pi's own browser composites the tick instead of laying it out. */
+.np-bar {
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--bulma-scheme-main-ter);
+  overflow: hidden;
+}
+.np-bar-fill {
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  background-color: var(--bulma-link);
+  transition: transform 1s linear;
+}
+.np-bar-fill.is-snapping {
+  transition: none;
+}
+.np-times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
 }
 
 .pagination {

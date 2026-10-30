@@ -653,6 +653,10 @@ class Karaoke:
         """
         queue = self.queue_manager.queue
         next_song = queue[0] if queue else None
+        # The song behind the queue head. While a song plays, the head is the next
+        # to play and this is the one after; when a song waits to start, the head
+        # IS that waiting song, so this is what Home shows as "next".
+        following_song = queue[1] if len(queue) > 1 else None
 
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
@@ -666,6 +670,8 @@ class Karaoke:
             "autoplay": self.preferences.get_or_default("autoplay"),
             "up_next_file": next_song["file"] if next_song else None,
             "up_next_transpose": next_song["semitones"] if next_song else 0,
+            "next_after": following_song["title"] if following_song else None,
+            "next_after_user": following_song["user"] if following_song else None,
             "volume": self.volume,
             # The splash screen never reloads, so the session name rides this
             # payload rather than being rendered once at page load.

@@ -143,6 +143,10 @@
     window.setCurrentUser = function (name) {
       $("#current-user .is-truncated").text(name);
       $("#current-user").attr({ title: name, "aria-label": name }).removeClass("has-text-success");
+      // A named device has joined, so the Home idle "Join in" link is noise. This
+      // is the one place a name is set, so it hides it live even on the idle
+      // screen, which gets no now_playing event to re-run the toggle.
+      $("#home-join-in").hide();
     };
 
     // Who a queue add is attributed to, resolved async so the name can come from
@@ -485,7 +489,7 @@
         </a>
         {# The person item: "Join in" (green tint) until named, then the name,
            set by JS from the cookie with no reload. #}
-        <a id="current-user" class="navbar-item has-text-success" href="#"
+        <a id="current-user" class="navbar-item has-text-success js-open-identity" href="#"
           aria-label="{% trans %}Join in{% endtrans %}">
           {# Avatar slot: the glyph fills the circle now; a later PR swaps in a photo. #}
           <span class="singer-avatar"><i class="ph ph-user-circle"></i></span>
