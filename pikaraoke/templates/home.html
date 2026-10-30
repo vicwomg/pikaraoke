@@ -166,6 +166,12 @@
 		});
 
 		$("#skip").click(function () {
+			if (pikaWaiting) {
+				// A waiting song has not played, so skipping it just drops it with
+				// no confirm; the server removes it from the queue and toasts.
+				$.post(window.pikaraokeConfig.basePath + "/api/skip");
+				return;
+			}
 			r = confirm(
 				// {# MSG: Confirmation message when clicking a button to skip a track. #}
 				{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }}

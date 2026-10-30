@@ -10,10 +10,12 @@ controller_bp = Blueprint("controller", __name__)
 
 @controller_bp.route("/api/skip", methods=["POST"])
 def skip():
-    """Skip the currently playing song."""
+    """Skip the playing song, or drop the song cued to start when autoplay is off."""
     k = get_karaoke_instance()
-    broadcast_event("skip", "user command")
-    k.playback_controller.skip()
+    # Fade the splash video only when one is playing; a cued song has no player to stop.
+    if k.playback_controller.is_playing:
+        broadcast_event("skip", "user command")
+    k.skip()
     return jsonify({"success": True})
 
 

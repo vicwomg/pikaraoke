@@ -353,6 +353,41 @@ class TestRestart:
         assert k.queue_manager.queue == []
 
 
+class TestSkip:
+    """Tests for the skip method."""
+
+    def test_skip_delegates_to_player_when_playing(self, mock_karaoke):
+        """A playing song is skipped by the player, as before."""
+        pc = mock_karaoke.playback_controller
+        pc.is_playing = True
+
+        result = mock_karaoke.skip()
+
+        assert result is True
+        assert pc.skipped_reasons == ["skip"]
+
+    def test_skip_drops_the_cued_song_when_nothing_playing(self, mock_karaoke):
+        """Autoplay off: skipping the waiting song removes it from the queue head."""
+        k = mock_karaoke
+        k.queue_manager.enqueue("/songs/Waiting Song---abc123.mp4", "Alice")
+        k.queue_manager.enqueue("/songs/Next Song---def456.mp4", "Bob")
+        k.playback_controller.is_playing = False
+        notes: list[str] = []
+        k.events.on("notification", lambda message, category=None: notes.append(message))
+
+        result = k.skip()
+
+        assert result is True
+        assert [item["file"] for item in k.queue_manager.queue] == ["/songs/Next Song---def456.mp4"]
+        assert any("Waiting Song" in note for note in notes)
+
+    def test_skip_returns_false_when_nothing_playing_or_queued(self, mock_karaoke):
+        """Nothing to skip and nothing cued: a no-op that reports it did nothing."""
+        mock_karaoke.playback_controller.is_playing = False
+
+        assert mock_karaoke.skip() is False
+
+
 class TestStop:
     """Tests for the stop method."""
 
