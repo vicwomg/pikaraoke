@@ -211,10 +211,12 @@
      */
     function initUsernameHandler() {
         // Remove any existing handlers first to avoid duplicates
-        $(document).off('click', '#current-user');
+        $(document).off('click', '.js-open-identity');
 
-        // Bind with event delegation
-        $(document).on('click', '#current-user', function(e) {
+        // Bind with event delegation. The class, not the id, is the hook: the
+        // navbar item and the Home idle "Join in" link both carry it and open
+        // the one dialog. #current-user keeps its id for setCurrentUser.
+        $(document).on('click', '.js-open-identity', function(e) {
             e.preventDefault();
             const currentName = Cookies.get("user") || "";
             window.promptForIdentity({

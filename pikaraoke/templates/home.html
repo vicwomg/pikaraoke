@@ -2,10 +2,25 @@
 <script>
 	var volume = {{ volume|default(0.85) }};
 
-	// With autoplay off, a song can sit at the head of the queue ready to start.
-	// The control box then starts it and pre-sets its key.
-	var pikaWaiting = false;
-	var pikaWaitingSong = null;
+	// The song the pending-state controls act on (the queue head, not yet playing).
+	var focusPendingFile = null;
+	// Duration of the song the bar is tracking, held between position ticks; null
+	// when nothing is playing or the duration is unknown (the bar then hides).
+	var npDuration = null;
+	// Last position the bar drew, to tell a one-second tick from a seek or a song
+	// change (which must snap, not slide across the gap).
+	var lastBarPosition = 0;
+	var NP_SNAP_THRESHOLD = 2;
+	// Bar nodes, cached so the per-second ticks don't re-query them.
+	var npFill, npBar, npElapsed, npRemaining;
+
+	// The heading a newcomer (or anyone on the idle lobby) sees; otherwise the
+	// heading is the playback state. Held here so joining can switch it without
+	// waiting for a now_playing event.
+	var welcomeHeading = {{ _('Welcome to %(name)s', name=site_title) | tojson }};
+	var currentStateTitle = "";
+	var currentStateLine = "";
+	var currentlyIdle = true;
 
 	// Ensure global socket exists
 	if (typeof window.socket === 'undefined') {
@@ -19,54 +34,121 @@
 		});
 	}
 
+	// Minutes and seconds, with an hours part only when a file needs one (a long
+	// background video, never a karaoke track). Unpadded minutes read better.
+	function formatTime(seconds) {
+		if (isNaN(seconds) || seconds < 0) return "0:00";
+		var total = Math.floor(seconds);
+		var hours = Math.floor(total / 3600);
+		var minutes = Math.floor((total % 3600) / 60);
+		var mm = hours ? String(minutes).padStart(2, "0") : String(minutes);
+		return (hours ? hours + ":" : "") + mm + ":" + String(total % 60).padStart(2, "0");
+	}
+
+	// Draw the bar. No duration -> an empty track at zero (a cued or unreadable
+	// song) so it is on screen before playback; snap past a jump (seed, song change,
+	// seek), else the 1s CSS transition carries the tick.
+	function renderBar(position, duration, snap) {
+		var clamped = duration ? Math.max(0, Math.min(position, duration)) : 0;
+		var ratio = duration ? clamped / duration : 0;
+		var snapNow = snap || !duration || Math.abs(clamped - lastBarPosition) > NP_SNAP_THRESHOLD;
+		if (snapNow) npFill.addClass("is-snapping");
+		npFill.css("transform", "scaleX(" + ratio + ")");
+		if (snapNow) {
+			npFill[0].offsetHeight; // commit the untransitioned value before re-enabling
+			npFill.removeClass("is-snapping");
+		}
+		npBar.attr("aria-valuenow", Math.round(clamped));
+		npElapsed.text(formatTime(clamped));
+		// Blank remaining until a duration is known, so the empty track reads as ready.
+		npRemaining.text(duration ? "-" + formatTime(duration - clamped) : "");
+		lastBarPosition = clamped;
+	}
+
+	// The focus slot is one song at one point in its life. Three states, each a
+	// test on the payload: a song playing, a song cued but not started, or nothing.
 	function handleNowPlaying(np) {
-		pikaWaiting = !np.now_playing && !!np.up_next && !np.autoplay;
-		pikaWaitingSong = np.up_next_file;
+		var playing = !!np.now_playing;
+		var pending = !playing && !!np.up_next;
+		var idle = !playing && !np.up_next;
+		// Autoplay's ~2s gap between songs: a song is cued and arriving on its own.
+		var gap = pending && np.autoplay;
+		// A song waiting on a manual Start (autoplay off).
+		var manualWait = pending && !np.autoplay;
 
-		// Autoplay's ~2s gap between songs; keep the controls up through it so
-		// they don't vanish and jump the page.
-		var autoplayGap = !np.now_playing && !!np.up_next && np.autoplay;
+		focusPendingFile = np.up_next_file;
 
-		if (np.now_playing) {
-			var nowPlayingHtml = `<p class="mb-1">${np.now_playing}</p>
-          <p class="has-text-text mb-1"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${np.now_playing_user}</p>`;
+		// The playback state in two registers: Title Case for when it is the main
+		// heading (a song is up and this device has joined), and a sentence for the
+		// secondary status line under the welcome. Idle is only ever the sub-line.
+		if (playing || gap) {
+			currentStateTitle = {{ _('Now Playing') | tojson }};
+			currentStateLine = {{ _('Now playing') | tojson }};
+		} else if (manualWait) {
+			currentStateTitle = {{ _('Ready to Start') | tojson }};
+			currentStateLine = {{ _('Ready to start') | tojson }};
+		} else {
+			currentStateTitle = {{ _('Nothing Playing') | tojson }};
+			currentStateLine = {{ _('Nothing is playing') | tojson }};
+		}
+		currentlyIdle = idle;
+		applyHeading();
 
+		// The focus song: the one playing, else the one about to play. Hidden only
+		// when idle, where the ways-in take the slot.
+		$("#focus-song").toggle(!idle);
+		if (playing) {
+			var html = `<p class="is-size-4 has-text-warning mb-1">${np.now_playing}</p>
+        <p class="has-text-text mb-0"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${np.now_playing_user}</p>`;
 			if (np.now_playing_transpose != 0) {
-				nowPlayingHtml +=
+				html +=
 					// {# MSG: Label for display of how many semitones the song has been shifted. #}
 					"<span class='is-size-6 has-text-white'><b>Key</b>: " +
 					getSemitonesLabel(np.now_playing_transpose) +
-					"<span>";
+					"</span>";
 			}
-
-			$("#now-playing").html(nowPlayingHtml);
-		} else {
-			// {# MSG: Message which shows in the "Now Playing" section when there is no song currently playing #}
-			$("#now-playing").html({{ _('Nothing is playing right now.') | tojson }});
+			$("#focus-song").html(html);
+		} else if (pending) {
+			$("#focus-song").html(`<p class="is-size-4 has-text-warning mb-1">${np.up_next}</p>
+        <p class="has-text-text mb-0">
+          {# MSG: Title text for the icon marking the next person to sing. #}
+          <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${np.next_user}</p>`);
 		}
 
-		// The now-playing marker shows only while a song is loaded, not during a
-		// manual-start wait when the control box is up but nothing is playing.
-		$(".playing_gif").toggle(!!np.now_playing);
+		// One control set fills the slot. Through the autoplay gap the transport
+		// stays mounted but inert (dimmed, non-interactive) so the box holds its
+		// height and does not flash as the song changes.
+		$("#focus-playing").toggle(playing || gap).toggleClass("is-inert", gap);
+		$("#focus-pending").toggle(manualWait);
 
-		if (np.up_next) {
-			$("#up-next").html(`<p class="mb-1">${np.up_next}</p>
-          <p class="has-text-text">
-            {# MSG: Title text for the icon marking the next person to sing. #}
-            <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${np.next_user}</p>`);
+		// The ways-in: shown only on the idle screen, so a guest has somewhere to go.
+		$("#home-signpost").toggle(idle);
+
+		// Progress bar: on screen whenever there is a focus song - an empty track
+		// before playback, filling once a position and duration arrive. Seed from
+		// the payload (snap, so it lands exact on a load or a song change); the live
+		// socket ticks it between seeds.
+		$("#np-progress").toggle(!idle);
+		npDuration = (playing || gap) ? np.now_playing_duration : null;
+		renderBar(np.now_playing_position || 0, npDuration, true);
+
+		// Up Next. While playing, the queue head is the next song; while a song
+		// waits, the head is that song and the one after it is next.
+		var nextTitle = playing ? np.up_next : np.next_after;
+		var nextUser = playing ? np.next_user : np.next_after_user;
+		if (nextTitle) {
+			$("#up-next").html(`<p class="mb-1">${nextTitle}</p>
+        <p class="has-text-text mb-0">
+          {# MSG: Title text for the icon marking the next person to sing. #}
+          <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${nextUser}</p>`);
+			$("#next-song").show();
 		} else {
-			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
-			$("#up-next").html({{ _('No song is queued.') | tojson }});
+			$("#next-song").hide();
 		}
 
-		// Up while playing or queued; inert (dimmed) through the autoplay gap.
-		$(".control-box").toggle(!!np.now_playing || !!np.up_next);
-		$(".control-box").toggleClass("is-inert", autoplayGap);
-
-		// While waiting, the slider reflects and sets the upcoming song's key.
-		var shownTranspose = pikaWaiting ? np.up_next_transpose : np.now_playing_transpose;
-		$("#transpose").val(shownTranspose);
-		$("#semitones-label").html(getSemitonesLabel(shownTranspose));
+		// Each key slider reflects its own song.
+		setTranspose("#transpose", "#semitones-label", np.now_playing_transpose);
+		setTranspose("#pending-transpose", "#pending-semitones-label", np.up_next_transpose);
 
 		// set the volume slider to the current volume
 		if (np.volume != volume) {
@@ -75,31 +157,64 @@
 			$("#volume-slider").val(volume);
 		}
 
-		// Not playing (paused or a song waiting to start): the button plays
-		// rather than pauses, and the gif stays still.
-		if (!window.isNowPlaying(np)) {
-			$("#pause-resume").removeClass("ph-pause");
-			$("#pause-resume").addClass("ph-play");
-			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.png') }}");
+		// Paused: the button resumes rather than pauses.
+		if (window.isNowPlaying(np)) {
+			$("#pause-resume").removeClass("ph-play").addClass("ph-pause");
 		} else {
-			$("#pause-resume").removeClass("ph-play");
-			$("#pause-resume").addClass("ph-pause");
-			$(".playing_gif").attr("src", "{{  url_for('static', filename='images/now-playing.gif') }}");
+			$("#pause-resume").removeClass("ph-pause").addClass("ph-play");
 		}
 	}
 
-	$(function () {
-		$(".control-box").hide();
+	function setTranspose(sliderSel, labelSel, semitones) {
+		$(sliderSel).val(semitones);
+		$(labelSel).html(getSemitonesLabel(semitones));
+	}
 
-		var slider = document.getElementById("transpose");
-		var output = document.getElementById("semitones-label");
-		if (slider && output) {
-			output.innerHTML = getSemitonesLabel(slider.value);
-			// Update the current slider value (each time you drag the slider handle)
-			slider.oninput = function () {
-				output.innerHTML = getSemitonesLabel(slider.value);
-			};
+	// The welcome shows on the idle lobby (where the screen would otherwise be bare)
+	// and to anyone who has not joined; the Join button only when not joined. When a
+	// song is up and this device has joined, the state rides the big heading instead.
+	function applyHeading() {
+		var joined = !!getUserCookie();
+		var showWelcome = !joined || currentlyIdle;
+		$("#newcomer").toggle(showWelcome);
+		$("#newcomer-join").toggle(!joined);
+		if (showWelcome) {
+			$("#page-heading").text(welcomeHeading);
+			$("#newcomer-state").text(currentStateLine);
+		} else {
+			$("#page-heading").text(currentStateTitle);
 		}
+	}
+
+	// base.html calls this the moment a name is set, from either Join button.
+	window.onIdentitySet = applyHeading;
+
+	$(function () {
+		npFill = $("#np-progress .np-bar-fill");
+		npBar = $("#np-progress .np-bar");
+		npElapsed = $("#np-progress .np-elapsed");
+		npRemaining = $("#np-progress .np-remaining");
+
+		// Advanced reveals the less-used controls in a dark panel, like the search
+		// page's. Its open state is remembered across SPA page swaps (which rebuild
+		// this content), and both states' panels move together off the one flag.
+		var advancedOpen = sessionStorage.getItem("homeAdvancedOpen") === "1";
+		$(".js-advanced-panel").toggle(advancedOpen);
+		$(".js-show-advanced").attr("aria-expanded", advancedOpen);
+		$(".js-show-advanced").on("click", function (e) {
+			e.preventDefault();
+			var open = sessionStorage.getItem("homeAdvancedOpen") !== "1";
+			sessionStorage.setItem("homeAdvancedOpen", open ? "1" : "0");
+			$(".js-show-advanced").attr("aria-expanded", open);
+			$(".js-advanced-panel")[open ? "slideDown" : "slideUp"](120);
+		});
+
+		$("#transpose").on("input", function () {
+			$("#semitones-label").html(getSemitonesLabel(this.value));
+		});
+		$("#pending-transpose").on("input", function () {
+			$("#pending-semitones-label").html(getSemitonesLabel(this.value));
+		});
 
 		$("#volume-slider").on(
 			"input",
@@ -109,45 +224,47 @@
 			}, 500)
 		);
 
+		function notifyKeyChanged(value) {
+			showNotification(
+				window.translations.keyChanged.replace("{label}", getSemitonesLabel(value)),
+				"is-success"
+			);
+		}
+
+		// Playing: transpose the current song, with a confirm because it restarts it.
 		$("#submit-transpose").click(function () {
-			var value = slider ? slider.value : 0;
-			function notifyKeyChanged() {
-				showNotification(
-					window.translations.keyChanged.replace("{label}", getSemitonesLabel(value)),
-					"is-success"
-				);
-			}
-			if (pikaWaiting) {
-				// Pre-set the waiting song's key; no playing song to restart, so no confirm.
-				$.post(window.pikaraokeConfig.basePath + "/api/queue/pitch?song="
-					+ encodeURIComponent(pikaWaitingSong) + "&semitones=" + value)
-					.done(notifyKeyChanged);
-				return;
-			}
-			r = confirm(window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)));
-			if (r) {
+			var value = $("#transpose").val();
+			if (confirm(window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)))) {
 				$.post(window.pikaraokeConfig.basePath + "/api/transpose/" + value)
-					.done(notifyKeyChanged);
+					.done(function () { notifyKeyChanged(value); });
 			}
-			slider.value = 0;
-			output.innerHTML = getSemitonesLabel(slider.value);
+			setTranspose("#transpose", "#semitones-label", 0);
+		});
+
+		// Pending: pre-set the cued song's key. Nothing is playing to restart, so
+		// no confirm, and it posts to the queue rather than the live transposer.
+		$("#submit-pending-transpose").click(function () {
+			var value = $("#pending-transpose").val();
+			$.post(window.pikaraokeConfig.basePath + "/api/queue/pitch?song="
+				+ encodeURIComponent(focusPendingFile) + "&semitones=" + value)
+				.done(function () { notifyKeyChanged(value); });
 		});
 
 		$("#pause-resume").click(function () {
-			if (pikaWaiting) {
-				// Apply the slider's key to the waiting song, then start it, so the
-				// one transcode runs in the chosen key.
-				var basePath = window.pikaraokeConfig.basePath;
-				var semitones = slider ? slider.value : 0;
-				$.post(basePath + "/api/queue/pitch?song="
-					+ encodeURIComponent(pikaWaitingSong) + "&semitones=" + semitones)
-					.always(function () {
-						$.post(basePath + "/api/play");
-					});
-				return;
-			}
 			$.post(window.pikaraokeConfig.basePath + "/api/pause");
 			togglePausePlayButton();
+		});
+
+		// Start the cued song in the key set on the pending slider, so the one
+		// transcode runs in the chosen key.
+		$("#start-song").click(function () {
+			var basePath = window.pikaraokeConfig.basePath;
+			var semitones = $("#pending-transpose").val();
+			$.post(basePath + "/api/queue/pitch?song="
+				+ encodeURIComponent(focusPendingFile) + "&semitones=" + semitones)
+				.always(function () {
+					$.post(basePath + "/api/play");
+				});
 		});
 
 		$("#vol-up").click(function () {
@@ -159,50 +276,48 @@
 		});
 
 		$("#restart").click(function () {
-			r = confirm(window.translations.confirmRestartTrack);
-			if (r) {
+			if (confirm(window.translations.confirmRestartTrack)) {
 				$.post(window.pikaraokeConfig.basePath + "/api/restart");
 			}
 		});
 
+		// Playing: skipping stops a song mid-play, so it confirms first.
 		$("#skip").click(function () {
-			if (pikaWaiting) {
-				// A waiting song has not played, so skipping it just drops it with
-				// no confirm; the server removes it from the queue and toasts.
-				$.post(window.pikaraokeConfig.basePath + "/api/skip");
-				return;
-			}
-			r = confirm(
-				// {# MSG: Confirmation message when clicking a button to skip a track. #}
-				{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }}
-			);
-			if (r) {
+			// {# MSG: Confirmation message when clicking a button to skip a track. #}
+			if (confirm({{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }})) {
 				$.post(window.pikaraokeConfig.basePath + "/api/skip");
 			}
 		});
 
-		$("#semitones-info").click(function () {
-			showNotification(
-				window.translations.semitonesInfo,
-				"is-info",
-				10000
-			);
+		// Pending: the cued song has not played, so skipping just drops it from the
+		// queue with no confirm, matching the queue page's delete.
+		$("#pending-skip").click(function () {
+			$.post(window.pikaraokeConfig.basePath + "/api/skip");
+		});
+
+		$(".js-semitones-info").click(function () {
+			showNotification(window.translations.semitonesInfo, "is-info", 10000);
 		});
 
 		function togglePausePlayButton() {
 			if ($("#pause-resume").hasClass("ph-pause")) {
-				$("#pause-resume").removeClass("ph-pause");
-				$("#pause-resume").addClass("ph-play");
+				$("#pause-resume").removeClass("ph-pause").addClass("ph-play");
 			} else {
-				$("#pause-resume").removeClass("ph-play");
-				$("#pause-resume").addClass("ph-pause");
+				$("#pause-resume").removeClass("ph-play").addClass("ph-pause");
 			}
 		}
+
+		applyHeading();
 
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
 		window.onPageSocket("now_playing", (np) => handleNowPlaying(np));
+		// The splash's video beacons its position to the room once a second; drive
+		// the bar from it between the coarser now_playing seeds.
+		window.onPageSocket("playback_position", function (position) {
+			if (npDuration) renderBar(position, npDuration, false);
+		});
 
 		document.addEventListener("visibilitychange", function () {
 			if (document.visibilityState === "visible") {
@@ -219,10 +334,10 @@
 		window.onPageSocket("mic_devices_state", function(devices) {
 			var enabled = devices.filter(function(d) { return d.enabled; });
 			if (enabled.length === 0) {
-				$("#mic-live-panel").hide();
+				$(".mic-live-panel").hide();
 				return;
 			}
-			var list = $("#mic-live-list");
+			var list = $(".mic-live-list");
 			list.empty();
 			enabled.forEach(function(dev) {
 				var escaped = $('<span>').text(dev.label).html();
@@ -236,7 +351,7 @@
 					'</div>'
 				);
 			});
-			$("#mic-live-panel").show();
+			$(".mic-live-panel").show();
 		});
 
 		window.onPageSocket("mic_update", function(data) {
@@ -244,8 +359,8 @@
 				$(".mic-live-volume").filter(function() {
 					return $(this).data("device-id") === data.deviceId;
 				}).closest("div").remove();
-				if ($("#mic-live-list").children().length === 0) {
-					$("#mic-live-panel").hide();
+				if ($(".mic-live-list").children().length === 0) {
+					$(".mic-live-panel").hide();
 				}
 			} else {
 				var slider = $(".mic-live-volume").filter(function() {
@@ -269,84 +384,179 @@
 		{% endif %}
 	});
 </script>
-{% endblock %} {% block heading %}{{ title }}
-<img
-	style="display: none"
-	class="playing_gif"
-	width="40"
-	src="{{  url_for('static', filename='images/now-playing.png') }}"
-/>{% endblock %}
+{% endblock %} {% block heading %}<span id="page-heading">{{ title }}</span>{% endblock %}
 
 {% block content %}
 
-<p class="is-size-4 has-text-warning mb-6" id="now-playing">&nbsp;</p>
-
-<h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next Song{% endtrans %}</h3>
-<p id="up-next" class="has-text-warning mb-6"></p>
-
-{% if admin %}
-<div class="has-background-dark box control-box" style="max-width: 500px; display: none">
-	{# MSG: Title of the box with controls such as pause and skip. #}
-	<h4>{% trans %}Player Control{% endtrans %}</h4>
-	<div class="is-size-3 is-flex is-justify-content-space-between">
-		<div class="is-size-3">
-			{# MSG: Title attribute on the button to restart the current song. #}
-			<a title="{{ _('Restart Song') }}" id="restart"><span class="icon is-text-size"><i class="ph ph-skip-back"></i></span> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to play or pause the current song. #}
-			<a title="{{ _('Play/Pause') }}"><span class="icon is-text-size"><i id="pause-resume" class="ph ph-pause"></i></span> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to skip to the next song. #}
-			<a title="{{ _('Stop Current Song') }}" id="skip"><span class="icon is-text-size"><i class="ph ph-skip-forward"></i></span> </a>
-		</div>
-		<div class="is-size-3 is-flex is-align-items-center">
-			<span class="icon is-text-size"><i id="vol-down" class="ph ph-speaker-low"></i></span>
-			<input
-				type="range"
-				min="0"
-				max="1"
-				value="{{ volume|default(0.85) }}"
-				step="0.025"
-				id="volume-slider"
-				style="margin: 0 8px 0px 5px; width: 100px"
-			/>
-			<span class="icon is-text-size"><i id="vol-up" class="ph ph-speaker-high"></i></span>
-		</div>
-	</div>
+{# The Advanced disclosure (key + mic controls), shared by both boxes. prefix
+   namespaces the key control's ids per state; gated adds the owner-start seam. #}
+{% macro advanced_panel(prefix="", gated=false) %}
+{% if is_transpose_enabled or mic_available %}
+<div class="has-text-right mt-2">
+	<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
+		{# MSG: Link that reveals the less-used player controls. #}
+		<span>{% trans %}Advanced{% endtrans %}</span>
+		<span class="icon ml-1"><i class="ph ph-caret-right"></i></span>
+	</a>
+</div>
+<div class="js-advanced-panel" style="display: none">
 	<hr />
-
 	{% if is_transpose_enabled %}
+	{% if gated %}<div class="focus-gate" data-gate="key">{% endif %}
 	<div class="is-flex is-justify-content-space-between is-align-items-center">
 		{# MSG: Title of a control to change the key/pitch of the playing song. #}
-		<h4 class="mb-0">{% trans %}Change Key{% endtrans %}</h4>
+		<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
 		<span class="icon-text is-size-5 has-text-weight-bold">
-			<span id="semitones-label"></span>
-			<a id="semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
+			<span id="{{ prefix }}semitones-label"></span>
+			<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
 		</span>
 	</div>
 	<div class="is-flex mt-3">
-		<input
-			type="range"
-			min="-12"
-			max="12"
-			value="0"
-			width="300px"
-			class="transpose-slider"
-			id="transpose"
-			style="width: 100%"
-		/>
-		<button id="submit-transpose" class="button is-small" style="margin-left: 10px">
-			{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{%
-			endtrans %}
+		<input type="range" min="-12" max="12" value="0" class="transpose-slider" id="{{ prefix }}transpose" style="width: 100%" />
+		<button id="submit-{{ prefix }}transpose" class="button is-small" style="margin-left: 10px">
+			{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{% endtrans %}
 		</button>
 	</div>
+	{% if gated %}</div>{% endif %}
 	{% endif %}
 
+	{# Mic volume is state-independent; class not id so both panels share the handlers. #}
 	{% if mic_available %}
-	<div id="mic-live-panel" style="display: none">
-		<hr />
-		<h4>{% trans %}Microphones{% endtrans %}</h4>
-		<div id="mic-live-list"></div>
+	<div class="mic-live-panel" style="display: none">
+		{% if is_transpose_enabled %}<hr />{% endif %}
+		<h5>{% trans %}Microphones{% endtrans %}</h5>
+		<div class="mic-live-list"></div>
 	</div>
 	{% endif %}
 </div>
 {% endif %}
+{% endmacro %}
+
+{# The focus slot: one song, always in the same place, moving through its
+   lifecycle. Not a nested .box - base.html already wraps the page in one, so the
+   content aligns to the same left edge as the heading and every other page. When
+   idle it holds the ways-in instead of tearing down. #}
+<div id="focus-slot">
+	{# Newcomer welcome: shown only before this device has joined, in every state,
+	   so a guest gets one clear way in. The big "Welcome to ..." sits in the page
+	   heading; this is the Join button and, under it, the playback state. Once
+	   joined it hides and the heading becomes the state (see applyHeading). #}
+	<div id="newcomer" style="display: none">
+		<a class="button is-primary js-open-identity" id="newcomer-join">
+			<span class="icon"><i class="ph ph-user-circle"></i></span>
+			{# MSG: Button a guest taps to give their name and join in. #}
+			<span>{% trans %}Join in to sing{% endtrans %}</span>
+		</a>
+		{# A rule separating the welcome from the section below, in every state. #}
+		<hr class="mt-4 mb-0" />
+		<p id="newcomer-state" class="is-size-5 has-text-weight-semibold mt-4 mb-0"></p>
+	</div>
+
+	<div id="focus-song"><p class="is-size-4 has-text-warning mb-1">&nbsp;</p></div>
+
+	{# The bar is on screen whenever there is a focus song: an empty track before
+	   playback, filling once a position and duration arrive, so it never pops in
+	   when a song starts. Reads for everyone, admin or not; markup and classes are
+	   shared with the splash and queue bars. #}
+	<div id="np-progress" class="mt-3" style="display: none">
+		<div class="np-bar" role="progressbar" aria-valuemin="0" aria-valuenow="0">
+			<div class="np-bar-fill"></div>
+		</div>
+		<div class="np-times is-size-7 has-text-grey-light">
+			<span class="np-elapsed">0:00</span>
+			<span class="np-remaining">-0:00</span>
+		</div>
+	</div>
+
+	{# Playing state: the control box. #}
+	<div id="focus-playing" style="display: none">
+		{% if admin %}
+		{# The controls sit in their own dark box; Advanced expands the key and mic
+		   panels within that same box rather than opening a separate one. #}
+		<div class="box has-background-dark mt-3">
+			<div class="focus-transport is-flex is-align-items-center is-justify-content-space-between is-size-4">
+				{# Playback controls a size larger to fill the space; the lesser-used
+				   volume group stays is-size-4. Both centred, so they stay aligned. #}
+				<span class="is-flex is-align-items-center is-size-3">
+					{# MSG: Title attribute on the button to restart the current song. #}
+					<a title="{{ _('Restart song') }}" id="restart" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-back"></i></span></a>
+					{# MSG: Title attribute on the button to play or pause the current song. #}
+					<a title="{{ _('Play/Pause') }}" class="is-flex is-align-items-center mx-4"><span class="icon is-text-size"><i id="pause-resume" class="ph ph-pause"></i></span></a>
+					{# MSG: Title attribute on the button to skip to the next song. #}
+					<a title="{{ _('Stop current song') }}" id="skip" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-forward"></i></span></a>
+				</span>
+				<span class="is-flex is-align-items-center">
+					<span class="icon is-text-size"><i id="vol-down" class="ph ph-speaker-low"></i></span>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						value="{{ volume|default(0.85) }}"
+						step="0.025"
+						id="volume-slider"
+						style="margin: 0 8px; width: 100px"
+					/>
+					<span class="icon is-text-size"><i id="vol-up" class="ph ph-speaker-high"></i></span>
+				</span>
+			</div>
+
+			{{ advanced_panel() }}
+		</div>
+		{% endif %}
+	</div>
+
+	{# Not-playing-yet state (autoplay off): Start and Skip up front, with the key
+	   inline because Start plays in it. No Restart - nothing has played to restart.
+	   The data-gate wrappers are the seam for a later owner-start flip (a server
+	   change, not a re-layout): Start and Change Key widen to the song's owner,
+	   Skip stays admin. #}
+	{% if admin %}
+	<div id="focus-pending" style="display: none">
+		<div class="box has-background-dark mt-3">
+			<div class="focus-pending-actions buttons mb-0">
+				<div class="focus-gate" data-gate="start">
+					{# MSG: Button that starts the song waiting to play. #}
+					<button id="start-song" class="button is-primary">
+						<span class="icon"><i class="ph ph-play"></i></span><span>{% trans %}Start{% endtrans %}</span>
+					</button>
+				</div>
+				<div class="focus-gate" data-gate="skip">
+					{# MSG: Button that drops the waiting song without playing it. #}
+					<button id="pending-skip" class="button">
+						<span class="icon"><i class="ph ph-skip-forward"></i></span><span>{% trans %}Skip{% endtrans %}</span>
+					</button>
+				</div>
+			</div>
+
+			{{ advanced_panel(prefix="pending-", gated=true) }}
+		</div>
+	</div>
+	{% endif %}
+
+	{# The idle ways-in: a reflection of the navbar's three routes, shown only when
+	   nothing is playing and nothing is queued. Links to the nav destinations, not
+	   new surfaces. Not admin-gated - a guest needs these most. #}
+	{% set song_count_display = "{:,}".format(song_count) %}
+	<div id="home-signpost" class="buttons mt-4" style="display: none">
+		<a class="button is-link is-fullwidth is-justify-content-flex-start" href="{{ url_for('files.browse') }}">
+			<span class="icon"><i class="ph ph-vinyl-record"></i></span>
+			{# MSG: Idle-screen link to browse the library; the song count invites a choice. #}
+			<span>{% trans count=song_count_display %}Choose from {{ count }} songs{% endtrans %}</span>
+		</a>
+		<a class="button is-fullwidth is-justify-content-flex-start" href="{{ url_for('search.search') }}">
+			<span class="icon"><i class="ph ph-music-notes-plus"></i></span>
+			{# MSG: Idle-screen link to the page used to get new songs into the library. #}
+			<span>{% trans %}Add a song from YouTube{% endtrans %}</span>
+		</a>
+		{# No Join in here: the newcomer welcome above owns joining, so a guest is
+		   never shown two Join buttons at once. #}
+	</div>
+
+	<div id="next-song" style="display: none">
+		<hr class="my-3" />
+		<h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next song{% endtrans %}</h3>
+		<p id="up-next" class="has-text-warning mb-0"></p>
+	</div>
+</div>
+
 {% endblock %}
