@@ -11,6 +11,8 @@
 	// change (which must snap, not slide across the gap).
 	var lastBarPosition = 0;
 	var NP_SNAP_THRESHOLD = 2;
+	// Bar nodes, cached so the per-second ticks don't re-query them.
+	var npFill, npBar, npElapsed, npRemaining;
 
 	// The heading a newcomer (or anyone on the idle lobby) sees; otherwise the
 	// heading is the playback state. Held here so joining can switch it without
@@ -43,28 +45,23 @@
 		return (hours ? hours + ":" : "") + mm + ":" + String(total % 60).padStart(2, "0");
 	}
 
-	// Draw the progress bar. With no duration (a cued song not yet loaded, or one
-	// ffprobe could not read) it sits as an empty track at zero rather than hiding,
-	// so it is already on screen when playback starts. With a duration it fills;
-	// snap (no animation) on a seed or a jump larger than a single tick - a song
-	// change, restart or seek - otherwise the 1s CSS transition carries the tick.
+	// Draw the bar. No duration -> an empty track at zero (a cued or unreadable
+	// song) so it is on screen before playback; snap past a jump (seed, song change,
+	// seek), else the 1s CSS transition carries the tick.
 	function renderBar(position, duration, snap) {
-		var fill = $("#np-progress .np-bar-fill");
-		var ratio = duration ? Math.max(0, Math.min(position, duration)) / duration : 0;
-		if (snap || !duration || Math.abs(ratio * (duration || 0) - lastBarPosition) > NP_SNAP_THRESHOLD) {
-			fill.addClass("is-snapping");
-			fill.css("transform", "scaleX(" + ratio + ")");
-			fill[0].offsetHeight; // commit the untransitioned value before re-enabling
-			fill.removeClass("is-snapping");
-		} else {
-			fill.css("transform", "scaleX(" + ratio + ")");
+		var clamped = duration ? Math.max(0, Math.min(position, duration)) : 0;
+		var ratio = duration ? clamped / duration : 0;
+		var snapNow = snap || !duration || Math.abs(clamped - lastBarPosition) > NP_SNAP_THRESHOLD;
+		if (snapNow) npFill.addClass("is-snapping");
+		npFill.css("transform", "scaleX(" + ratio + ")");
+		if (snapNow) {
+			npFill[0].offsetHeight; // commit the untransitioned value before re-enabling
+			npFill.removeClass("is-snapping");
 		}
-		var clamped = ratio * (duration || 0);
-		$("#np-progress .np-bar").attr("aria-valuenow", Math.round(clamped));
-		$("#np-progress .np-elapsed").text(formatTime(clamped));
-		// Remaining is blank until a duration is known, so the empty track reads as
-		// "ready" rather than showing a misleading -0:00.
-		$("#np-progress .np-remaining").text(duration ? "-" + formatTime(duration - clamped) : "");
+		npBar.attr("aria-valuenow", Math.round(clamped));
+		npElapsed.text(formatTime(clamped));
+		// Blank remaining until a duration is known, so the empty track reads as ready.
+		npRemaining.text(duration ? "-" + formatTime(duration - clamped) : "");
 		lastBarPosition = clamped;
 	}
 
@@ -193,6 +190,11 @@
 	window.onIdentitySet = applyHeading;
 
 	$(function () {
+		npFill = $("#np-progress .np-bar-fill");
+		npBar = $("#np-progress .np-bar");
+		npElapsed = $("#np-progress .np-elapsed");
+		npRemaining = $("#np-progress .np-remaining");
+
 		// Advanced reveals the less-used controls in a dark panel, like the search
 		// page's. Its open state is remembered across SPA page swaps (which rebuild
 		// this content), and both states' panels move together off the one flag.
@@ -281,11 +283,8 @@
 
 		// Playing: skipping stops a song mid-play, so it confirms first.
 		$("#skip").click(function () {
-			r = confirm(
-				// {# MSG: Confirmation message when clicking a button to skip a track. #}
-				{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }}
-			);
-			if (r) {
+			// {# MSG: Confirmation message when clicking a button to skip a track. #}
+			if (confirm({{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }})) {
 				$.post(window.pikaraokeConfig.basePath + "/api/skip");
 			}
 		});
@@ -389,6 +388,50 @@
 
 {% block content %}
 
+{# The Advanced disclosure (key + mic controls), shared by both boxes. prefix
+   namespaces the key control's ids per state; gated adds the owner-start seam. #}
+{% macro advanced_panel(prefix="", gated=false) %}
+{% if is_transpose_enabled or mic_available %}
+<div class="has-text-right mt-2">
+	<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
+		{# MSG: Link that reveals the less-used player controls. #}
+		<span>{% trans %}Advanced{% endtrans %}</span>
+		<span class="icon ml-1"><i class="ph ph-caret-right"></i></span>
+	</a>
+</div>
+<div class="js-advanced-panel" style="display: none">
+	<hr />
+	{% if is_transpose_enabled %}
+	{% if gated %}<div class="focus-gate" data-gate="key">{% endif %}
+	<div class="is-flex is-justify-content-space-between is-align-items-center">
+		{# MSG: Title of a control to change the key/pitch of the playing song. #}
+		<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
+		<span class="icon-text is-size-5 has-text-weight-bold">
+			<span id="{{ prefix }}semitones-label"></span>
+			<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
+		</span>
+	</div>
+	<div class="is-flex mt-3">
+		<input type="range" min="-12" max="12" value="0" class="transpose-slider" id="{{ prefix }}transpose" style="width: 100%" />
+		<button id="submit-{{ prefix }}transpose" class="button is-small" style="margin-left: 10px">
+			{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{% endtrans %}
+		</button>
+	</div>
+	{% if gated %}</div>{% endif %}
+	{% endif %}
+
+	{# Mic volume is state-independent; class not id so both panels share the handlers. #}
+	{% if mic_available %}
+	<div class="mic-live-panel" style="display: none">
+		{% if is_transpose_enabled %}<hr />{% endif %}
+		<h5>{% trans %}Microphones{% endtrans %}</h5>
+		<div class="mic-live-list"></div>
+	</div>
+	{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
 {# The focus slot: one song, always in the same place, moving through its
    lifecycle. Not a nested .box - base.html already wraps the page in one, so the
    content aligns to the same left edge as the heading and every other page. When
@@ -457,44 +500,7 @@
 				</span>
 			</div>
 
-			{% if is_transpose_enabled or mic_available %}
-			{# Advanced reveals the less-used controls inside this box. A caret marks
-			   it as a toggle; the slide and remembered open state are in the script. #}
-			<div class="has-text-right mt-2">
-				<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
-					{# MSG: Link that reveals the less-used player controls. #}
-					<span>{% trans %}Advanced{% endtrans %}</span>
-					<span class="icon ml-1"><i class="ph ph-caret-right"></i></span>
-				</a>
-			</div>
-			<div class="js-advanced-panel" style="display: none">
-				<hr />
-				{% if is_transpose_enabled %}
-				<div class="is-flex is-justify-content-space-between is-align-items-center">
-					{# MSG: Title of a control to change the key/pitch of the playing song. #}
-					<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
-					<span class="icon-text is-size-5 has-text-weight-bold">
-						<span id="semitones-label"></span>
-						<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
-					</span>
-				</div>
-				<div class="is-flex mt-3">
-					<input type="range" min="-12" max="12" value="0" class="transpose-slider" id="transpose" style="width: 100%" />
-					<button id="submit-transpose" class="button is-small" style="margin-left: 10px">
-						{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{% endtrans %}
-					</button>
-				</div>
-				{% endif %}
-
-				{% if mic_available %}
-				<div class="mic-live-panel" style="display: none">
-					{% if is_transpose_enabled %}<hr />{% endif %}
-					<h5>{% trans %}Microphones{% endtrans %}</h5>
-					<div class="mic-live-list"></div>
-				</div>
-				{% endif %}
-			</div>
-			{% endif %}
+			{{ advanced_panel() }}
 		</div>
 		{% endif %}
 	</div>
@@ -522,47 +528,7 @@
 				</div>
 			</div>
 
-			{% if is_transpose_enabled or mic_available %}
-			<div class="has-text-right mt-2">
-				<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
-					{# MSG: Link that reveals the less-used player controls. #}
-					<span>{% trans %}Advanced{% endtrans %}</span>
-					<span class="icon ml-1"><i class="ph ph-caret-right"></i></span>
-				</a>
-			</div>
-			<div class="js-advanced-panel" style="display: none">
-				<hr />
-				{% if is_transpose_enabled %}
-				<div class="focus-gate" data-gate="key">
-					<div class="is-flex is-justify-content-space-between is-align-items-center">
-						{# MSG: Title of a control to change the key/pitch of the playing song. #}
-						<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
-						<span class="icon-text is-size-5 has-text-weight-bold">
-							<span id="pending-semitones-label"></span>
-							<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
-						</span>
-					</div>
-					<div class="is-flex mt-3">
-						<input type="range" min="-12" max="12" value="0" class="transpose-slider" id="pending-transpose" style="width: 100%" />
-						<button id="submit-pending-transpose" class="button is-small" style="margin-left: 10px">
-							{# MSG: Label on the button to confirm the change in key/pitch of the playing song. #} {% trans %}Change{% endtrans %}
-						</button>
-					</div>
-				</div>
-				{% endif %}
-
-				{# Mic volume is state-independent, so the controls appear in the
-				   ready-to-start Advanced as well as the playing one. Class, not id:
-				   both panels share the one set of socket handlers. #}
-				{% if mic_available %}
-				<div class="mic-live-panel" style="display: none">
-					{% if is_transpose_enabled %}<hr />{% endif %}
-					<h5>{% trans %}Microphones{% endtrans %}</h5>
-					<div class="mic-live-list"></div>
-				</div>
-				{% endif %}
-			</div>
-			{% endif %}
+			{{ advanced_panel(prefix="pending-", gated=true) }}
 		</div>
 	</div>
 	{% endif %}
