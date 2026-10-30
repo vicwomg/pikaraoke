@@ -438,6 +438,33 @@ class TestSearch:
         assert sm.search("celine") == [song]
         assert sm.search("céline") == [song]
 
+    def test_slash_and_dash_both_find_the_song(self, tmp_path, mock_db):
+        song = "/songs/AC-DC - Highway to Hell---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("AC/DC") == [song]
+        assert sm.search("AC-DC") == [song]
+
+    def test_apostrophe_matches_both_directions(self, tmp_path, mock_db):
+        with_mark = "/songs/What's Up---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [with_mark])
+        assert sm.search("What's Up?") == [with_mark]
+        assert sm.search("whats up") == [with_mark]
+        assert sm.search("what's up") == [with_mark]
+        without_mark = "/songs/Whats Up---bbbbbbbbbbb.mp4"
+        sm = _manager(tmp_path, mock_db, [without_mark])
+        assert sm.search("What's Up?") == [without_mark]
+
+    def test_ampersand_matches_the_spelled_out_word(self, tmp_path, mock_db):
+        song = "/songs/Simon & Garfunkel - The Sound of Silence---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.search("simon and garfunkel") == [song]
+        assert sm.search("simon & garfunkel") == [song]
+
+    def test_run_together_query_still_misses(self, tmp_path, mock_db):
+        """The accepted limit: punctuation folds to a space, so `ACDC` stays one term."""
+        sm = _manager(tmp_path, mock_db, ["/songs/AC-DC - Highway to Hell---aaaaaaaaaaa.mp4"])
+        assert sm.search("ACDC") == []
+
     def test_no_match_returns_empty(self, tmp_path, mock_db):
         sm = _manager(tmp_path, mock_db, ["/songs/Abba - Waterloo---aaaaaaaaaaa.mp4"])
         assert sm.search("nonexistent") == []
