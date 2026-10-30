@@ -93,6 +93,9 @@
         $('#text-prompt-label').text(opts.label || '').toggleClass('is-hidden', !opts.label);
         $('#text-prompt-help').text(opts.help || '').toggleClass('is-hidden', !opts.help);
         $input.val(opts.value || '').attr('placeholder', opts.placeholder || '');
+        // Null clears it, so a cap never leaks into another caller of this prompt.
+        $input.attr('maxlength', opts.maxlength || null);
+        if (opts.submitLabel) { $ok.text(opts.submitLabel); }
 
         // Namespaced so a prior, unclosed prompt leaves no handler behind.
         function teardown() {
@@ -217,18 +220,20 @@
         $(document).on('click', '#current-user', function(e) {
             e.preventDefault();
             const currentName = Cookies.get("user") || "";
+            const joining = !currentName;
             window.promptForIdentity({
-                title: window.translations.identityTitle,
+                title: joining ? window.translations.identityJoinTitle : window.translations.identityProfileTitle,
                 label: window.translations.usernameLabel,
                 help: window.translations.usernameHelp,
+                placeholder: window.translations.usernamePlaceholder,
+                maxlength: window.pikaraokeConfig.singerNameMaxLength,
+                submitLabel: joining ? window.translations.identityJoinAction : window.translations.identityProfileAction,
                 value: currentName
             }).done(function (res) {
-                Cookies.set("user", res.name, {
-                    expires: 3650,
-                    path: window.pikaraokeConfig.cookiePath
-                });
-                // Update the displayed name without reloading.
-                window.setCurrentUser(res.name);
+                // No pending action here, so re-fetch straight away when the name changed.
+                if (window.setIdentity(res.name) && window.spaNavigation) {
+                    window.spaNavigation.rerender();
+                }
             });
             // Remove focus from the link to prevent CSS focus styling (black background)
             $(this).blur();

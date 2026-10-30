@@ -550,6 +550,13 @@ td {
   width: 100%;
 }
 
+/* Row-action cells -- the song list's queue/favourite/options glyphs and the
+   options ellipsis on the rankings and history lists -- sit flush as a tight
+   cluster, not in wide default-padded columns. */
+.action-cell {
+  padding-inline: 0.2rem;
+}
+
 /* Bulma has no truncation helper. */
 .is-truncated {
   overflow: hidden;
@@ -577,7 +584,8 @@ td {
      cannot wrap, so on a phone they, not the data, are what decides how narrow
      a column may be -- and they are read once rather than scanned down the
      page, which makes them the right thing to shrink. */
-  .history-table th {
+  .history-table th,
+  .rankings-table th {
     font-size: 0.75rem;
   }
 }
@@ -588,10 +596,11 @@ td {
   cursor: pointer;
 }
 
-/* The cog is deliberately dim until pointed at, so a column of them does not
-   compete with the rows. !important because it carries has-text-grey-light,
-   and Bulma's colour helpers are themselves !important. */
-.row-options-btn:hover {
+/* The row-options trigger is deliberately dim until pointed at, so a column of
+   them does not compete with the rows. !important because it carries
+   has-text-grey-light, and Bulma's colour helpers are themselves !important. */
+.row-options-btn:hover,
+.song-options-trigger:hover {
   color: var(--bulma-text-strong) !important;
 }
 

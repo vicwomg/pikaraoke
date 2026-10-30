@@ -187,12 +187,13 @@
 								historySong || historyYoutubeId
 							) +
 							'<td class="has-text-centered' + (play.has_ended ? '' : ' js-live-status') + '">' + playStatus(play) + "</td>" +
-							'<td class="has-text-right">' +
+							'<td class="has-text-right action-cell">' +
 								'<a class="has-text-grey-light row-options-btn" data-id="' + play.id +
 									'" data-song="' + escapeHtml(play.song) +
 									'" data-path="' + escapeHtml(play.file_path) +
+									'" data-starred="' + (play.starred ? "1" : "0") +
 									'" title="{{ _("Options") | forceescape }}">' +
-									'<span class="icon is-medium"><i class="ph ph-dots-three-vertical"></i></span></a>' +
+									'<span class="icon"><i class="ph ph-dots-three-vertical"></i></span></a>' +
 							"</td>" +
 						"</tr>"
 					);
@@ -212,29 +213,22 @@
 
 	function openPlayOptions($btn) {
 		var path = $btn.data("path");
-		$playModal.data({ id: $btn.data("id"), path: path });
+		var starred = $btn.data("starred") == 1;
+		$playModal.data({ id: $btn.data("id"), path: path, starred: starred, trigger: $btn });
 		$("#play-modal-title").text($btn.data("song"));
 		// A song can be played and later deleted from the library, which leaves
 		// the entry in the log with nothing to queue. Saying so is friendlier than
-		// an add that fails.
+		// an add that fails. Favouriting needs the song in the library too, so it
+		// rides the same condition as the queue action.
 		$("#opt-add-queue").toggle(!!path);
+		$("#opt-favourite-play").toggle(!!path);
 		$("#opt-song-gone").toggle(!path);
+		window.setFavouriteItem(starred, $("#opt-favourite-play"));
 		$playModal.addClass("is-active");
 	}
 
 	function closePlayOptions() {
 		$playModal.removeClass("is-active");
-	}
-
-	function addToQueue(path) {
-		// The same endpoint and response shape the browse page uses: `success` is
-		// [ok, message], the message being what to show either way.
-		resolveSinger().done(function (name) {
-			$.post("{{ url_for('queue_api.enqueue_form') }}", { song_to_add: path, song_added_by: name }, function (data) {
-				var result = data.success;
-				showNotification(result[1], result[0] ? "is-success" : "is-danger");
-			});
-		});
 	}
 
 	function deletePlay(id) {
@@ -283,6 +277,25 @@
 			openPlayOptions($(this));
 		});
 
+		// The same song can sit in many rows, each with its own trigger; bring them
+		// all into step, not just the one whose menu made the change. Rebound first,
+		// as SPA navigation re-runs this script. Both .data (read by openPlayOptions)
+		// and the attribute are written, or they fall out of sync.
+		$(document)
+			.off("favourite:changed.history")
+			.on("favourite:changed.history", function (e) {
+				// Bound to document, so it outlives this page; skip the decode (which
+				// can throw on a non-UTF-8 path) once the play log is gone.
+				if (!document.getElementById("plays-body")) return;
+				var path = decodeURIComponent(e.originalEvent.detail.song);
+				var starred = !!e.originalEvent.detail.starred;
+				$("#plays-body .row-options-btn").each(function () {
+					if ($(this).data("path") === path) {
+						$(this).data("starred", starred ? 1 : 0).attr("data-starred", starred ? "1" : "0");
+					}
+				});
+			});
+
 		$playModal.on("click", ".modal-background, .modal-close-btn", closePlayOptions);
 
 		$playModal.on("click", "[data-action]", function (e) {
@@ -290,9 +303,17 @@
 			var action = $(this).data("action");
 			var id = $playModal.data("id");
 			var path = $playModal.data("path");
+			var starred = $playModal.data("starred");
+			var $trigger = $playModal.data("trigger");
 			closePlayOptions();
 			if (action === "queue") {
-				addToQueue(path);
+				// Shared with every other page's add, so the three cannot drift: it
+				// resolves the singer, posts, and re-fetches on a first naming.
+				window.enqueueSong(encodeURIComponent(path));
+			} else if (action === "favourite") {
+				// Path is raw here; encode it to match the pre-encoded form the other
+				// pages send. The favourite:changed listener above syncs every row.
+				window.favouriteSong(encodeURIComponent(path), !starred, $trigger.data("song"), function () {});
 			} else {
 				deletePlay(id);
 			}
@@ -343,16 +364,17 @@
 		margin-left: 0.4em;
 	}
 	/* A skipped song stays on the record but was never a performance, so the row
-	   reads in the same grey as the marker saying so. The cog is unaffected --
-	   Bulma's colour helpers are !important -- which is right: the actions on a
-	   skipped row are as available as on any other. */
+	   reads in the same grey as the marker saying so. The options trigger is
+	   unaffected -- Bulma's colour helpers are !important -- which is right: the
+	   actions on a skipped row are as available as on any other. */
 	#play-log tr.is-skipped td {
 		color: var(--bulma-grey-light);
 	}
 	/* Widths are declared here rather than left to the contents: the song column
 	   is the only one without one, so it absorbs the slack and the three columns
-	   beside it keep a usable share whatever gets sung. The status column holds
-	   a glyph but has to be wide enough for its own header. */
+	   beside it keep a usable share whatever gets sung. The status column is
+	   sized to its glyph: its header is screen-reader-only, so the word does
+	   not widen it. */
 	/* A cell here is a time or a date, never both, so the column is sized for
 	   "7:57 am" or "31 Jul" rather than for the pair. Only a row from another
 	   year is longer, and it wraps. */
@@ -363,10 +385,10 @@
 		width: 20%;
 	}
 	#play-log .col-status {
-		width: 4em;
+		width: 2em;
 	}
 	#play-log .col-options {
-		width: 3em;
+		width: 2.25em;
 	}
 	.status-playing {
 		width: 18px;
@@ -385,10 +407,10 @@
 			width: 22%;
 		}
 		#play-log .col-status {
-			width: 3.2em;
+			width: 2em;
 		}
 		#play-log .col-options {
-			width: 2em;
+			width: 2.25em;
 		}
 		#play-log td.when {
 			color: var(--bulma-grey-light);
@@ -473,7 +495,8 @@
 				{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
 			</th>
 			{# MSG: Play log column header for whether the song was played through, skipped, or is still playing. #}
-			<th>{% trans %}Status{% endtrans %}</th>
+			{# Screen-reader-only, so the glyph alone -- not the word -- sets the column width. #}
+			<th><span class="is-sr-only">{% trans %}Status{% endtrans %}</span></th>
 			<th></th>
 		</tr>
 	</thead>
@@ -494,6 +517,11 @@
 				<span class="icon has-text-success mr-2"><i class="ph ph-plus-circle"></i></span>
 				{# MSG: Menu item which adds the song from this play log entry to the queue. #}
 				{% trans %}Add to queue{% endtrans %}
+			</a>
+			{# Icon and label are set by setFavouriteItem() from the play's starred state. #}
+			<a id="opt-favourite-play" class="panel-block py-3" href="#" data-action="favourite">
+				<span class="icon mr-2"><i class="ph ph-plus"></i></span>
+				<span class="opt-fav-label"></span>
 			</a>
 			<span id="opt-song-gone" class="panel-block py-3 has-text-grey-light">
 				<span class="icon mr-2"><i class="ph ph-info"></i></span>

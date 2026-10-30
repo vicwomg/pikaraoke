@@ -34,6 +34,7 @@ from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
+from pikaraoke.lib.singer_manager import SingerManager
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
@@ -65,6 +66,7 @@ class Karaoke:
     song_manager: SongManager
     queue_manager: QueueManager
     playback_controller: PlaybackController
+    singer_manager: SingerManager
     play_history: PlayHistoryManager
 
     volume: float
@@ -303,8 +305,18 @@ class Karaoke:
             get_turns_taken=lambda: self.play_history.get_turns_taken(),
         )
 
+        # Singers own the one row per performer that plays and favourites hang
+        # off; play history resolves names through it and backfills it on start.
+        self.singer_manager = SingerManager(
+            db=self.db,
+            events=self.events,
+            song_display_name=self.song_manager.display_name_from_path,
+        )
+
         # Play history recording and reporting (subscribes to song_ended itself)
-        self.play_history = PlayHistoryManager(db=self.db, events=self.events)
+        self.play_history = PlayHistoryManager(
+            db=self.db, events=self.events, singers=self.singer_manager
+        )
 
         # Initialize and start download manager
         self.download_manager = DownloadManager(

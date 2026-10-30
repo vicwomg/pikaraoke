@@ -26,11 +26,12 @@ from pikaraoke.lib.admin_auth import AdminAuth
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.auth import document_auth, install_auth_gate
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import favourite_paths, get_karaoke_instance, is_admin
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import get_platform, has_js_runtime, is_windows
 from pikaraoke.lib.login_throttle import LoginThrottle
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -87,6 +88,10 @@ app.jinja_env.globals.update(
     is_admin=is_admin,
     active_session_name=lambda: get_karaoke_instance().play_history.get_current_session_name(),
     has_active_session=lambda: get_karaoke_instance().play_history.has_active_session(),
+    # The song lists draw a star per row from this; cached per request so a page
+    # of rows costs one query. Empty for an unnamed device, so every star draws
+    # unfilled until a name is set.
+    favourite_paths=favourite_paths,
 )
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
@@ -145,12 +150,13 @@ def get_locale() -> str | None:
 
 
 @app.context_processor
-def inject_path_config() -> dict[str, str]:
-    """Expose path-prefix settings to templates."""
+def inject_path_config() -> dict[str, object]:
+    """Expose path-prefix settings and the singer-name cap to templates."""
     return {
         "base_path": app.config["PIKARAOKE_BASE_PATH"],
         "socketio_path": app.config["PIKARAOKE_SOCKETIO_PATH"],
         "cookie_path": app.config["SESSION_COOKIE_PATH"],
+        "singer_name_max_length": SINGER_NAME_MAX_LENGTH,
     }
 
 

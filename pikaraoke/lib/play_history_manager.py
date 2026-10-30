@@ -4,6 +4,7 @@ import uuid
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.singer_manager import SingerManager
 
 # A session name is shown across a TV on the splash screen at 2rem with wide
 # letter spacing, where roughly this much still fits on one line at 720p. Longer
@@ -18,23 +19,6 @@ STALE_SESSION_HOURS = 6
 
 # What a reset is allowed to destroy: every play on record, or one session's.
 RESET_SCOPES = ["all", "session"]
-
-
-def _latest_casing(name_column: str) -> str:
-    """Select the most recently used casing of a performer name.
-
-    So that "Mike" and "mike" rank as one person rather than forking the
-    leaderboard. Deliberately unscoped by session, so a name renders the same
-    way wherever it appears.
-
-    This is correlated, so it runs once per row of whatever it is attached to.
-    Attach it to an already-limited set, never to the grouping that produces one.
-    """
-    return f"""
-    SELECT p2.performer FROM plays p2
-    WHERE p2.performer = {name_column} COLLATE NOCASE
-    ORDER BY p2.played_at DESC, p2.id DESC LIMIT 1
-"""
 
 
 # Which song a play was of, as one groupable value.
@@ -54,7 +38,7 @@ _SONG_KEY = "COALESCE('y:' || p.youtube_id, 't:' || LOWER(p.song_title))"
 # interpolate into SQL, so the sort key is looked up here and never used raw.
 _PLAY_SORTS = {
     "played_at": "p.played_at",
-    "performer": "p.performer COLLATE NOCASE",
+    "performer": "si.name COLLATE NOCASE",
     "song": "p.song_title COLLATE NOCASE",
 }
 
@@ -94,10 +78,10 @@ def _plays_filter(
             so callers only need the id the UI already carries.
         condition: _SUNG or _SUNG_OR_PLAYING, or None to take every play on
             record.
-        performer: Scope to one singer. Case-insensitive because get_singers()
-            groups the same way, so a name is one person wherever it is counted;
-            matching exactly here would show fewer plays than the ranking the
-            reader followed to get here.
+        performer: Scope to one singer, resolved to their singer row so the
+            match is on identity rather than on the string the play was written
+            under -- one name is one person wherever it is counted, which is what
+            keeps a scoped log in step with the ranking that opened it.
         song: Scope to one song, by the title it was played under.
         youtube_id: The same song's id, when it has one. Given both, the id
             decides and the title is only a label -- see below.
@@ -108,7 +92,7 @@ def _plays_filter(
         clauses.append("p.session_id = (SELECT id FROM sessions WHERE uuid = ?)")
         params += (session_uuid,)
     if performer:
-        clauses.append("p.performer = ? COLLATE NOCASE")
+        clauses.append("p.singer_id = (SELECT id FROM singers WHERE name = ? COLLATE NOCASE)")
         params += (performer,)
     # Selects exactly the plays _SONG_KEY groups together, so a log opened from a
     # chart row holds the plays that row counted. A library often holds several
@@ -143,9 +127,10 @@ class PlayHistoryManager:
     another -- which is the whole of what they are for.
     """
 
-    def __init__(self, db: KaraokeDatabase, events: EventSystem) -> None:
+    def __init__(self, db: KaraokeDatabase, events: EventSystem, singers: SingerManager) -> None:
         self.db = db
         self.events = events
+        self.singers = singers
         # The play still in flight, or None when nothing is playing. Only the
         # in-process bookkeeping for resolving it; readers get the state from
         # plays.ended_at instead. The song and performer alongside it identify
@@ -155,6 +140,9 @@ class PlayHistoryManager:
         self._current_performer: str | None = None
         self._resuming = False
         self._close_orphaned_plays()
+        # Give any play recorded before singers existed its singer_id, so the
+        # joins below never drop a row. Idempotent, so it runs on every start-up.
+        self.singers.backfill()
         # The open session, cached because the nav ribbon reads it on every page
         # render and the now_playing broadcast on every queue or playback change,
         # while only the mutations below can change it. Loaded lazily;
@@ -435,10 +423,14 @@ class PlayHistoryManager:
             self.start_session()
             session = self.get_current_session()
 
+        # Resolve the name to its singer row and store both: the id is what every
+        # report now groups and joins on, and performer stays on the row as the
+        # casing sung under, still NOT NULL on every shipped database.
+        singer_id = self.singers.get_or_create(performer)
         cursor = self.db.execute(
-            "INSERT INTO plays (session_id, song_id, youtube_id, song_title, performer) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (session["id"], song_id, youtube_id, song_title, performer),
+            "INSERT INTO plays (session_id, song_id, youtube_id, song_title, performer, singer_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (session["id"], song_id, youtube_id, song_title, performer, singer_id),
         )
         self._current_play_id = cursor.lastrowid
         self._current_song_id = song_id
@@ -537,7 +529,7 @@ class PlayHistoryManager:
 
         rows = self.db.query(
             f"""
-            SELECT p.id, {_local("p.played_at", "played_at")}, p.performer, p.completed,
+            SELECT p.id, {_local("p.played_at", "played_at")}, si.name AS performer, p.completed,
                    -- NULL only while it is actually playing, which is how the
                    -- log tells "singing now" from "was skipped".
                    p.ended_at IS NOT NULL AS has_ended,
@@ -545,6 +537,7 @@ class PlayHistoryManager:
                    p.youtube_id,
                    s.file_path
             FROM plays p
+            JOIN singers si ON si.id = p.singer_id
             LEFT JOIN songs s ON s.id = p.song_id
             {where}
             ORDER BY {order} {ascending}, p.id {ascending}
@@ -585,8 +578,8 @@ class PlayHistoryManager:
         """Return performers with play counts, most active first.
 
         Scoped to one session when given; otherwise every performer on record.
-        The casing subquery stays unscoped so a name renders the same way
-        wherever it appears.
+        The name comes from the singer row, so a performer renders the same way
+        wherever they appear.
 
         Args:
             limit: Cap on rows returned. Callers showing a leaderboard or an
@@ -606,25 +599,25 @@ class PlayHistoryManager:
             limit_clause = "ORDER BY play_count DESC, last_played DESC LIMIT ?"
             params += (limit,)
 
-        # Counting and casing are separated so the LIMIT lands between them.
-        # Resolving casing in the grouped query would run the correlated lookup
-        # once per performer on record before the LIMIT could discard any of
-        # them, making a capped autocomplete cost the same as an uncapped one.
-        # Both ORDER BYs key off the raw UTC column rather than the converted
-        # alias, so ranking survives a daylight-saving rollback.
+        # Counting and naming are separated so the LIMIT lands between them: the
+        # grouped query touches only plays, and the singers join runs on the few
+        # rows the LIMIT kept rather than once per performer on record. Both
+        # ORDER BYs key off the raw UTC column rather than the converted alias,
+        # so ranking survives a daylight-saving rollback.
         rows = self.db.query(
             f"""
             WITH totals AS (
-                SELECT p.performer, COUNT(*) AS play_count, MAX(p.played_at) AS last_played
+                SELECT p.singer_id, COUNT(*) AS play_count, MAX(p.played_at) AS last_played
                 FROM plays p
                 {where}
-                GROUP BY p.performer COLLATE NOCASE
+                GROUP BY p.singer_id
                 {limit_clause}
             )
-            SELECT ({_latest_casing("t.performer")}) AS performer,
+            SELECT si.name AS performer,
                    t.play_count,
                    {_local("t.last_played", "last_played")}
             FROM totals t
+            JOIN singers si ON si.id = t.singer_id
             ORDER BY t.play_count DESC, t.last_played DESC
             """,
             params,
@@ -642,8 +635,9 @@ class PlayHistoryManager:
         if session is None:
             return {}
         rows = self.db.query(
-            f"SELECT p.performer, COUNT(*) AS turns FROM plays p "
-            f"WHERE p.session_id = ? AND {_SUNG} GROUP BY p.performer COLLATE NOCASE",
+            f"SELECT si.name AS performer, COUNT(*) AS turns FROM plays p "
+            f"JOIN singers si ON si.id = p.singer_id "
+            f"WHERE p.session_id = ? AND {_SUNG} GROUP BY p.singer_id",
             (session["id"],),
         )
         # Folding again in Python can merge two of SQLite's ASCII-only groups.
@@ -743,9 +737,10 @@ class PlayHistoryManager:
         where, params = _plays_filter(session_uuid, _SUNG)
         rows = self.db.query(
             f"""
-            SELECT {_local("p.played_at", "played_at")}, p.performer,
+            SELECT {_local("p.played_at", "played_at")}, si.name AS performer,
                    p.song_title AS song
             FROM plays p
+            JOIN singers si ON si.id = p.singer_id
             {where}
             ORDER BY p.played_at, p.id
             """,

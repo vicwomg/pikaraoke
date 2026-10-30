@@ -32,6 +32,7 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/sessions", "sessions.sessions"),
     ("/api/sessions/singers", "sessions_api.get_singers"),
     ("/api/enqueue", "queue_api.enqueue_form"),
+    ("/api/singer/favourite", "singers_api.set_favourite"),
 ]
 
 
@@ -75,7 +76,12 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
 
     @app.context_processor
     def inject_path_config():
-        return {"base_path": "", "socketio_path": "/socket.io", "cookie_path": "/"}
+        return {
+            "base_path": "",
+            "socketio_path": "/socket.io",
+            "cookie_path": "/",
+            "singer_name_max_length": 30,
+        }
 
     # app.py binds these at import for the same reason: base.html calls them on
     # every render, so a page rendered without them fails on an undefined name.
@@ -85,6 +91,9 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
         is_admin=lambda: admin,
         has_active_session=lambda: False,
         active_session_name=lambda: "",
+        # The song lists draw a star per row from this; empty by default, so a
+        # test that does not set up favourites renders every row unstarred.
+        favourite_paths=lambda: set(),
     )
     install_auth_gate(app)
     return app

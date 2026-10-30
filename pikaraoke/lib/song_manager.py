@@ -253,6 +253,22 @@ class SongManager:
             self._initials_version = version
         return self._initials.get(folder, set())
 
+    def letters_for(self, paths: set[str]) -> set[str]:
+        """Alpha-bar keys present among `paths`, a subset of the library.
+
+        Keyed like letters_with_songs -- 'numeric' for a leading digit, else the
+        accent-folded lowercase first character -- so the bar agrees with
+        songs_by_letter when the listing is narrowed to a subset, such as the
+        Favourites view. Not memoized: it runs only on a Favourites render, which
+        already pays one O(songs) pass to filter the set.
+        """
+        keys = set()
+        for name, path in self._match_index():
+            first = name[:1]
+            if first and path in paths:
+                keys.add("numeric" if first.isnumeric() else first)
+        return keys
+
     def songs_in_folder(self, folder: str) -> list[str]:
         """Songs sitting directly in `folder`, excluding its subfolders, in list order."""
         return [path for *_, path in self._scoped_index(folder)]

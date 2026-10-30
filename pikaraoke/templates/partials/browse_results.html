@@ -3,32 +3,63 @@
    never steals focus or the caret. The pager sits inside it, because filtering
    changes the count and the number of pages. #}
 {% import 'partials/pager.html' as pager %}
+{% if view == 'favourites' and not songs and not q and not letter %}
+{# Favourites view with nothing starred: the notice stands in for the table, and
+   because it lives in the swapped fragment it survives a filter keystroke. #}
+{# MSG: Shown in the Favourites view of the song list when the singer has starred nothing. #}
+<p class="has-text-grey">{% trans %}No favourites yet. Tap the star on a song to add it.{% endtrans %}</p>
+{% else %}
+{# The A-Z bar lives outside this fragment; ferry the rebuilt bar across for the
+   unstar refresh. Partial-only, so a full load does not duplicate it. #}
+{% if request.args.get('partial') and view == 'favourites' and letters %}
+<template id="alpha-bar-fresh">{% include 'partials/alpha_bar.html' %}</template>
+{% endif %}
 {{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
 <table class="table is-striped">
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
+	{% set is_fav = song in favourite_paths() %}
+	{% set encoded = url_escape(song.encode('utf-8','surrogateescape')) %}
 	<tr value="{{ song }}">
-		<td class="pl-2 pr-0">{{loop.index + skip}}</td>
-		<td id="{{display_name[0].lower()}}" class="pr-0">
+		<td id="{{display_name[0].lower()}}" class="action-cell">
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
 				title="Add '{{display_name}}' to queue"
 				href="#"
-				data-song="{{url_escape(song.encode('utf-8','surrogateescape'))}}"
+				data-song="{{encoded}}"
 				><span class="icon"><i class="ph ph-plus-circle"></i></span>
 			</a>
 		</td>
-		<td class="break-word pr-0">{{display_name}}</td>
-		{% if admin %}
-		<td class="pr-0">
+		<td class="break-word px-0">{{display_name}}</td>
+		<td class="action-cell">
+			{# setRowStar() keeps this and the trigger in step. #}
 			<a
-				class="edit-button"
-				href="{{url_for('files.edit_file')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&referrer={{url_escape(current_url)}}"
-				title="Rename song"
-				><span class="icon"><i class="ph ph-pencil-simple"></i></span>
+				class="song-favourite-toggle"
+				href="#"
+				data-song="{{encoded}}"
+				data-title="{{display_name}}"
+				data-starred="{% if is_fav %}1{% else %}0{% endif %}"
+				title="{{ _('Favourite') | forceescape }}"
+				aria-label="{{ _('Favourite') | forceescape }}"
+				><span class="icon {% if is_fav %}has-text-warning{% else %}has-text-grey{% endif %}"><i class="ph ph-star"></i></span>
 			</a>
 		</td>
-		{% endif %}
+		<td class="action-cell">
+			{# One trigger per row opens the shared options modal (queue, favourite,
+			   and rename for admins). data-starred seeds its favourite state from
+			   this device's favourites, resolved once per render. #}
+			<a
+				class="song-options-trigger has-text-grey-light"
+				href="#"
+				data-song="{{encoded}}"
+				data-title="{{display_name}}"
+				data-starred="{% if is_fav %}1{% else %}0{% endif %}"
+				{% if admin %}data-edit-url="{{url_for('files.edit_file')}}?song={{encoded}}&referrer={{url_escape(current_url)}}"{% endif %}
+				title="{{ _('Options') | forceescape }}"
+				aria-label="{{ _('Options') | forceescape }}"
+				><span class="icon"><i class="ph ph-dots-three-vertical"></i></span>
+			</a>
+		</td>
 	</tr>
 	{% endfor %}
 </table>
@@ -38,4 +69,5 @@
    back up, so it appears only when there is somewhere to scroll back up from. #}
 {% if total > per_page %}
 {{ pager.pager(page, per_page, total, page_href) }}
+{% endif %}
 {% endif %}
