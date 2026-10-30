@@ -405,6 +405,37 @@ describe("handleNowPlayingUpdate", () => {
     expect(octopusInstances[1].options.subUrl).toBe("http://sub/two.ass");
   });
 
+  it("does not rebuild the subtitle instance when the url is unchanged", () => {
+    const update = {
+      ...base,
+      now_playing_subtitle_url: "http://sub/one.ass",
+      now_playing_url: "http://stream/one",
+      playback_id: "PB1",
+    };
+    splash.handleNowPlayingUpdate(update);
+    splash.handleNowPlayingUpdate({ ...update });
+    expect(octopusInstances.length).toBe(1);
+    expect(octopusInstances[0].disposed).toBe(false);
+  });
+
+  it("disposes the subtitle instance when the next song has none", () => {
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing_subtitle_url: "http://sub/one.ass",
+      now_playing_url: "http://stream/one",
+      playback_id: "PB1",
+    });
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing_subtitle_url: null,
+      now_playing_url: "http://stream/two",
+      playback_id: "PB2",
+    });
+    expect(octopusInstances.length).toBe(1);
+    expect(octopusInstances[0].disposed).toBe(true);
+    expect(state().octopusInstance).toBe(null);
+  });
+
   it("applies the volume carried by the update", () => {
     splash.handleNowPlayingUpdate({
       ...base,
