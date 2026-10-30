@@ -11,6 +11,8 @@ let volume = 0.85;
 const bgMediaResumeDelay = 2000;
 const bgVideoChoices = PikaraokeConfig.bgVideoChoices;
 let currentVideoUrl = null;
+let currentSubtitleUrl = null;
+let subtitleEnginePromise = null;
 let hlsInstance = null;
 let idleTime = 0;
 let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
@@ -300,6 +302,61 @@ const renderSessionName = () => {
     .toggle(Boolean(sessionName) && !PikaraokeConfig.hideSessionName);
 };
 
+// Inject the 78KB ASS renderer on first use, so a library with no .ass
+// sidecars never loads it. Cached: injected at most once.
+const ensureSubtitleEngine = () => {
+  if (window.SubtitlesOctopus) return Promise.resolve();
+  if (!subtitleEnginePromise) {
+    subtitleEnginePromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = withBasePath("/static/js/subtitles-octopus.js");
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  return subtitleEnginePromise;
+};
+
+const buildOctopus = (subtitleUrl, video) => {
+  const options = {
+    video: video,
+    subUrl: subtitleUrl,
+    fonts: [
+      withBasePath("/static/fonts/Arial.ttf"),
+      withBasePath("/static/fonts/DroidSansFallback.ttf"),
+    ],
+    debug: true,
+    workerUrl: withBasePath("/static/js/subtitles-octopus-worker.js"),
+  };
+  try {
+    octopusInstance = new SubtitlesOctopus(options);
+    scaleSubtitleCanvas();
+  } catch (e) { console.error(e); }
+};
+
+// now_playing fires on every queue change, so rebuild only when the subtitle
+// URL changes - else a phone enqueue tears down the TV's wasm worker mid-song.
+const updateSubtitles = (subtitleUrl, video) => {
+  if (subtitleUrl === currentSubtitleUrl) return;
+  currentSubtitleUrl = subtitleUrl;
+  if (octopusInstance) {
+    octopusInstance.dispose();
+    octopusInstance = null;
+  }
+  if (!subtitleUrl || !video) return;
+  if (window.SubtitlesOctopus) {
+    buildOctopus(subtitleUrl, video);
+    return;
+  }
+  ensureSubtitleEngine()
+    .then(() => {
+      // Skip if a newer song changed the target while the script loaded.
+      if (currentSubtitleUrl === subtitleUrl) buildOctopus(subtitleUrl, video);
+    })
+    .catch((e) => console.error(e));
+};
+
 const handleNowPlayingUpdate = (np) => {
   nowPlaying = np;
   if (np.session_name !== sessionName) {
@@ -343,28 +400,7 @@ const handleNowPlayingUpdate = (np) => {
 
   const video = getVideoPlayer();
 
-  // Setup ASS subtitle file if found
-  const subtitleUrl = np.now_playing_subtitle_url;
-  if (octopusInstance) {
-    octopusInstance.dispose();
-    octopusInstance = null;
-  }
-  if (subtitleUrl && video) {
-    const options = {
-      video: video,
-      subUrl: subtitleUrl,
-      fonts: [
-        withBasePath("/static/fonts/Arial.ttf"),
-        withBasePath("/static/fonts/DroidSansFallback.ttf"),
-      ],
-      debug: true,
-      workerUrl: withBasePath("/static/js/subtitles-octopus-worker.js")
-    };
-    try {
-      octopusInstance = new SubtitlesOctopus(options);
-      scaleSubtitleCanvas();
-    } catch (e) { console.error(e); }
-  }
+  updateSubtitles(np.now_playing_subtitle_url, video);
 
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
@@ -828,6 +864,10 @@ if (typeof module !== "undefined" && module.exports) {
         set currentPlaybackId(v) { currentPlaybackId = v; },
         get currentVideoUrl() { return currentVideoUrl; },
         set currentVideoUrl(v) { currentVideoUrl = v; },
+        get currentSubtitleUrl() { return currentSubtitleUrl; },
+        set currentSubtitleUrl(v) { currentSubtitleUrl = v; },
+        get octopusInstance() { return octopusInstance; },
+        set octopusInstance(v) { octopusInstance = v; },
         get nowPlaying() { return nowPlaying; },
         set nowPlaying(v) { nowPlaying = v; },
         get autoplayConfirmed() { return autoplayConfirmed; },
