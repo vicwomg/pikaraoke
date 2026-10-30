@@ -335,10 +335,10 @@
 		window.onPageSocket("mic_devices_state", function(devices) {
 			var enabled = devices.filter(function(d) { return d.enabled; });
 			if (enabled.length === 0) {
-				$("#mic-live-panel").hide();
+				$(".mic-live-panel").hide();
 				return;
 			}
-			var list = $("#mic-live-list");
+			var list = $(".mic-live-list");
 			list.empty();
 			enabled.forEach(function(dev) {
 				var escaped = $('<span>').text(dev.label).html();
@@ -352,7 +352,7 @@
 					'</div>'
 				);
 			});
-			$("#mic-live-panel").show();
+			$(".mic-live-panel").show();
 		});
 
 		window.onPageSocket("mic_update", function(data) {
@@ -360,8 +360,8 @@
 				$(".mic-live-volume").filter(function() {
 					return $(this).data("device-id") === data.deviceId;
 				}).closest("div").remove();
-				if ($("#mic-live-list").children().length === 0) {
-					$("#mic-live-panel").hide();
+				if ($(".mic-live-list").children().length === 0) {
+					$(".mic-live-panel").hide();
 				}
 			} else {
 				var slider = $(".mic-live-volume").filter(function() {
@@ -460,7 +460,7 @@
 			{% if is_transpose_enabled or mic_available %}
 			{# Advanced reveals the less-used controls inside this box. A caret marks
 			   it as a toggle; the slide and remembered open state are in the script. #}
-			<div class="has-text-right mt-3">
+			<div class="has-text-right mt-2">
 				<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
 					{# MSG: Link that reveals the less-used player controls. #}
 					<span>{% trans %}Advanced{% endtrans %}</span>
@@ -487,10 +487,10 @@
 				{% endif %}
 
 				{% if mic_available %}
-				<div id="mic-live-panel" style="display: none">
+				<div class="mic-live-panel" style="display: none">
 					{% if is_transpose_enabled %}<hr />{% endif %}
 					<h5>{% trans %}Microphones{% endtrans %}</h5>
-					<div id="mic-live-list"></div>
+					<div class="mic-live-list"></div>
 				</div>
 				{% endif %}
 			</div>
@@ -522,8 +522,8 @@
 				</div>
 			</div>
 
-			{% if is_transpose_enabled %}
-			<div class="has-text-right mt-3">
+			{% if is_transpose_enabled or mic_available %}
+			<div class="has-text-right mt-2">
 				<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
 					{# MSG: Link that reveals the less-used player controls. #}
 					<span>{% trans %}Advanced{% endtrans %}</span>
@@ -532,6 +532,7 @@
 			</div>
 			<div class="js-advanced-panel" style="display: none">
 				<hr />
+				{% if is_transpose_enabled %}
 				<div class="focus-gate" data-gate="key">
 					<div class="is-flex is-justify-content-space-between is-align-items-center">
 						{# MSG: Title of a control to change the key/pitch of the playing song. #}
@@ -548,6 +549,18 @@
 						</button>
 					</div>
 				</div>
+				{% endif %}
+
+				{# Mic volume is state-independent, so the controls appear in the
+				   ready-to-start Advanced as well as the playing one. Class, not id:
+				   both panels share the one set of socket handlers. #}
+				{% if mic_available %}
+				<div class="mic-live-panel" style="display: none">
+					{% if is_transpose_enabled %}<hr />{% endif %}
+					<h5>{% trans %}Microphones{% endtrans %}</h5>
+					<div class="mic-live-list"></div>
+				</div>
+				{% endif %}
 			</div>
 			{% endif %}
 		</div>
