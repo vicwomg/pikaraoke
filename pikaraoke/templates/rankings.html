@@ -126,7 +126,7 @@
 {% endif %}
 
 {# MSG: Heading for the list of people who have sung the most songs. #}
-<h2>{% trans %}Top performers{% endtrans %}</h2>
+<h2>{% trans %}Top singers{% endtrans %}</h2>
 {% if top_performers %}
 <table class="table is-striped rankings-table mb-0">
 	<colgroup>
@@ -135,7 +135,7 @@
 		<col class="col-count" />
 	</colgroup>
 	{# MSG: Ranking table column header for the person who sang. #}
-	{{ ranking_head(_("Performer")) }}
+	{{ ranking_head(_("Singer")) }}
 	<tbody>
 		{% for performer in top_performers %}
 		<tr>
