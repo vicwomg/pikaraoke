@@ -1,7 +1,7 @@
 """Unit tests for SongManager."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -379,9 +379,29 @@ class TestDBCoordination:
         song.write_text("fake")
         mock_db = MagicMock()
         sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
-        sm.register_download(_native(song))
+        with patch("pikaraoke.lib.song_manager.get_media_duration", return_value=180.0):
+            sm.register_download(_native(song))
         assert _native(song) in sm.songs
         mock_db.insert_songs.assert_called_once()
+
+    def test_register_download_fills_the_duration(self, tmp_path):
+        """The row is born with its length, so a download never needs the sweep."""
+        song = tmp_path / "New---xyz12345678.mp4"
+        song.write_text("fake")
+        mock_db = MagicMock()
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        with patch("pikaraoke.lib.song_manager.get_media_duration", return_value=180.0):
+            sm.register_download(_native(song))
+        mock_db.set_duration.assert_called_once_with(_native(song), 180.0)
+
+    def test_register_download_skips_duration_when_probe_fails(self, tmp_path):
+        song = tmp_path / "New---xyz12345678.mp4"
+        song.write_text("fake")
+        mock_db = MagicMock()
+        sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
+        with patch("pikaraoke.lib.song_manager.get_media_duration", return_value=None):
+            sm.register_download(_native(song))
+        mock_db.set_duration.assert_not_called()
 
 
 # enable_title_tidy defaults to False, so every test that cares about it sets it

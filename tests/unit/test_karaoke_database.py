@@ -322,6 +322,44 @@ class TestGetSongIdentity:
         assert db.get_song_identity("/songs/a.mp4")[1] == "dQw4w9WgXcQ"
 
 
+class TestSetDuration:
+    @pytest.fixture
+    def song(self, db):
+        db.insert_songs([{"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"}])
+        return "/songs/a.mp4"
+
+    def _duration(self, db, path):
+        return db._conn.execute(
+            "SELECT duration FROM songs WHERE file_path = ?", (path,)
+        ).fetchone()[0]
+
+    def test_fills_a_null_duration(self, db, song):
+        db.set_duration(song, 212)
+        assert self._duration(db, song) == 212
+
+    def test_rounds_to_whole_seconds(self, db, song):
+        db.set_duration(song, 211.6)
+        assert self._duration(db, song) == 212
+
+    def test_does_not_overwrite_an_existing_value(self, db, song):
+        db.set_duration(song, 200)
+        db.set_duration(song, 999)
+        assert self._duration(db, song) == 200
+
+    def test_unknown_path_is_a_no_op(self, db):
+        db.set_duration("/songs/nope.mp4", 100)  # must not raise
+
+    def test_get_duration_returns_the_stored_value(self, db, song):
+        db.set_duration(song, 212)
+        assert db.get_duration(song) == 212
+
+    def test_get_duration_is_none_before_it_is_set(self, db, song):
+        assert db.get_duration(song) is None
+
+    def test_get_duration_is_none_for_an_unknown_path(self, db):
+        assert db.get_duration("/songs/nope.mp4") is None
+
+
 class TestForeignKeys:
     """These all fail without the PRAGMA foreign_keys in _connect()."""
 

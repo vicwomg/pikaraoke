@@ -65,6 +65,21 @@ class TestQueueManagerEnqueue:
         assert queue_manager.queue[0]["file"] == "/songs/test---abc.mp4"
         assert queue_manager.queue[0]["user"] == "User1"
 
+    def test_enqueue_emits_song_queued_with_the_path(self, queue_manager, events):
+        """A duration subscriber probes this path while the song waits."""
+        queued = []
+        events.on("song_queued", queued.append)
+        queue_manager.enqueue("/songs/test---abc.mp4", "User1")
+        assert queued == ["/songs/test---abc.mp4"]
+
+    def test_rejected_enqueue_emits_no_song_queued(self, queue_manager, events):
+        """A duplicate is not added, so nothing should probe it."""
+        queue_manager.enqueue("/songs/test---abc.mp4", "User1")
+        queued = []
+        events.on("song_queued", queued.append)
+        queue_manager.enqueue("/songs/test---abc.mp4", "User2")
+        assert queued == []
+
     def test_enqueue_prevents_duplicates(self, queue_manager):
         """Enqueuing the same song twice should fail."""
         queue_manager.enqueue("/songs/test---abc.mp4", "User1")
