@@ -1,4 +1,4 @@
-"""Unit tests for DurationPopulator (Rungs 1 and 3 of duration population)."""
+"""Unit tests for DurationPopulator."""
 
 from unittest.mock import MagicMock, patch
 
@@ -19,7 +19,7 @@ def db():
 
 
 class TestPlaybackStarted:
-    """Rung 1: persist the figure the playback path already probed."""
+    """Persist the figure the playback path already probed."""
 
     def test_writes_the_now_playing_duration(self, db, events):
         DurationPopulator(db, events, get_now_playing=lambda: ("/songs/a.mp4", 212))
@@ -38,7 +38,7 @@ class TestPlaybackStarted:
 
 
 class TestSongQueued:
-    """Rung 3: probe a queued song while it waits, off the playback path."""
+    """Probe a queued song while it waits, off the playback path."""
 
     def test_probes_and_writes(self, db, events):
         db.get_duration.return_value = None
@@ -64,4 +64,13 @@ class TestSongQueued:
         with patch("pikaraoke.lib.duration_populator.get_media_duration") as probe:
             events.emit("song_queued", "/songs/b.mp4")
         probe.assert_not_called()
+        db.set_duration.assert_not_called()
+
+    def test_does_not_probe_a_zip(self, db, events):
+        """A zip's audio is inside the archive; it is filled at play, not at queue."""
+        DurationPopulator(db, events, get_now_playing=lambda: (None, None))
+        with patch("pikaraoke.lib.duration_populator.get_media_duration") as probe:
+            events.emit("song_queued", "/songs/Song---abc12345678.zip")
+        probe.assert_not_called()
+        db.get_duration.assert_not_called()
         db.set_duration.assert_not_called()

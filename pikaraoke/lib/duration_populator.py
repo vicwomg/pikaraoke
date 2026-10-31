@@ -1,5 +1,6 @@
 """Fills songs.duration from the moments a song is played and queued."""
 
+import os
 from typing import Callable
 
 from pikaraoke.lib.events import EventSystem
@@ -23,8 +24,8 @@ class DurationPopulator:
         get_now_playing: Callable[[], tuple[str | None, int | None]],
     ) -> None:
         self._db = db
-        # (file_path, duration) of the song on screen; the playback path already
-        # probed it, so Rung 1 persists that figure at no probe cost.
+        # Returns (file_path, duration) of the song on screen. The playback path
+        # already probed it, so persisting it here costs no probe.
         self._get_now_playing = get_now_playing
         events.on("playback_started", self._on_playback_started)
         events.on("song_queued", self._on_song_queued)
@@ -35,8 +36,12 @@ class DurationPopulator:
             self._db.set_duration(file_path, duration)
 
     def _on_song_queued(self, song_path: str) -> None:
-        # Skip the probe, not just the write, for a row already filled -- a
-        # download fills it at register before it reaches the queue.
+        # A zip's audio is inside the archive, so probing it needs a full
+        # extraction. Too costly here; it is filled at play, where it is
+        # extracted anyway.
+        if os.path.splitext(song_path)[1].casefold() == ".zip":
+            return
+        # Skip the probe, not just the write, when the row is already filled.
         if self._db.get_duration(song_path) is not None:
             return
         duration = get_media_duration(song_path)
