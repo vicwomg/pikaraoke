@@ -35,6 +35,7 @@ def app():
             ("/info", "info.info"),
             ("/api/download", "search_api.download"),
             ("/api/preview", "search_api.preview"),
+            ("/upload", "upload.upload_page"),
         ],
     )
 

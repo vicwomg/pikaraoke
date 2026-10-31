@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block scripts %}
+<style>
+	/* No Bulma drop-target equivalent; theme tokens keep it tracking light and dark. */
+	.upload-drop {
+		border: 2px dashed var(--bulma-border);
+		border-radius: var(--bulma-radius-large);
+		padding: 2.5rem 1rem;
+		text-align: center;
+		cursor: pointer;
+		transition: border-color 0.2s ease, background-color 0.2s ease;
+	}
+	.upload-drop:hover,
+	.upload-drop.is-dragover {
+		border-color: var(--bulma-link);
+		background-color: var(--bulma-scheme-main-ter);
+	}
+</style>
+<script>
+	$(function () {
+		const dropZone = document.getElementById("drop-zone");
+		const fileInput = document.getElementById("file-input");
+		const list = document.getElementById("upload-list");
+		const uploadUrl = "{{ url_for('upload.upload') }}";
+		const allowed = {{ allowed_extensions | tojson }};
+
+		// Uploads run one at a time, chained onto this, to spare a Pi serving the room.
+		let queue = Promise.resolve();
+
+		function extOf(name) {
+			const dot = name.lastIndexOf(".");
+			return dot === -1 ? "" : name.slice(dot).toLowerCase();
+		}
+
+		function addRow(file) {
+			const li = document.createElement("li");
+			li.className = "box p-3 mb-2";
+			li.innerHTML =
+				'<div class="is-flex is-align-items-center is-gap-2">' +
+					'<span class="icon upload-status"><i class="ph ph-file"></i></span>' +
+					'<span class="upload-name is-flex-grow-1 break-word"></span>' +
+				"</div>" +
+				'<progress class="progress is-small is-link mt-2" value="0" max="100"></progress>';
+			li.querySelector(".upload-name").textContent = file.name;
+			list.appendChild(li);
+			return li;
+		}
+
+		function markDone(li, ok, error) {
+			const status = li.querySelector(".upload-status");
+			li.querySelector("progress").remove();
+			if (ok) {
+				status.innerHTML = '<i class="ph ph-check-circle"></i>';
+				status.classList.add("has-text-success");
+			} else {
+				status.innerHTML = '<i class="ph ph-x-circle"></i>';
+				status.classList.add("has-text-danger");
+				const help = document.createElement("p");
+				help.className = "help is-danger";
+				// {# MSG: Generic error on an upload row when no specific reason came back. #}
+				help.textContent = error || "{{ _('Upload failed') | forceescape }}";
+				li.appendChild(help);
+			}
+		}
+
+		function uploadOne(file, li) {
+			return new Promise(function (resolve) {
+				// Reject a wrong type here so the server is spared the body.
+				if (allowed.indexOf(extOf(file.name)) === -1) {
+					// {# MSG: Error on an uploaded file whose type the library does not accept. #}
+					markDone(li, false, "{{ _('Unsupported file type') | forceescape }}");
+					resolve();
+					return;
+				}
+				const form = new FormData();
+				form.append("files", file);
+				const xhr = new XMLHttpRequest();
+				xhr.open("POST", uploadUrl);
+				xhr.upload.onprogress = function (e) {
+					if (e.lengthComputable) {
+						li.querySelector("progress").value = (e.loaded / e.total) * 100;
+					}
+				};
+				xhr.onload = function () {
+					let result = null;
+					try {
+						result = JSON.parse(xhr.responseText).results[0];
+					} catch (err) {
+						result = null;
+					}
+					if (xhr.status === 200 && result && result.ok) {
+						markDone(li, true);
+					} else if (xhr.status === 413) {
+						// {# MSG: Error when an uploaded file is larger than the server accepts. #}
+						markDone(li, false, "{{ _('File is too large') | forceescape }}");
+					} else {
+						markDone(li, false, result && result.error);
+					}
+					resolve();
+				};
+				xhr.onerror = function () {
+					markDone(li, false);
+					resolve();
+				};
+				xhr.send(form);
+			});
+		}
+
+		function handleFiles(files) {
+			Array.prototype.forEach.call(files, function (file) {
+				const li = addRow(file);
+				queue = queue.then(function () { return uploadOne(file, li); });
+			});
+		}
+
+		dropZone.addEventListener("click", function () { fileInput.click(); });
+		fileInput.addEventListener("change", function () {
+			handleFiles(fileInput.files);
+			fileInput.value = "";  // allow re-choosing the same file
+		});
+
+		["dragenter", "dragover"].forEach(function (evt) {
+			dropZone.addEventListener(evt, function (e) {
+				e.preventDefault();
+				dropZone.classList.add("is-dragover");
+			});
+		});
+		["dragleave", "drop"].forEach(function (evt) {
+			dropZone.addEventListener(evt, function (e) {
+				e.preventDefault();
+				dropZone.classList.remove("is-dragover");
+			});
+		});
+		dropZone.addEventListener("drop", function (e) {
+			if (e.dataTransfer && e.dataTransfer.files) {
+				handleFiles(e.dataTransfer.files);
+			}
+		});
+	});
+</script>
+{% endblock %}
+
+{% block header %}
+{# MSG: Subtitle under the Upload Files heading. #}
+<p class="subtitle is-6">{% trans %}Add karaoke files from this device{% endtrans %}</p>
+{% endblock %}
+
+{% block content %}
+<div>
+	<div id="drop-zone" class="upload-drop mb-4">
+		<input type="file" id="file-input" class="is-hidden" multiple accept="{{ allowed_extensions | join(',') }}" />
+		<span class="icon is-large has-text-grey"><i class="ph ph-upload-simple ph-2x"></i></span>
+		{# MSG: Primary instruction in the drag-and-drop upload area. #}
+		<p class="mt-2">{% trans %}Drag files here, or click to choose{% endtrans %}</p>
+		{# MSG: Help text listing what can be uploaded: video files and zipped CDG packages. #}
+		<p class="is-size-7 has-text-grey">{% trans %}Video files and zipped CDG packages{% endtrans %}</p>
+	</div>
+	<ul id="upload-list"></ul>
+</div>
+{% endblock %}

@@ -71,6 +71,8 @@ app.permanent_session_lifetime = datetime.timedelta(days=90)
 app.jinja_env.add_extension("jinja2.ext.i18n")
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
+# Upload size cap. The host is the only uploader, so this guards a slip, not an attack.
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024
 app.config["APPLICATION_ROOT"] = args.base_path or "/"
 app.config["SESSION_COOKIE_PATH"] = args.base_path or "/"
 app.config["PIKARAOKE_BASE_PATH"] = args.base_path

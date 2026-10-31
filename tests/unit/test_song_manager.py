@@ -374,33 +374,33 @@ class TestDBCoordination:
             _native(song), _native(tmp_path / "New---abc.mp4")
         )
 
-    def test_register_download_adds_to_songs_and_db(self, tmp_path):
+    def test_register_song_adds_to_songs_and_db(self, tmp_path):
         song = tmp_path / "New---xyz12345678.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
         sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         with patch("pikaraoke.lib.song_manager.get_media_duration", return_value=180.0):
-            sm.register_download(_native(song))
+            sm.register_song(_native(song))
         assert _native(song) in sm.songs
         mock_db.insert_songs.assert_called_once()
 
-    def test_register_download_fills_the_duration(self, tmp_path):
-        """The row is born with its length, so a download never needs the sweep."""
+    def test_register_song_fills_the_duration(self, tmp_path):
+        """The row is born with its length, so a newly acquired song never needs the sweep."""
         song = tmp_path / "New---xyz12345678.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
         sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         with patch("pikaraoke.lib.song_manager.get_media_duration", return_value=180.0):
-            sm.register_download(_native(song))
+            sm.register_song(_native(song))
         mock_db.set_duration.assert_called_once_with(_native(song), 180.0)
 
-    def test_register_download_skips_duration_when_probe_fails(self, tmp_path):
+    def test_register_song_skips_duration_when_probe_fails(self, tmp_path):
         song = tmp_path / "New---xyz12345678.mp4"
         song.write_text("fake")
         mock_db = MagicMock()
         sm = SongManager(str(tmp_path), db=mock_db, events=EventSystem())
         with patch("pikaraoke.lib.song_manager.get_media_duration", return_value=None):
-            sm.register_download(_native(song))
+            sm.register_song(_native(song))
         mock_db.set_duration.assert_not_called()
 
 
