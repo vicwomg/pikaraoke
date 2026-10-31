@@ -231,6 +231,18 @@ class KaraokeDatabase:
             ).fetchone()
             return row[0] if row else None
 
+    def get_duration(self, file_path: str) -> int | None:
+        """Return a song's stored duration in seconds, or None if unset or absent.
+
+        Lets a caller skip the probe for a row already filled, so a downloaded
+        song is not re-probed when it is then auto-queued.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT duration FROM songs WHERE file_path = ?", (file_path,)
+            ).fetchone()
+            return row[0] if row else None
+
     def get_song_identity(self, file_path: str) -> tuple[int | None, str | None]:
         """Return (song_id, youtube_id) for a path, both None if not found.
 
@@ -332,6 +344,18 @@ class KaraokeDatabase:
     def update_path(self, old_path: str, new_path: str) -> None:
         """Update a single song's file path (UI-triggered rename)."""
         self.update_paths([(old_path, new_path)])
+
+    def set_duration(self, file_path: str, seconds: float) -> None:
+        """Store a duration in whole seconds, only if the row has none yet.
+
+        The NULL guard lives here so the several sources that fill a row never
+        race each other over the same value. Rounded like file_resolver.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE songs SET duration = ? WHERE file_path = ? AND duration IS NULL",
+                (round(seconds), file_path),
+            )
 
     # ------------------------------------------------------------------
     # Metadata (app-level key-value store)

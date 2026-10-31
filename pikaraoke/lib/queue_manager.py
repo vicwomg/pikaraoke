@@ -165,6 +165,9 @@ class QueueManager:
                 self.queue.append(queue_item)
         self._events.emit("queue_update")
         self._events.emit("now_playing_update")
+        # Last, so the duration probe a subscriber runs does not sit in front of
+        # the UI updates. The song waits minutes before it plays.
+        self._events.emit("song_queued", song_path)
         return [
             True,
             _("Song added to the queue: %s") % title,
