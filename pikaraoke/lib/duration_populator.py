@@ -33,6 +33,7 @@ class DurationPopulator:
         spawn: Callable = spawn,
     ) -> None:
         self._db = db
+        self._events = events
         # Returns (file_path, duration) of the song on screen. The playback path
         # already probed it, so persisting it here costs no probe.
         self._get_now_playing = get_now_playing
@@ -73,3 +74,6 @@ class DurationPopulator:
         duration = get_media_duration(song_path)
         if duration is not None:
             self._db.set_duration(song_path, duration)
+            # The length landed after the song was shown; nudge the now-playing
+            # panel so a waiting song's end time can render without a reload.
+            self._events.emit("now_playing_update")

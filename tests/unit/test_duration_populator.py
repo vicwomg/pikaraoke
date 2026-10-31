@@ -83,6 +83,25 @@ class TestSongQueued:
         db.get_duration.assert_not_called()
         db.set_duration.assert_not_called()
 
+    def test_emits_now_playing_update_after_writing(self, db, events):
+        """So a waiting song's end time renders once its length lands."""
+        db.get_duration.return_value = None
+        updates = []
+        events.on("now_playing_update", lambda: updates.append(True))
+        self._populator(db, events)
+        with patch("pikaraoke.lib.duration_populator.get_media_duration", return_value=180.0):
+            events.emit("song_queued", "/songs/b.mp4")
+        assert updates == [True]
+
+    def test_no_now_playing_update_when_nothing_is_written(self, db, events):
+        db.get_duration.return_value = None
+        updates = []
+        events.on("now_playing_update", lambda: updates.append(True))
+        self._populator(db, events)
+        with patch("pikaraoke.lib.duration_populator.get_media_duration", return_value=None):
+            events.emit("song_queued", "/songs/b.mp4")
+        assert updates == []
+
     def test_drains_a_backlog_of_queued_songs(self, db, events):
         """Several songs queued together are all probed by the one worker."""
         db.get_duration.return_value = None
