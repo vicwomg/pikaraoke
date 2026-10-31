@@ -9,6 +9,7 @@ import zipfile
 import flask_babel
 from flask import jsonify, render_template, request
 from flask_smorest import Blueprint
+from werkzeug.datastructures import FileStorage
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
 from pikaraoke.lib.metadata_parser import sanitize_filename
@@ -17,8 +18,14 @@ _ = flask_babel.gettext
 
 upload_bp = Blueprint("upload", __name__)
 
-# Self-contained files only. A loose .mp3/.cdg is half a song; a zipped CDG carries both.
-ALLOWED_UPLOAD_EXTENSIONS = {".mp4", ".mkv", ".avi", ".webm", ".mov", ".zip"}
+# Video files play on their own; a zipped CDG carries its own graphics.
+VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".webm", ".mov"}
+# A primary is the file that becomes the library song.
+PRIMARY_EXTENSIONS = VIDEO_EXTENSIONS | {".mp3", ".zip"}
+# A companion rides alongside its primary, sharing the stem: .cdg graphics for an
+# .mp3, .ass subtitles for a video. The player rediscovers them by stem at playback.
+COMPANION_EXTENSIONS = {".cdg", ".ass"}
+ALLOWED_UPLOAD_EXTENSIONS = PRIMARY_EXTENSIONS | COMPANION_EXTENSIONS
 
 # Ceiling on what a zip may expand to at playback. A crafted zip is tiny on disk
 # yet unpacks to fill it; read from the central directory, so nothing decompresses.
@@ -67,6 +74,92 @@ def _zip_rejection(stream) -> str | None:
     return None
 
 
+def _ext_of(storage: FileStorage) -> str:
+    """Lowercase extension of an uploaded file's basename."""
+    return os.path.splitext(os.path.basename(storage.filename or ""))[1].lower()
+
+
+def _classify(storages: list[FileStorage]):
+    """Split a stem-group into its one primary and its companions.
+
+    Returns (primary, companions, error), where primary is (ext, storage) and
+    companions is a list of (ext, storage). On a shape the player cannot open,
+    primary is None and error is the reason.
+    """
+    primaries: list[tuple[str, FileStorage]] = []
+    companions: list[tuple[str, FileStorage]] = []
+    for storage in storages:
+        ext = _ext_of(storage)
+        if ext in PRIMARY_EXTENSIONS:
+            primaries.append((ext, storage))
+        elif ext in COMPANION_EXTENSIONS:
+            companions.append((ext, storage))
+        else:
+            # MSG: Error on an uploaded file whose type the library does not accept.
+            return None, [], _("Unsupported file type")
+
+    if not primaries:
+        if any(ext == ".cdg" for ext, _s in companions):
+            # MSG: Error on an uploaded .cdg with no .mp3 of the same name beside it.
+            return None, [], _("A CDG needs its matching MP3")
+        # MSG: Error on an uploaded .ass subtitle with no video of the same name beside it.
+        return None, [], _("A subtitle needs its matching video")
+    if len(primaries) > 1:
+        # MSG: Error when two playable files share one name, so neither is clearly the song.
+        return None, [], _("Only one song per file name")
+
+    primary_ext, primary = primaries[0]
+    for comp_ext, _s in companions:
+        if comp_ext == ".cdg" and primary_ext != ".mp3":
+            # MSG: Error on a .cdg uploaded next to something other than an .mp3.
+            return None, [], _("A CDG goes with an MP3")
+        if comp_ext == ".ass" and primary_ext not in VIDEO_EXTENSIONS:
+            # MSG: Error on an .ass subtitle uploaded next to something other than a video.
+            return None, [], _("A subtitle goes with a video")
+    if primary_ext == ".mp3" and not any(ext == ".cdg" for ext, _s in companions):
+        # MSG: Error on a lone .mp3, which cannot play without its .cdg graphics.
+        return None, [], _("An MP3 needs its matching CDG")
+    return (primary_ext, primary), companions, None
+
+
+def _save_group(k, name: str, storages: list[FileStorage]) -> dict:
+    """Save one song and its companions into the library, returning a result row."""
+    classification, companions, error = _classify(storages)
+    if error:
+        return {"name": name, "ok": False, "error": error}
+
+    primary_ext, primary = classification
+    stem = os.path.splitext(os.path.basename(primary.filename or ""))[0]
+    safe_stem = sanitize_filename(stem)
+    if not safe_stem:
+        # MSG: Error on an uploaded file whose name is empty once illegal characters go.
+        return {"name": name, "ok": False, "error": _("Invalid file name")}
+    if primary_ext == ".zip":
+        reason = _zip_rejection(primary.stream)
+        if reason:
+            return {"name": name, "ok": False, "error": reason}
+
+    target = _unique_target(k.download_path, safe_stem, primary_ext)
+    try:
+        primary.save(target)
+        # Companions take the primary's final stem, not their own name: a collision
+        # suffix must carry across so the player's stem-match still finds the pair,
+        # and the saved name is derived, never the uploaded (untrusted) one.
+        final_stem = os.path.splitext(os.path.basename(target))[0]
+        for comp_ext, companion in companions:
+            companion.save(os.path.join(k.download_path, final_stem + comp_ext))
+    except OSError as e:
+        logging.error(f"Error saving uploaded file '{name}': {e}")
+        # MSG: Error shown when an uploaded file could not be written to disk.
+        return {"name": name, "ok": False, "error": _("Could not save file")}
+
+    k.song_manager.register_song(target)
+    # Null id: a local file has no YouTube provenance. Browsers refresh as on a download.
+    if k.socketio:
+        k.socketio.emit("song_downloaded", {"youtube_id": None, "path": target}, namespace="/")
+    return {"name": name, "ok": True}
+
+
 @upload_bp.route("/upload", methods=["GET"])
 def upload_page():
     """The drag-and-drop upload page."""
@@ -81,48 +174,25 @@ def upload_page():
 
 @upload_bp.route("/api/upload", methods=["POST"])
 def upload():
-    """Save each uploaded file into the library and announce it to browsers.
+    """Save each uploaded song into the library and announce it to browsers.
 
-    One JSON row per file so a bad file is skipped, not the whole batch.
+    Files are grouped by filename stem, so a song arrives with its companion
+    (`.mp3`+`.cdg`, or a video and its `.ass`). One JSON row per group so a bad
+    song is skipped, not the whole batch.
     """
     k = get_karaoke_instance()
     files = request.files.getlist("files")
     if not files:
         return jsonify({"error": "No files provided"}), 400
 
-    results = []
+    groups: dict[str, list[FileStorage]] = {}
+    order: list[str] = []
     for storage in files:
-        name = storage.filename or ""
-        stem, ext = os.path.splitext(os.path.basename(name))
-        ext = ext.lower()
-        if ext not in ALLOWED_UPLOAD_EXTENSIONS:
-            # MSG: Error on an uploaded file whose type the library does not accept.
-            results.append({"name": name, "ok": False, "error": _("Unsupported file type")})
-            continue
-        safe_stem = sanitize_filename(stem)
-        if not safe_stem:
-            # MSG: Error on an uploaded file whose name is empty once illegal characters go.
-            results.append({"name": name, "ok": False, "error": _("Invalid file name")})
-            continue
-        if ext == ".zip":
-            reason = _zip_rejection(storage.stream)
-            if reason:
-                results.append({"name": name, "ok": False, "error": reason})
-                continue
+        stem = os.path.splitext(os.path.basename(storage.filename or ""))[0]
+        if stem not in groups:
+            groups[stem] = []
+            order.append(stem)
+        groups[stem].append(storage)
 
-        target = _unique_target(k.download_path, safe_stem, ext)
-        try:
-            storage.save(target)
-        except OSError as e:
-            logging.error(f"Error saving uploaded file '{name}': {e}")
-            # MSG: Error shown when an uploaded file could not be written to disk.
-            results.append({"name": name, "ok": False, "error": _("Could not save file")})
-            continue
-
-        k.song_manager.register_song(target)
-        # Null id: a local file has no YouTube provenance. Browsers refresh as on a download.
-        if k.socketio:
-            k.socketio.emit("song_downloaded", {"youtube_id": None, "path": target}, namespace="/")
-        results.append({"name": name, "ok": True})
-
+    results = [_save_group(k, groups[stem][0].filename or "", groups[stem]) for stem in order]
     return jsonify({"results": results})

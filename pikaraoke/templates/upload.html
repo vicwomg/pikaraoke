@@ -28,21 +28,32 @@
 		// Uploads run one at a time, chained onto this, to spare a Pi serving the room.
 		let queue = Promise.resolve();
 
+		function baseName(name) {
+			const cut = Math.max(name.lastIndexOf("/"), name.lastIndexOf("\\"));
+			return cut === -1 ? name : name.slice(cut + 1);
+		}
+
 		function extOf(name) {
 			const dot = name.lastIndexOf(".");
 			return dot === -1 ? "" : name.slice(dot).toLowerCase();
 		}
 
-		function addRow(file) {
+		function stemOf(name) {
+			const base = baseName(name);
+			const dot = base.lastIndexOf(".");
+			return dot === -1 ? base : base.slice(0, dot);
+		}
+
+		function addRow(label) {
 			const li = document.createElement("li");
-			li.className = "box p-3 mb-2";
+			li.className = "py-2";
 			li.innerHTML =
 				'<div class="is-flex is-align-items-center is-gap-2">' +
 					'<span class="icon upload-status"><i class="ph ph-file"></i></span>' +
 					'<span class="upload-name is-flex-grow-1 break-word"></span>' +
 				"</div>" +
 				'<progress class="progress is-small is-link mt-2" value="0" max="100"></progress>';
-			li.querySelector(".upload-name").textContent = file.name;
+			li.querySelector(".upload-name").textContent = label;
 			list.appendChild(li);
 			return li;
 		}
@@ -64,17 +75,10 @@
 			}
 		}
 
-		function uploadOne(file, li) {
+		function uploadGroup(files, li) {
 			return new Promise(function (resolve) {
-				// Reject a wrong type here so the server is spared the body.
-				if (allowed.indexOf(extOf(file.name)) === -1) {
-					// {# MSG: Error on an uploaded file whose type the library does not accept. #}
-					markDone(li, false, "{{ _('Unsupported file type') | forceescape }}");
-					resolve();
-					return;
-				}
 				const form = new FormData();
-				form.append("files", file);
+				files.forEach(function (file) { form.append("files", file); });
 				const xhr = new XMLHttpRequest();
 				xhr.open("POST", uploadUrl);
 				xhr.upload.onprogress = function (e) {
@@ -108,9 +112,29 @@
 		}
 
 		function handleFiles(files) {
+			// Group a song with its companion by stem, so an .mp3+.cdg or a
+			// video+.ass upload as one request and register as one song.
+			const groups = new Map();
+			const order = [];
 			Array.prototype.forEach.call(files, function (file) {
-				const li = addRow(file);
-				queue = queue.then(function () { return uploadOne(file, li); });
+				if (allowed.indexOf(extOf(file.name)) === -1) {
+					// Reject a wrong type here so the server is spared the body.
+					// {# MSG: Error on an uploaded file whose type the library does not accept. #}
+					markDone(addRow(file.name), false, "{{ _('Unsupported file type') | forceescape }}");
+					return;
+				}
+				const stem = stemOf(file.name);
+				if (!groups.has(stem)) {
+					groups.set(stem, []);
+					order.push(stem);
+				}
+				groups.get(stem).push(file);
+			});
+			order.forEach(function (stem) {
+				const groupFiles = groups.get(stem);
+				const label = groupFiles.map(function (f) { return baseName(f.name); }).join(" + ");
+				const li = addRow(label);
+				queue = queue.then(function () { return uploadGroup(groupFiles, li); });
 			});
 		}
 
@@ -153,8 +177,8 @@
 		<span class="icon is-large has-text-grey"><i class="ph ph-upload-simple ph-2x"></i></span>
 		{# MSG: Primary instruction in the drag-and-drop upload area. #}
 		<p class="mt-2">{% trans %}Drag files here, or click to choose{% endtrans %}</p>
-		{# MSG: Help text listing what can be uploaded: video files and zipped CDG packages. #}
-		<p class="is-size-7 has-text-grey">{% trans %}Video files and zipped CDG packages{% endtrans %}</p>
+		{# MSG: Help text listing what can be uploaded. Drop each song with its companion file together. #}
+		<p class="is-size-7 has-text-grey">{% trans %}Video files, zipped CDG, or a song with its .cdg or .ass (drop them together){% endtrans %}</p>
 	</div>
 	<ul id="upload-list"></ul>
 </div>

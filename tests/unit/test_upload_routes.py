@@ -97,6 +97,64 @@ class TestUpload:
         assert response.status_code == 400
 
 
+class TestPairs:
+    def test_mp3_with_cdg_is_one_song(self, tmp_path, client):
+        k = _instance(tmp_path)
+        files = [(io.BytesIO(b"audio"), "Song.mp3"), (io.BytesIO(b"graphics"), "Song.cdg")]
+        response = _post(client, k, files)
+        assert json.loads(response.data)["results"] == [{"name": "Song.mp3", "ok": True}]
+        mp3 = os.path.join(str(tmp_path), "Song.mp3")
+        assert os.path.isfile(mp3)
+        assert os.path.isfile(os.path.join(str(tmp_path), "Song.cdg"))
+        k.song_manager.register_song.assert_called_once_with(mp3)  # pylint: disable=no-member
+
+    def test_video_with_subtitle_is_one_song(self, tmp_path, client):
+        k = _instance(tmp_path)
+        files = [(io.BytesIO(b"video"), "Song.mp4"), (io.BytesIO(b"subs"), "Song.ass")]
+        response = _post(client, k, files)
+        assert json.loads(response.data)["results"][0]["ok"] is True
+        mp4 = os.path.join(str(tmp_path), "Song.mp4")
+        assert os.path.isfile(os.path.join(str(tmp_path), "Song.ass"))
+        k.song_manager.register_song.assert_called_once_with(mp4)  # pylint: disable=no-member
+
+    def test_companion_inherits_the_collision_suffix(self, tmp_path, client):
+        (tmp_path / "Song.mp3").write_text("first")
+        k = _instance(tmp_path)
+        files = [(io.BytesIO(b"audio"), "Song.mp3"), (io.BytesIO(b"graphics"), "Song.cdg")]
+        response = _post(client, k, files)
+        assert json.loads(response.data)["results"][0]["ok"] is True
+        # The pair moves together so the player's stem-match still finds the .cdg.
+        assert os.path.isfile(os.path.join(str(tmp_path), "Song (2).mp3"))
+        assert os.path.isfile(os.path.join(str(tmp_path), "Song (2).cdg"))
+
+    def test_lone_mp3_is_rejected(self, tmp_path, client):
+        k = _instance(tmp_path)
+        response = _post(client, k, (io.BytesIO(b"audio"), "Song.mp3"))
+        assert json.loads(response.data)["results"][0]["ok"] is False
+        assert os.listdir(str(tmp_path)) == []
+        k.song_manager.register_song.assert_not_called()  # pylint: disable=no-member
+
+    def test_lone_cdg_is_rejected(self, tmp_path, client):
+        k = _instance(tmp_path)
+        response = _post(client, k, (io.BytesIO(b"graphics"), "Song.cdg"))
+        assert json.loads(response.data)["results"][0]["ok"] is False
+        assert os.listdir(str(tmp_path)) == []
+
+    def test_lone_subtitle_is_rejected(self, tmp_path, client):
+        k = _instance(tmp_path)
+        response = _post(client, k, (io.BytesIO(b"subs"), "Song.ass"))
+        assert json.loads(response.data)["results"][0]["ok"] is False
+        assert os.listdir(str(tmp_path)) == []
+
+    def test_cdg_beside_a_video_is_rejected(self, tmp_path, client):
+        k = _instance(tmp_path)
+        files = [(io.BytesIO(b"video"), "Song.mp4"), (io.BytesIO(b"graphics"), "Song.cdg")]
+        response = _post(client, k, files)
+        assert json.loads(response.data)["results"][0]["ok"] is False
+        assert os.listdir(str(tmp_path)) == []
+        k.song_manager.register_song.assert_not_called()  # pylint: disable=no-member
+
+
 class TestZipValidation:
     def test_matching_cdg_pair_is_accepted(self, tmp_path, client):
         k = _instance(tmp_path)
