@@ -8,6 +8,11 @@ from pikaraoke.lib.duration_populator import DurationPopulator
 from pikaraoke.lib.events import EventSystem
 
 
+def _run_now(fn, *args):
+    """Stand in for gevent.spawn, running the worker inline so tests stay sync."""
+    fn(*args)
+
+
 @pytest.fixture
 def events():
     return EventSystem()
@@ -40,9 +45,12 @@ class TestPlaybackStarted:
 class TestSongQueued:
     """Probe a queued song while it waits, off the playback path."""
 
+    def _populator(self, db, events):
+        return DurationPopulator(db, events, get_now_playing=lambda: (None, None), spawn=_run_now)
+
     def test_probes_and_writes(self, db, events):
         db.get_duration.return_value = None
-        DurationPopulator(db, events, get_now_playing=lambda: (None, None))
+        self._populator(db, events)
         with patch(
             "pikaraoke.lib.duration_populator.get_media_duration", return_value=180.0
         ) as probe:
@@ -52,7 +60,7 @@ class TestSongQueued:
 
     def test_skips_write_when_probe_fails(self, db, events):
         db.get_duration.return_value = None
-        DurationPopulator(db, events, get_now_playing=lambda: (None, None))
+        self._populator(db, events)
         with patch("pikaraoke.lib.duration_populator.get_media_duration", return_value=None):
             events.emit("song_queued", "/songs/b.mp4")
         db.set_duration.assert_not_called()
@@ -60,7 +68,7 @@ class TestSongQueued:
     def test_does_not_probe_a_row_already_filled(self, db, events):
         """A downloaded song fills its row at register, so queuing it must not re-probe."""
         db.get_duration.return_value = 200
-        DurationPopulator(db, events, get_now_playing=lambda: (None, None))
+        self._populator(db, events)
         with patch("pikaraoke.lib.duration_populator.get_media_duration") as probe:
             events.emit("song_queued", "/songs/b.mp4")
         probe.assert_not_called()
@@ -68,9 +76,22 @@ class TestSongQueued:
 
     def test_does_not_probe_a_zip(self, db, events):
         """A zip's audio is inside the archive; it is filled at play, not at queue."""
-        DurationPopulator(db, events, get_now_playing=lambda: (None, None))
+        self._populator(db, events)
         with patch("pikaraoke.lib.duration_populator.get_media_duration") as probe:
             events.emit("song_queued", "/songs/Song---abc12345678.zip")
         probe.assert_not_called()
         db.get_duration.assert_not_called()
         db.set_duration.assert_not_called()
+
+    def test_drains_a_backlog_of_queued_songs(self, db, events):
+        """Several songs queued together are all probed by the one worker."""
+        db.get_duration.return_value = None
+        self._populator(db, events)
+        with patch(
+            "pikaraoke.lib.duration_populator.get_media_duration", return_value=180.0
+        ) as probe:
+            events.emit("song_queued", "/songs/a.mp4")
+            events.emit("song_queued", "/songs/b.mp4")
+            events.emit("song_queued", "/songs/c.mp4")
+        assert probe.call_count == 3
+        assert db.set_duration.call_count == 3
