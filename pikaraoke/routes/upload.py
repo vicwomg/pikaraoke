@@ -1,7 +1,5 @@
 """Upload local karaoke files into the library."""
 
-from __future__ import annotations
-
 import logging
 import os
 import zipfile
