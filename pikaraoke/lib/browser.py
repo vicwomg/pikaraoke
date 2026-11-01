@@ -1,7 +1,5 @@
 """Browser utilities for launching the splash screen."""
 
-from __future__ import annotations
-
 import logging
 import os
 import shutil
@@ -23,7 +21,7 @@ if TYPE_CHECKING:
 
 class Browser:
     def __init__(
-        self, karaoke: Karaoke, window_size: str | None = None, external_monitor: bool = False
+        self, karaoke: "Karaoke", window_size: str | None = None, external_monitor: bool = False
     ):
         """Initialize the browser with the splash screen in kiosk mode.
 
@@ -37,7 +35,9 @@ class Browser:
         self.external_monitor = external_monitor
         self.browser_process: subprocess.Popen | None = None
         self.browser_profile_dir = os.path.join(get_data_directory(), "browser_profile")
-        self.splash_url = f"{self.karaoke.url}/splash"
+        # Loopback literal, not localhost (which can resolve to ::1, unserved by the
+        # IPv4 bind), so the window survives an address change.
+        self.splash_url = f"http://127.0.0.1:{self.karaoke.port}/splash"
 
     def launch_splash_screen(self) -> subprocess.Popen | None:
         """Launch the browser with the splash screen in kiosk mode.
