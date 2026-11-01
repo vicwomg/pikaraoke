@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.wifi_manager import ConnectResult, WifiManager, _split_terse
 
@@ -318,3 +319,46 @@ class TestRetrySavedNetworks:
         with patch(RUN, side_effect=fake_run) as run:
             assert manager.retry_saved_networks() is False
         assert not any("device wifi connect" in c for c in _commands(run))
+
+
+class TestNetworkChangeEvents:
+    def _manager_with_events(self, tmp_path):
+        preferences = PreferenceManager(str(tmp_path / "config.ini"))
+        events = EventSystem()
+        fired = []
+        events.on("network_changed", lambda: fired.append(True))
+        return WifiManager(preferences, is_raspberry_pi=False, events=events), fired
+
+    def test_successful_connect_announces(self, tmp_path):
+        manager, fired = self._manager_with_events(tmp_path)
+        with patch(RUN, return_value=_done(returncode=0)):
+            manager.connect("HomeNet", "goodpassword")
+        assert fired == [True]
+
+    def test_failed_connect_announces_once_for_the_restored_hotspot(self, tmp_path):
+        manager, fired = self._manager_with_events(tmp_path)
+
+        def fake_run(cmd, **kwargs):
+            joined = " ".join(cmd)
+            if "device wifi connect" in joined:
+                return _done(returncode=1, stderr="Error: No network with SSID found.")
+            if "-f NAME connection show" in joined:
+                return _done(stdout="")
+            return _done(returncode=0)
+
+        with patch(RUN, side_effect=fake_run):
+            manager.connect("HomeNet", "password")
+        assert fired == [True]  # the restored hotspot announces exactly once
+
+    def test_start_and_stop_hotspot_each_announce(self, tmp_path):
+        manager, fired = self._manager_with_events(tmp_path)
+
+        def fake_run(cmd, **kwargs):
+            if "-f NAME connection show" in " ".join(cmd):
+                return _done(stdout="PiKaraoke-0000\n")
+            return _done(returncode=0)
+
+        with patch(RUN, side_effect=fake_run):
+            assert manager.start_hotspot() is True
+            assert manager.stop_hotspot() is True
+        assert fired == [True, True]

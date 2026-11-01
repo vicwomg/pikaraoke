@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 
 logger = logging.getLogger(__name__)
@@ -107,11 +108,22 @@ def _has_marker(text: str, markers: tuple[str, ...]) -> bool:
 class WifiManager:
     """Owns the Pi's Wi-Fi: its state, nearby networks, the hotspot, and joining."""
 
-    def __init__(self, preferences: PreferenceManager, is_raspberry_pi: bool) -> None:
+    def __init__(
+        self,
+        preferences: PreferenceManager,
+        is_raspberry_pi: bool,
+        events: EventSystem | None = None,
+    ) -> None:
         self._preferences = preferences
         self._is_raspberry_pi = is_raspberry_pi
+        self._events = events
         self.hotspot_name = f"PiKaraoke-{self._wifi_mac_suffix()}"
         self.supported = self._detect_supported()
+
+    def _announce_change(self) -> None:
+        """Tell the rest of the app the network moved, so the splash can refresh."""
+        if self._events:
+            self._events.emit("network_changed")
 
     @property
     def hotspot_password(self) -> str:
@@ -196,41 +208,48 @@ class WifiManager:
     def start_hotspot(self) -> bool:
         """Bring up the hotspot, creating its one reusable profile on first use."""
         if self._profile_exists(self.hotspot_name):
-            return self._run_privileged(["connection", "up", self.hotspot_name]).returncode == 0
-
-        created = self._run_privileged(
-            [
-                "connection",
-                "add",
-                "type",
-                "wifi",
-                "ifname",
-                _WIFI_INTERFACE,
-                "con-name",
-                self.hotspot_name,
-                "autoconnect",
-                "no",
-                "ssid",
-                self.hotspot_name,
-                "802-11-wireless.mode",
-                "ap",
-                "802-11-wireless.band",
-                "bg",
-                "ipv4.method",
-                "shared",
-                "wifi-sec.key-mgmt",
-                "wpa-psk",
-                "wifi-sec.psk",
-                self.hotspot_password,
-            ]
-        )
-        if created.returncode != 0:
-            return False
-        return self._run_privileged(["connection", "up", self.hotspot_name]).returncode == 0
+            ok = self._run_privileged(["connection", "up", self.hotspot_name]).returncode == 0
+        else:
+            created = self._run_privileged(
+                [
+                    "connection",
+                    "add",
+                    "type",
+                    "wifi",
+                    "ifname",
+                    _WIFI_INTERFACE,
+                    "con-name",
+                    self.hotspot_name,
+                    "autoconnect",
+                    "no",
+                    "ssid",
+                    self.hotspot_name,
+                    "802-11-wireless.mode",
+                    "ap",
+                    "802-11-wireless.band",
+                    "bg",
+                    "ipv4.method",
+                    "shared",
+                    "wifi-sec.key-mgmt",
+                    "wpa-psk",
+                    "wifi-sec.psk",
+                    self.hotspot_password,
+                ]
+            )
+            ok = (
+                created.returncode == 0
+                and self._run_privileged(["connection", "up", self.hotspot_name]).returncode == 0
+            )
+        if ok:
+            self._announce_change()
+        return ok
 
     def stop_hotspot(self) -> bool:
         """Take the hotspot down, leaving its profile in place for next time."""
-        return self._run_privileged(["connection", "down", self.hotspot_name]).returncode == 0
+        ok = self._run_privileged(["connection", "down", self.hotspot_name]).returncode == 0
+        if ok:
+            self._announce_change()
+        return ok
 
     def connect(self, name: str, password: str = "") -> ConnectResult:
         """Join a network, restarting the hotspot on failure.
@@ -253,6 +272,7 @@ class WifiManager:
 
         result = self._run_privileged(args, timeout=_CONNECT_TIMEOUT_SECONDS)
         if result.returncode == 0:
+            self._announce_change()
             return ConnectResult.CONNECTED
 
         if _has_marker(result.stderr, _WRONG_PASSWORD_MARKERS):

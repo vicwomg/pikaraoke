@@ -39,6 +39,7 @@ from pikaraoke.lib.singer_manager import SingerManager, normalize_name
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
+from pikaraoke.lib.wifi_manager import WifiManager
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 from pikaraoke.version import __version__ as VERSION
 
@@ -204,6 +205,7 @@ class Karaoke:
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
         self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
+        self.wifi_manager = WifiManager(self.preferences, self.is_raspberry_pi, events=self.events)
 
         logging.info("PiKaraoke version: " + VERSION)
 
@@ -282,6 +284,8 @@ class Karaoke:
         # from now_playing, which also fires on pauses and queue edits that leave
         # the log untouched, and which is emitted before the row is written.
         self._relay_to_browser("play_logged")
+        # A Wi-Fi change moves the address: recompute it and push it to every splash.
+        self.events.on("network_changed", self.refresh_url)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.register_downloaded_song)
         self._relay_to_browser("sync_started")
@@ -480,23 +484,44 @@ class Karaoke:
             output += f"  {key}: {value}\n"
         logging.debug("\n\n" + output)
 
+    def _draw_qr_code(self, payload: str, path: str) -> None:
+        """Draw one QR code payload to a PNG file."""
+        qr = qrcode.QRCode(version=1, box_size=1, border=4)
+        qr.add_data(payload)
+        qr.make()
+        img = qr.make_image(image_factory=PyPNGImage)
+        img.save(path)  # type: ignore[arg-type]
+
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
         logging.debug("Generating URL QR code")
-        qr = qrcode.QRCode(
-            version=1,
-            box_size=1,
-            border=4,
-        )
-        qr.add_data(self.url)
-        qr.make()
-        img = qr.make_image(image_factory=PyPNGImage)
-        # Use writable data directory instead of program directory.
-        # Include the port so multiple instances on the same host don't
-        # overwrite each other's QR code (see issue #836).
+        # Writable data directory, with the port in the name so instances on one
+        # host don't overwrite each other's QR code (see issue #836).
         data_dir = get_data_directory()
         self.qr_code_path = os.path.join(data_dir, f"qrcode-{self.port}.png")
-        img.save(self.qr_code_path)  # type: ignore[arg-type]
+        self._draw_qr_code(self.url, self.qr_code_path)
+
+    def refresh_url(self) -> None:
+        """Recompute the address and QR code after a network change and push them live."""
+        self.url = self.get_url()
+        self.generate_qr_code()
+        self.update_network_socket()
+
+    def update_network_socket(self) -> None:
+        """Broadcast the current address, and the hotspot's details while it is up."""
+        if not self.socketio:
+            return
+        on_hotspot = self.wifi_manager.supported and self.wifi_manager.state().kind == "hotspot"
+        self.socketio.emit(
+            "network_update",
+            {
+                "url": self.url,
+                "hotspot": on_hotspot,
+                "hotspot_name": self.wifi_manager.hotspot_name if on_hotspot else None,
+                "hotspot_password": self.wifi_manager.hotspot_password if on_hotspot else None,
+            },
+            namespace="/",
+        )
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.
