@@ -205,7 +205,18 @@ class Karaoke:
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
         self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
-        self.wifi_manager = WifiManager(self.preferences, self.is_raspberry_pi, events=self.events)
+        if os.environ.get("PIKARAOKE_FAKE_WIFI"):
+            # Dev-only in-memory simulator, for working on the feature off a Pi.
+            from pikaraoke.lib.wifi_simulator import FakeWifiManager
+
+            logging.warning("PIKARAOKE_FAKE_WIFI set: using the in-memory Wi-Fi simulator.")
+            self.wifi_manager = FakeWifiManager(
+                self.preferences, self.is_raspberry_pi, events=self.events
+            )
+        else:
+            self.wifi_manager = WifiManager(
+                self.preferences, self.is_raspberry_pi, events=self.events
+            )
 
         logging.info("PiKaraoke version: " + VERSION)
 
@@ -500,6 +511,21 @@ class Karaoke:
         data_dir = get_data_directory()
         self.qr_code_path = os.path.join(data_dir, f"qrcode-{self.port}.png")
         self._draw_qr_code(self.url, self.qr_code_path)
+
+    def start_wifi_connect(self, name: str, password: str = "") -> None:
+        """Join a network in the background, so the phone's request is answered first.
+
+        The attempt tears down the hotspot the phone is on, so it must start only
+        after the response has gone out, or the phone loses the server first.
+        """
+
+        def task() -> None:
+            self.wifi_manager.connect(name, password)
+
+        if self.socketio:
+            self.socketio.start_background_task(task)
+        else:
+            task()
 
     def refresh_url(self) -> None:
         """Recompute the address and QR code after a network change and push them live."""
