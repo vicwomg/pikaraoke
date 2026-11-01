@@ -37,7 +37,8 @@ class Browser:
         self.external_monitor = external_monitor
         self.browser_process: subprocess.Popen | None = None
         self.browser_profile_dir = os.path.join(get_data_directory(), "browser_profile")
-        self.splash_url = f"{self.karaoke.url}/splash"
+        # Loopback, not karaoke.url, so the window survives a later address change.
+        self.splash_url = f"http://localhost:{self.karaoke.port}/splash"
 
     def launch_splash_screen(self) -> subprocess.Popen | None:
         """Launch the browser with the splash screen in kiosk mode.
