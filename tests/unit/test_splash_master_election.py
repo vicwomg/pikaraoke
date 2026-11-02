@@ -45,6 +45,8 @@ def make_socket_app(admin: bool = True):
     karaoke = MagicMock()
     karaoke.playback_controller.now_playing_position = None
     karaoke.playback_controller.playback_id = None
+    karaoke.url = "http://test"
+    karaoke.network_info = {}
     app.config["KARAOKE_INSTANCE"] = karaoke
     socketio = SocketIO(app, async_mode="threading")
     setup_socket_events(socketio)

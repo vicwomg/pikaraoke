@@ -46,6 +46,9 @@ from pikaraoke.version import __version__ as VERSION
 # How often the background sweep moves the Pi off its hotspot onto a real network.
 _RECONCILE_INTERVAL_SECONDS = 120
 
+# How long to let a network come up at boot before raising the hotspot instead.
+_HOTSPOT_STARTUP_GRACE_SECONDS = 20
+
 
 class SongInUseError(Exception):
     """Raised when a rename targets the file playback has claimed."""
@@ -551,10 +554,24 @@ class Karaoke:
         self.socketio.emit("network_update", {"url": self.url, **self.network_info}, namespace="/")
 
     def _auto_start_hotspot(self) -> None:
-        """On a supported Pi with no network, raise the hotspot so the box stays reachable."""
-        if self.wifi_manager.supported and self.wifi_manager.state().kind == "none":
+        """Raise the hotspot only if no network comes up at boot.
+
+        Waits for NetworkManager to finish connecting before deciding, so a Wi-Fi
+        link still coming up is not pre-empted - the "wait for an IP" in get_url
+        can end early on an unrelated bridge like docker0 that has an address
+        while wlan0 is still associating. A real connection that arrives meanwhile
+        refreshes the (possibly stale) address.
+        """
+        if not self.wifi_manager.supported:
+            return
+        end_time = time.time() + _HOTSPOT_STARTUP_GRACE_SECONDS
+        while self.wifi_manager.state().kind == "none" and time.time() < end_time:
+            time.sleep(2)
+        if self.wifi_manager.state().kind == "none":
             logging.info("No network found at startup; starting the PiKaraoke hotspot.")
             self.wifi_manager.start_hotspot()
+        else:
+            self.refresh_url()
 
     def _start_network_watch(self) -> None:
         """React within seconds to a cable or auto-join, and sweep periodically.
