@@ -96,7 +96,7 @@
         $input.val(opts.value || '').attr('placeholder', opts.placeholder || '');
         // Null clears it, so a cap never leaks into another caller of this prompt.
         $input.attr('maxlength', opts.maxlength || null);
-        $ok.text(opts.submitLabel || 'Save');
+        if (opts.submitLabel) { $ok.text(opts.submitLabel); }
         // A left-pushed quiet action (e.g. "someone else is singing"), shown only
         // when the caller asks for one; its click rejects with { secondary: true }
         // so the caller tells it apart from a plain cancel.
@@ -237,16 +237,13 @@
             const t = window.translations;
             window.promptForIdentity({
                 title: joining ? t.identityJoinTitle : t.identityProfileTitle,
-                // In profile mode the note says a save is a rename that carries
-                // the singer's songs and history; joining carries nothing yet.
-                message: joining ? '' : t.identityRenameNote,
                 label: t.usernameLabel,
-                help: t.usernameHelp,
+                // Under the field: the privacy note when joining, the warning that
+                // a save renames you everywhere when editing an existing name.
+                help: joining ? t.usernameHelp : t.identityRenameNote,
                 placeholder: t.usernamePlaceholder,
                 maxlength: window.pikaraokeConfig.singerNameMaxLength,
                 submitLabel: joining ? t.identityJoinAction : t.identityProfileAction,
-                // Only an existing singer can hand the device to someone else.
-                secondaryLabel: joining ? '' : t.identitySomeoneElse,
                 value: currentName
             }).done(function (res) {
                 if (joining) {
@@ -256,14 +253,6 @@
                     }
                 } else {
                     changeIdentity(currentName, res.name);
-                }
-            }).fail(function (reason) {
-                // "Someone else is singing": clear this device and start over.
-                if (reason && reason.secondary) {
-                    window.clearIdentity();
-                    if (window.spaNavigation) {
-                        window.spaNavigation.rerender();
-                    }
                 }
             });
             // Remove focus from the link to prevent CSS focus styling (black background)
