@@ -14,7 +14,12 @@ from marshmallow import Schema, fields
 from pikaraoke.constants import ITUNES_COUNTRIES, per_page_options
 from pikaraoke.karaoke import SongInUseError
 from pikaraoke.lib.auth import public
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.current_app import (
+    favourite_paths,
+    get_karaoke_instance,
+    get_site_name,
+    is_admin,
+)
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.song_manager import rename_collides
 
@@ -96,12 +101,14 @@ def browse():
     # rather than being validated against the filesystem.
     #
     # Folder browsing is opt-in. The empty tree stands in when it is off, which
-    # drops the toggle and makes a bookmarked ?view=folders fall back to the flat
-    # list rather than 404 -- the preference can be turned off while a phone is
-    # sitting on a folder page.
+    # drops the Folders option and makes a bookmarked ?view=folders fall back to
+    # the flat list rather than 404 -- the preference can be turned off while a
+    # phone is sitting on a folder page.
+    view = request.args.get("view")
     folder_tree = k.song_manager.folder_tree() if k.enable_folder_browsing else {"": []}
     has_subfolders = bool(folder_tree[""])
-    in_folders = has_subfolders and request.args.get("view") == "folders"
+    in_folders = has_subfolders and view == "folders"
+    in_favourites = view == "favourites"
     folder = request.args.get("folder", "") if in_folders else ""
     if folder not in folder_tree:
         folder = ""
@@ -117,16 +124,30 @@ def browse():
     else:
         available_songs = k.song_manager.songs
 
+    # Favourites narrows whatever the query/letter selected rather than being a
+    # scope of its own, so it composes with the filter box and the A-Z bar. An
+    # unnamed device has none, which is what renders the empty-favourites notice.
+    # favourite_paths() is request-cached, so this reuses the query the row stars
+    # already made.
+    favs = favourite_paths() if in_favourites else None
+    if in_favourites:
+        available_songs = [s for s in available_songs if s in favs]
+
     # Filtering stays above the date sort so getmtime() only stats the filtered
     # songs -- on a USB or SMB mounted library that is the difference between
     # ~50 stats and ~2000, and gevent does not yield during filesystem I/O.
-    if request.args.get("sort") == "date":
+    sort = request.args.get("sort")
+    if sort not in ("za", "date", "date_asc"):
+        sort = "az"
+    if sort in ("date", "date_asc"):
+        # getmtime() ascending is oldest-first; the default date sort reverses it.
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
-        songs.reverse()
-        sort_order = "Date"
+        if sort == "date":
+            songs.reverse()
     else:
-        songs = available_songs
-        sort_order = "Alphabetical"
+        songs = list(available_songs)
+        if sort == "za":
+            songs.reverse()
 
     size_options = per_page_options(k.browse_results_per_page)
     results_per_page = _results_per_page(k.browse_results_per_page, size_options)
@@ -160,6 +181,8 @@ def browse():
         args["view"] = "folders"
         if folder:
             args["folder"] = folder
+    elif in_favourites:
+        args["view"] = "favourites"
     args["page"] = page
 
     current_url = url_for("files.browse", **args.to_dict())
@@ -177,26 +200,30 @@ def browse():
         # Everyone, not just the host: the size is per-device now.
         "per_page_options": size_options,
         "total": total,
-        "skip": start_index,
         "page_href": page_href,
-        "sort_order": sort_order,
+        "sort": sort,
         "site_title": site_name,
         "letter": letter,
         # Scoped, not filtered: the alpha bar sits outside the swapped fragment, so
-        # which letters it offers must not move as the user types.
-        "letters": k.song_manager.letters_with_songs(scope),
+        # which letters it offers must not move as the user types. In Favourites it
+        # reflects the starred set, so only letters with a favourite are live.
+        "letters": (
+            k.song_manager.letters_for(favs)
+            if in_favourites
+            else k.song_manager.letters_with_songs(scope)
+        ),
         "q": q,
         # MSG: Title of the page listing the songs already on this machine.
         "title": _("Songs"),
         "songs": songs[start_index : start_index + results_per_page],
         "admin": admin,
         "current_url": current_url,
-        "view": "folders" if in_folders else "",
+        "view": "favourites" if in_favourites else ("folders" if in_folders else ""),
         "folder": folder,
         "subfolders": folder_tree[folder] if in_folders else [],
         "breadcrumbs": _build_breadcrumbs(folder),
-        # Drives whether the folder toggle is offered at all: a flat library never
-        # sees it, so nothing about the page changes for those users.
+        # Drives whether the view menu offers Folders: a flat library gets the
+        # menu but not that option.
         "has_subfolders": has_subfolders,
     }
     # Filter keystrokes ask for the result table alone. Rendering base.html per

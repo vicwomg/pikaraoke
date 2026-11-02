@@ -8,7 +8,8 @@ from flask_babel import Babel
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
-from pikaraoke.routes.queue_api import queue_api_bp
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
+from pikaraoke.routes.queue_api import EnqueueForm, queue_api_bp
 
 
 @pytest.fixture
@@ -111,6 +112,20 @@ class TestEnqueueRequiresName:
 
         assert response.status_code == 422
         mock_get_instance.assert_not_called()
+
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_a_name_over_the_cap_is_refused(self, mock_get_instance, client):
+        response = client.post(
+            "/api/enqueue",
+            data={"song_to_add": "Song.mp4", "song_added_by": "x" * (SINGER_NAME_MAX_LENGTH + 1)},
+        )
+
+        assert response.status_code == 422
+        mock_get_instance.assert_not_called()
+
+    def test_the_name_is_normalised_on_load(self):
+        data = EnqueueForm().load({"song_to_add": "Song.mp4", "song_added_by": "  Jo   B  "})
+        assert data["song_added_by"] == "Jo B"
 
 
 class TestQueueApiContract:
