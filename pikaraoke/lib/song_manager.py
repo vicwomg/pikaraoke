@@ -6,6 +6,7 @@ import os
 from collections.abc import Callable
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
 from pikaraoke.lib.metadata_parser import (
@@ -253,6 +254,22 @@ class SongManager:
             self._initials_version = version
         return self._initials.get(folder, set())
 
+    def letters_for(self, paths: set[str]) -> set[str]:
+        """Alpha-bar keys present among `paths`, a subset of the library.
+
+        Keyed like letters_with_songs -- 'numeric' for a leading digit, else the
+        accent-folded lowercase first character -- so the bar agrees with
+        songs_by_letter when the listing is narrowed to a subset, such as the
+        Favourites view. Not memoized: it runs only on a Favourites render, which
+        already pays one O(songs) pass to filter the set.
+        """
+        keys = set()
+        for raw, _, path in self._match_index():
+            first = raw[:1]
+            if first and path in paths:
+                keys.add("numeric" if first.isnumeric() else first)
+        return keys
+
     def songs_in_folder(self, folder: str) -> list[str]:
         """Songs sitting directly in `folder`, excluding its subfolders, in list order."""
         return [path for *_, path in self._scoped_index(folder)]
@@ -346,6 +363,13 @@ class SongManager:
         return new_path
 
     def register_download(self, song_path: str) -> None:
-        """Register a newly downloaded song in SongList and DB."""
+        """Register a newly downloaded song in SongList and DB.
+
+        The duration is filled as the row is born -- one probe of a file just
+        written and warm in cache -- so a downloaded song never needs the sweep.
+        """
         self.songs.add_if_valid(song_path)
         self._db.insert_songs([build_song_record(song_path)])
+        duration = get_media_duration(song_path)
+        if duration is not None:
+            self._db.set_duration(song_path, duration)

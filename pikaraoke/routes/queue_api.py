@@ -5,11 +5,11 @@ from urllib.parse import unquote
 import flask_babel
 from flask import Response, jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, ValidationError, fields, validate, validates_schema
+from marshmallow import Schema, ValidationError, fields, post_load
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
-from pikaraoke.lib.queue_manager import SINGER_NAME_MAX_LENGTH
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH, normalize_name
 
 _ = flask_babel.gettext
 
@@ -29,20 +29,28 @@ class EnqueueForm(Schema):
     song_to_add = fields.String(required=True, metadata={"description": "Path to the song file"})
     song_added_by = fields.String(
         required=True,
-        validate=validate.Length(max=SINGER_NAME_MAX_LENGTH),
         metadata={"description": "Name of the user adding the song"},
     )
 
-    @validates_schema
-    def check_name(self, data, **kwargs):
-        name = data["song_added_by"]
-        # Whitespace-only is blank: it would be truthy everywhere the name is read.
-        if not name.strip():
+    @post_load
+    def clean_name(self, data, **kwargs):
+        # Normalise so the queued name, the play's performer and the singer row
+        # all agree on one form.
+        name = normalize_name(data["song_added_by"])
+        if not name:
             # MSG: Error when a song is queued without a name
             raise ValidationError(_("A name is required"), "song_added_by")
+        if len(name) > SINGER_NAME_MAX_LENGTH:
+            # MSG: Error when a queued name is longer than the limit.
+            raise ValidationError(
+                _("Name must be %(max)d characters or fewer", max=SINGER_NAME_MAX_LENGTH),
+                "song_added_by",
+            )
         if "<" in name or ">" in name:
             # MSG: Error when a singer name contains disallowed HTML angle brackets
             raise ValidationError(_("Invalid singer name"), "song_added_by")
+        data["song_added_by"] = name
+        return data
 
 
 class QueueEditQuery(Schema):

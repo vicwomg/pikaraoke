@@ -7,7 +7,7 @@ from marshmallow import Schema, ValidationError, fields, validate, validates_sch
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance
-from pikaraoke.lib.queue_manager import SINGER_NAME_MAX_LENGTH
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.youtube_dl import canonical_youtube_url, get_stream_url
 
 _ = flask_babel.gettext

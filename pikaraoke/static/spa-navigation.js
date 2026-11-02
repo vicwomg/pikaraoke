@@ -87,17 +87,26 @@
         }
         const $input = $('#text-prompt-input');
         const $ok = $('#text-prompt-ok');
+        const $secondary = $('#text-prompt-secondary');
 
         $('#text-prompt-title').text(opts.title || '');
         $('#text-prompt-message').text(opts.message || '').toggleClass('is-hidden', !opts.message);
         $('#text-prompt-label').text(opts.label || '').toggleClass('is-hidden', !opts.label);
         $('#text-prompt-help').text(opts.help || '').toggleClass('is-hidden', !opts.help);
         $input.val(opts.value || '').attr('placeholder', opts.placeholder || '');
+        // Null clears it, so a cap never leaks into another caller of this prompt.
+        $input.attr('maxlength', opts.maxlength || null);
+        if (opts.submitLabel) { $ok.text(opts.submitLabel); }
+        // A left-pushed quiet action (e.g. "someone else is singing"), shown only
+        // when the caller asks for one; its click rejects with { secondary: true }
+        // so the caller tells it apart from a plain cancel.
+        $secondary.text(opts.secondaryLabel || '').toggleClass('is-hidden', !opts.secondaryLabel);
 
         // Namespaced so a prior, unclosed prompt leaves no handler behind.
         function teardown() {
             $modal.removeClass('is-active');
             $ok.off('.prompt');
+            $secondary.off('.prompt');
             $modal.find('.text-prompt-cancel, .modal-background').off('.prompt');
             $input.off('.prompt');
         }
@@ -113,8 +122,13 @@
             teardown();
             d.reject();
         }
+        function chooseSecondary() {
+            teardown();
+            d.reject({ secondary: true });
+        }
 
         $ok.on('click.prompt', accept);
+        $secondary.on('click.prompt', chooseSecondary);
         $modal.find('.text-prompt-cancel, .modal-background').on('click.prompt', dismiss);
         $input.on('keydown.prompt', function (e) {
             if (e.key === 'Enter') {
@@ -141,7 +155,7 @@
         const d = $.Deferred();
         window.promptForText(opts)
             .done(function (name) { d.resolve({ name: name }); })
-            .fail(function () { d.reject(); });
+            .fail(function (reason) { d.reject(reason); });
         return d;
     };
 
@@ -211,27 +225,70 @@
      */
     function initUsernameHandler() {
         // Remove any existing handlers first to avoid duplicates
-        $(document).off('click', '#current-user');
+        $(document).off('click', '.js-open-identity');
 
-        // Bind with event delegation
-        $(document).on('click', '#current-user', function(e) {
+        // Bind with event delegation. The class, not the id, is the hook: the
+        // navbar item and the Home idle "Join in" link both carry it and open
+        // the one dialog. #current-user keeps its id for setCurrentUser.
+        $(document).on('click', '.js-open-identity', function(e) {
             e.preventDefault();
             const currentName = Cookies.get("user") || "";
+            const joining = !currentName;
+            const t = window.translations;
             window.promptForIdentity({
-                title: window.translations.identityTitle,
-                label: window.translations.usernameLabel,
-                help: window.translations.usernameHelp,
+                title: joining ? t.identityJoinTitle : t.identityProfileTitle,
+                label: t.usernameLabel,
+                // Under the field: the privacy note when joining, the warning that
+                // a save renames you everywhere when editing an existing name.
+                help: joining ? t.usernameHelp : t.identityRenameNote,
+                placeholder: t.usernamePlaceholder,
+                maxlength: window.pikaraokeConfig.singerNameMaxLength,
+                submitLabel: joining ? t.identityJoinAction : t.identityProfileAction,
                 value: currentName
             }).done(function (res) {
-                Cookies.set("user", res.name, {
-                    expires: 3650,
-                    path: window.pikaraokeConfig.cookiePath
-                });
-                // Update the displayed name without reloading.
-                window.setCurrentUser(res.name);
+                if (joining) {
+                    // Naming an anonymous device: a plain cookie write, no move.
+                    if (window.setIdentity(res.name) && window.spaNavigation) {
+                        window.spaNavigation.rerender();
+                    }
+                } else {
+                    changeIdentity(currentName, res.name);
+                }
             });
             // Remove focus from the link to prevent CSS focus styling (black background)
             $(this).blur();
+        });
+    }
+
+    /**
+     * Rename the singer this device is holding. The server moves the queue, the
+     * song on screen, history and favourites onto the new name and says what it
+     * did; this device's cookie follows on success. A name already owned by
+     * another singer is refused -- that collapse is the KJ's to make.
+     * @param {string} oldName - The name currently in the cookie
+     * @param {string} newName - The name the singer typed
+     */
+    function changeIdentity(oldName, newName) {
+        const t = window.translations;
+        $.ajax({
+            url: window.pikaraokeConfig.renameUrl,
+            method: 'POST',
+            data: { old_name: oldName, new_name: newName }
+        }).done(function (resp) {
+            if (!resp || !resp.success) {
+                return;
+            }
+            const changed = window.setIdentity(resp.name);
+            if (resp.action === 'renamed') {
+                window.showNotification(t.identityRenamed.replace('{name}', resp.name), 'is-success');
+            }
+            if (changed && window.spaNavigation) {
+                window.spaNavigation.rerender();
+            }
+        }).fail(function (xhr) {
+            // The server names the reason (taken, reserved, not yours); show it.
+            const err = xhr.responseJSON && xhr.responseJSON.error;
+            window.showNotification(err || t.errorLabel, 'is-warning');
         });
     }
 

@@ -479,3 +479,59 @@ class TestFairQueuePosition:
 
         users = [item["user"] for item in qm.queue]
         assert users == ["UserB", "UserA"]
+
+
+class TestRenameSinger:
+    """The orchestrator moving a singer across the queue, screen, history and row."""
+
+    def _row(self, singer_id, name):
+        return {"id": singer_id, "name": name, "created_at": "now"}
+
+    def test_a_free_name_moves_everything(self, mock_karaoke):
+        mock_karaoke.singer_manager.find.side_effect = lambda n: (
+            self._row(1, "Dvae") if n.lower() == "dvae" else None
+        )
+        mock_karaoke.queue_manager.enqueue("/songs/s1---abc.mp4", "Dvae")
+        mock_karaoke.playback_controller.now_playing_user = "Dvae"
+        mock_karaoke.play_history._current_performer = "Dvae"
+
+        assert mock_karaoke.rename_singer("Dvae", "Davey") == "renamed"
+        assert mock_karaoke.queue_manager.queue[0]["user"] == "Davey"
+        assert mock_karaoke.playback_controller.now_playing_user == "Davey"
+        assert mock_karaoke.play_history._current_performer == "Davey"
+        mock_karaoke.singer_manager.rename.assert_called_once_with("Dvae", "Davey")
+
+    def test_nothing_owned_is_adoption(self, mock_karaoke):
+        assert mock_karaoke.rename_singer("Dvae", "Davey") == "adopt"
+        mock_karaoke.singer_manager.rename.assert_not_called()
+
+    def test_a_taken_name_with_data_is_refused(self, mock_karaoke):
+        mock_karaoke.singer_manager.find.side_effect = lambda n: (
+            self._row(1, "Dvae") if n.lower() == "dvae" else self._row(2, "Dave")
+        )
+        mock_karaoke.queue_manager.enqueue("/songs/s1---abc.mp4", "Dvae")
+        assert mock_karaoke.rename_singer("Dvae", "Dave") == "taken"
+        # Refused before anything moves.
+        assert mock_karaoke.queue_manager.queue[0]["user"] == "Dvae"
+        mock_karaoke.singer_manager.rename.assert_not_called()
+
+    def test_an_empty_name_onto_an_existing_one_just_adopts(self, mock_karaoke):
+        # old owns nothing, new exists: taking the existing identity, not a merge.
+        mock_karaoke.singer_manager.find.side_effect = lambda n: (
+            self._row(2, "Dave") if n.lower() == "dave" else None
+        )
+        assert mock_karaoke.rename_singer("Dvae", "Dave") == "adopt"
+        mock_karaoke.singer_manager.rename.assert_not_called()
+
+    def test_a_placeholder_name_is_reserved(self, mock_karaoke):
+        assert mock_karaoke.rename_singer("Dvae", "Pikaraoke") == "reserved"
+        assert mock_karaoke.rename_singer("Randomizer", "Davey") == "reserved"
+
+    def test_a_change_of_casing_renames_the_row(self, mock_karaoke):
+        mock_karaoke.singer_manager.find.side_effect = lambda n: (
+            self._row(1, "dave") if n.lower() == "dave" else None
+        )
+        mock_karaoke.queue_manager.enqueue("/songs/s1---abc.mp4", "dave")
+        assert mock_karaoke.rename_singer("dave", "Dave") == "renamed"
+        assert mock_karaoke.queue_manager.queue[0]["user"] == "Dave"
+        mock_karaoke.singer_manager.rename.assert_called_once_with("dave", "Dave")

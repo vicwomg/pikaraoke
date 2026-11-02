@@ -14,6 +14,7 @@ from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
 from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.duration_populator import DurationPopulator
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
@@ -33,7 +34,8 @@ from pikaraoke.lib.network import get_ip
 from pikaraoke.lib.play_history_manager import PlayHistoryManager
 from pikaraoke.lib.playback_controller import PlaybackController
 from pikaraoke.lib.preference_manager import PreferenceManager
-from pikaraoke.lib.queue_manager import QueueManager
+from pikaraoke.lib.queue_manager import PLACEHOLDER_SINGERS, QueueManager
+from pikaraoke.lib.singer_manager import SingerManager, normalize_name
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
@@ -65,6 +67,7 @@ class Karaoke:
     song_manager: SongManager
     queue_manager: QueueManager
     playback_controller: PlaybackController
+    singer_manager: SingerManager
     play_history: PlayHistoryManager
 
     volume: float
@@ -303,8 +306,28 @@ class Karaoke:
             get_turns_taken=lambda: self.play_history.get_turns_taken(),
         )
 
+        # Singers own the one row per performer that plays and favourites hang
+        # off; play history resolves names through it and backfills it on start.
+        self.singer_manager = SingerManager(
+            db=self.db,
+            events=self.events,
+            song_display_name=self.song_manager.display_name_from_path,
+        )
+
         # Play history recording and reporting (subscribes to song_ended itself)
-        self.play_history = PlayHistoryManager(db=self.db, events=self.events)
+        self.play_history = PlayHistoryManager(
+            db=self.db, events=self.events, singers=self.singer_manager
+        )
+
+        # Fills songs.duration as songs are played and queued (subscribes itself).
+        self.duration_populator = DurationPopulator(
+            db=self.db,
+            events=self.events,
+            get_now_playing=lambda: (
+                self.playback_controller.now_playing_filename,
+                self.playback_controller.now_playing_duration,
+            ),
+        )
 
         # Initialize and start download manager
         self.download_manager = DownloadManager(
@@ -534,6 +557,70 @@ class Karaoke:
             self.events.emit("queue_update")
         return new_path
 
+    def rename_singer(self, old_name: str, new_name: str) -> str:
+        """Move a singer's name across the queue, the screen, history and their row.
+
+        One operation, beside rename_song() and for the same reason: only here
+        can the queue, the song on screen and the stored singer be reached
+        together. Returns the outcome for the route to answer with:
+
+          "renamed"  -- old_name owned something, moved onto the free new_name.
+          "adopt"    -- old_name owned nothing to move; the device simply takes
+                        new_name (a plain cookie write, no server state changed).
+          "taken"    -- new_name already belongs to another singer who owns data:
+                        that is a merge, which is the admin's, so this refuses.
+          "reserved" -- a placeholder system name on either side.
+
+        The route enforces that old_name is the caller's own cookie, so a rename
+        is always the singer re-homing their own device; the blank-name refusal
+        lives in the route schema.
+        """
+        old_name = normalize_name(old_name)
+        new_name = normalize_name(new_name)
+        if old_name.lower() in PLACEHOLDER_SINGERS or new_name.lower() in PLACEHOLDER_SINGERS:
+            return "reserved"
+
+        casing_only = old_name.lower() == new_name.lower()
+        old_singer = self.singer_manager.find(old_name)
+        new_singer = self.singer_manager.find(new_name)
+
+        with self._playback_lock:
+            now_playing_matches = (
+                self.playback_controller.now_playing_user or ""
+            ).lower() == old_name.lower()
+
+            # new_name is a different singer that already exists: a merge.
+            if (
+                not casing_only
+                and new_singer is not None
+                and (old_singer is None or new_singer["id"] != old_singer["id"])
+            ):
+                owns = (
+                    old_singer is not None
+                    or now_playing_matches
+                    or self.queue_manager.has_user(old_name)
+                )
+                # A name with data cannot climb onto another (that is the admin's
+                # merge); a name with nothing just adopts the existing singer.
+                return "taken" if owns else "adopt"
+
+            # new_name is free, or this is a change of casing: move everything.
+            if old_singer is not None:
+                self.singer_manager.rename(old_name, new_name)
+            moved = self.queue_manager.rename_singer(old_name, new_name)
+            if now_playing_matches:
+                self.playback_controller.now_playing_user = new_name
+            self.play_history.rename_current_performer(old_name, new_name)
+            owned = old_singer is not None or now_playing_matches or moved > 0
+
+        if not owned:
+            # Nothing moved: the device is just naming itself, stage A's behaviour.
+            return "adopt"
+        self.events.emit("queue_update")
+        self.events.emit("now_playing_update")
+        self.events.emit("play_logged")
+        return "renamed"
+
     def _recue_current(self, semitones: int, reason: str) -> bool:
         """Re-enqueue the playing song at the head and end its stream.
 
@@ -653,6 +740,10 @@ class Karaoke:
         """
         queue = self.queue_manager.queue
         next_song = queue[0] if queue else None
+        # The song behind the queue head. While a song plays, the head is the next
+        # to play and this is the one after; when a song waits to start, the head
+        # IS that waiting song, so this is what Home shows as "next".
+        following_song = queue[1] if len(queue) > 1 else None
 
         # Get playback state from PlaybackController
         playback_state = self.playback_controller.get_now_playing()
@@ -666,6 +757,11 @@ class Karaoke:
             "autoplay": self.preferences.get_or_default("autoplay"),
             "up_next_file": next_song["file"] if next_song else None,
             "up_next_transpose": next_song["semitones"] if next_song else 0,
+            # The cued song's length, so the focus bar reads before it starts;
+            # None until the row is filled, where the bar stays an empty track.
+            "up_next_duration": self.db.get_duration(next_song["file"]) if next_song else None,
+            "next_after": following_song["title"] if following_song else None,
+            "next_after_user": following_song["user"] if following_song else None,
             "volume": self.volume,
             # The splash screen never reloads, so the session name rides this
             # payload rather than being rendered once at page load.

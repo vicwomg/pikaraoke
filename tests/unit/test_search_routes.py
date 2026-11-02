@@ -7,7 +7,7 @@ import pytest
 from flask import Flask
 from flask_babel import Babel
 
-from pikaraoke.lib.queue_manager import SINGER_NAME_MAX_LENGTH
+from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.youtube_dl import SearchResult
 from pikaraoke.routes.search import search_bp
 from pikaraoke.routes.search_api import search_api_bp

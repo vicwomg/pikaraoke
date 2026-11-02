@@ -259,15 +259,17 @@ class TestSortLinksPreserveTheFilter:
         """sort=date stats the files, so this one needs real paths."""
         song = tmp_path / "Abba - Waterloo.mp4"
         song.write_text("fake")
+        # From a date sort, the Name button toggles back to A-Z and keeps the query.
         body = _browse(client, app, [str(song)], "?q=abba&sort=date").data.decode()
-        link = _sort_links(body)[""]
+        link = _sort_links(body)["az"]
         assert "q=abba" in link
-        assert "sort=" not in link
+        assert "sort=az" in link
 
     def test_sort_links_carry_letter_when_no_query(self, client, app):
+        # Default A-Z: the Name button offers Z-A, the Date button newest-first.
         body = _browse(client, app, self.SONGS, "?letter=a").data.decode()
         links = _sort_links(body)
-        assert set(links) == {"", "date"}
+        assert set(links) == {"za", "date"}
         assert all("letter=a" in href for href in links.values())
 
     def test_alpha_bar_links_stay_bare(self, client, app):
@@ -293,6 +295,103 @@ class TestFilterWithDateSort:
         assert "Bohemian" not in body
         # Dancing Queen is newer than Waterloo, so it must come first
         assert body.index("Dancing Queen") < body.index("Waterloo")
+
+
+class TestSortDirections:
+    """Each axis sorts both ways: A-Z/Z-A and newest/oldest."""
+
+    SONGS = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian.mp4"]
+
+    def test_za_reverses_the_alpha_order(self, client, app):
+        body = _browse(client, app, self.SONGS, "?sort=za").data.decode()
+        assert body.index("Queen") < body.index("Abba")
+
+    def test_oldest_first_reverses_the_date_sort(self, tmp_path, client, app):
+        old = tmp_path / "Abba - Old.mp4"
+        old.write_text("x")
+        new = tmp_path / "Abba - New.mp4"
+        new.write_text("x")
+        os.utime(old, (1_600_000_000, 1_600_000_000))
+        os.utime(new, (1_600_001_000, 1_600_001_000))
+        body = _browse(client, app, [str(old), str(new)], "?sort=date_asc").data.decode()
+        assert body.index("Abba - Old") < body.index("Abba - New")
+
+    def test_unknown_sort_falls_back_to_az(self, client, app):
+        body = _browse(client, app, self.SONGS, "?sort=nonsense").data.decode()
+        assert body.index("Abba") < body.index("Queen")
+
+
+class TestFavouritesView:
+    """view=favourites narrows the list to the device singer's starred songs."""
+
+    SONGS = ["/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"]
+
+    def test_shows_only_starred_songs(self, client, app):
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4"},
+        ):
+            body = _browse(client, app, self.SONGS, "?view=favourites").data.decode()
+        assert "Abba - Waterloo" in body
+        assert "Bohemian" not in body
+
+    def test_favourites_compose_with_the_query(self, client, app):
+        songs = self.SONGS + ["/songs/Abba - Dancing Queen.mp4"]
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4", "/songs/Queen - Bohemian Rhapsody.mp4"},
+        ):
+            body = _browse(client, app, songs, "?view=favourites&q=abba").data.decode()
+        # Starred and matches "abba"; the unstarred Abba song is filtered out.
+        assert "Abba - Waterloo" in body
+        assert "Dancing Queen" not in body
+        assert "Bohemian" not in body
+
+    def test_empty_favourites_show_the_notice(self, client, app):
+        with patch("pikaraoke.routes.files.favourite_paths", return_value=set()):
+            body = _browse(client, app, self.SONGS, "?view=favourites").data.decode()
+        assert "No favourites yet" in body
+        assert "Waterloo" not in body
+
+    def test_alpha_bar_reflects_only_favourite_letters(self, client, app):
+        """The bar lights the starred set's letters, like it does for folders."""
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4"},
+        ):
+            body = _browse(client, app, self.SONGS, "?view=favourites").data.decode()
+        linked, greyed = _alpha_bar(body)
+        assert "a" in linked
+        # Queen is in the library but not starred, so its letter is dead here.
+        assert "q" in greyed
+
+    def test_partial_carries_the_rebuilt_bar_for_the_unstar_refresh(self, client, app):
+        """The Favourites fragment ferries the rebuilt A-Z strip to the live one."""
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4"},
+        ):
+            body = _browse(client, app, self.SONGS, "?view=favourites&partial=1").data.decode()
+        match = re.search(r'<template id="alpha-bar-fresh">.*?</template>', body, re.S)
+        assert match, "expected the rebuilt bar to ride along with the fragment"
+        bar = match.group(0)
+        assert "letter=a" in bar
+        assert '<span class="alpha-empty">Q</span>' in bar
+
+    def test_full_page_does_not_duplicate_the_bar(self, client, app):
+        """Only the ?partial=1 fetch ferries the bar; a full load already has the live one."""
+        with patch(
+            "pikaraoke.routes.files.favourite_paths",
+            return_value={"/songs/Abba - Waterloo.mp4"},
+        ):
+            body = _browse(client, app, self.SONGS, "?view=favourites").data.decode()
+        assert '<template id="alpha-bar-fresh">' not in body
+
+    def test_emptied_favourites_fragment_drops_the_bar(self, client, app):
+        """No template means no favourites remain, so the handler removes the strip."""
+        with patch("pikaraoke.routes.files.favourite_paths", return_value=set()):
+            body = _browse(client, app, self.SONGS, "?view=favourites&partial=1").data.decode()
+        assert '<template id="alpha-bar-fresh">' not in body
 
 
 class TestPartialFragment:
