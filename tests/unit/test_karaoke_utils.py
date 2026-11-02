@@ -133,6 +133,23 @@ class TestGetNowPlaying:
         assert result["up_next"] == "Next Song"
         assert result["next_user"] == "NextUser"
 
+    def test_get_now_playing_carries_cued_song_duration(self, mock_karaoke):
+        """The focus bar needs the waiting song's stored length before it starts."""
+        from pikaraoke.lib.library_scanner import build_song_record
+
+        path = "/songs/Next Song---dQw4w9WgXcQ.mp4"
+        mock_karaoke.db.insert_songs([build_song_record(path)])
+        mock_karaoke.db.set_duration(path, 183)
+        mock_karaoke.queue_manager.enqueue(path, "NextUser")
+
+        assert mock_karaoke.get_now_playing()["up_next_duration"] == 183
+
+    def test_get_now_playing_cued_duration_is_none_when_unfilled(self, mock_karaoke):
+        """A never-probed song leaves the bar an empty track, not an error."""
+        mock_karaoke.queue_manager.enqueue("/songs/Next Song---dQw4w9WgXcQ.mp4", "NextUser")
+
+        assert mock_karaoke.get_now_playing()["up_next_duration"] is None
+
 
 class TestResetNowPlaying:
     """Tests for the reset_now_playing method."""

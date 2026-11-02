@@ -29,4 +29,6 @@ def home():
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,
         mic_available=k.sound_manager.available,
+        # Invites browsing on the idle screen: "Choose from N songs to sing".
+        song_count=len(k.song_manager.songs),
     )
