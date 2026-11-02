@@ -19,6 +19,10 @@ class ConnectForm(Schema):
     password = fields.String(load_default="", metadata={"description": "Network password"})
 
 
+class PasswordForm(Schema):
+    password = fields.String(required=True, metadata={"description": "New hotspot password"})
+
+
 def _require_supported():
     """Return the manager, or 404 where Wi-Fi setup does not apply (not a Pi)."""
     wifi = get_karaoke_instance().wifi_manager
@@ -59,3 +63,11 @@ def wifi_connect(form):
     _require_supported()
     k.start_wifi_connect(form["name"], form["password"])
     return jsonify({"status": "switching", "network": form["name"]})
+
+
+@wifi_api_bp.route("/api/wifi/password", methods=["POST"])
+@wifi_api_bp.arguments(PasswordForm, location="form")
+def wifi_password(form):
+    """Choose the hotspot's password. Takes effect the next time the hotspot starts."""
+    ok, message = _require_supported().set_hotspot_password(form["password"])
+    return jsonify([ok, message])

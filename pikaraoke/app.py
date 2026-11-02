@@ -289,6 +289,11 @@ def main() -> None:
     if args.disable_autoplay:
         k.preferences.set("autoplay", False)
 
+    if args.hotspot_password:
+        ok, message = k.wifi_manager.set_hotspot_password(args.hotspot_password)
+        if not ok:
+            logging.warning("Ignoring --hotspot-password: %s", message)
+
     # expose karaoke object to the flask app
     with app.app_context():
         app.config["KARAOKE_INSTANCE"] = k

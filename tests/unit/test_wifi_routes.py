@@ -18,6 +18,7 @@ WIFI_API_LINKS = [
     ("/api/wifi/state", "wifi_api.wifi_state"),
     ("/api/wifi/networks", "wifi_api.wifi_networks"),
     ("/api/wifi/connect", "wifi_api.wifi_connect"),
+    ("/api/wifi/password", "wifi_api.wifi_password"),
 ]
 
 
@@ -69,6 +70,12 @@ class TestWhenSupported:
         # The route hands off to the background; it never joins inline.
         karaoke.wifi_manager.connect.assert_not_called()
 
+    def test_set_password_returns_the_result(self, client, karaoke):
+        karaoke.wifi_manager.set_hotspot_password.return_value = (True, "Hotspot password saved.")
+        body = client.post("/api/wifi/password", data={"password": "venuewifi123"}).get_json()
+        assert body == [True, "Hotspot password saved."]
+        karaoke.wifi_manager.set_hotspot_password.assert_called_once_with("venuewifi123")
+
 
 class TestWhenNotSupported:
     @pytest.fixture
@@ -90,6 +97,11 @@ class TestWhenNotSupported:
         assert response.status_code == 404
         unsupported.start_wifi_connect.assert_not_called()
 
+    def test_password_is_absent(self, client, unsupported):
+        response = client.post("/api/wifi/password", data={"password": "venuewifi123"})
+        assert response.status_code == 404
+        unsupported.wifi_manager.set_hotspot_password.assert_not_called()
+
 
 class TestAdminOnly:
     def test_endpoints_refuse_a_non_admin(self):
@@ -97,6 +109,7 @@ class TestAdminOnly:
         assert client.get("/api/wifi/state").status_code == 403
         assert client.get("/api/wifi/networks").status_code == 403
         assert client.post("/api/wifi/connect", data={"name": "X"}).status_code == 403
+        assert client.post("/api/wifi/password", data={"password": "x" * 10}).status_code == 403
 
 
 class TestWifiPage:

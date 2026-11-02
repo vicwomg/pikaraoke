@@ -136,6 +136,20 @@ class WifiManager:
             self._preferences.set(_PASSWORD_KEY, stored, section=_SECRETS_SECTION)
         return stored
 
+    def set_hotspot_password(self, password: str) -> tuple[bool, str]:
+        """Choose the hotspot's WPA2 key. Takes effect the next time it starts."""
+        if not 8 <= len(password) <= 63:
+            return (False, "The hotspot password must be 8 to 63 characters.")
+        if password != self.hotspot_password:
+            self._preferences.set(_PASSWORD_KEY, password, section=_SECRETS_SECTION)
+            # Keep the stored profile's key in step, without dropping an active
+            # hotspot; the new key is what the next start broadcasts.
+            if self._profile_exists(self.hotspot_name):
+                self._run_privileged(
+                    ["connection", "modify", self.hotspot_name, "wifi-sec.psk", password]
+                )
+        return (True, "Hotspot password saved.")
+
     def state(self) -> NetworkState:
         """What the Pi is attached to: a network, its own hotspot, or nothing."""
         result = _run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"])

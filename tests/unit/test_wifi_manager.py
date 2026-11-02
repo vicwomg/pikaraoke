@@ -362,3 +362,39 @@ class TestNetworkChangeEvents:
             assert manager.start_hotspot() is True
             assert manager.stop_hotspot() is True
         assert fired == [True, True]
+
+
+class TestSetHotspotPassword:
+    def test_rejects_too_short(self, manager):
+        ok, _message = manager.set_hotspot_password("short")
+        assert ok is False
+
+    def test_rejects_too_long(self, manager):
+        ok, _message = manager.set_hotspot_password("x" * 64)
+        assert ok is False
+
+    def test_stores_a_valid_password(self, manager):
+        with patch(RUN, return_value=_done(stdout="")):  # no existing profile
+            ok, _message = manager.set_hotspot_password("venuewifi123")
+        assert ok is True
+        assert manager.hotspot_password == "venuewifi123"
+
+    def test_modifies_an_existing_profile(self, manager):
+        def fake_run(cmd, **kwargs):
+            if "-f NAME connection show" in " ".join(cmd):
+                return _done(stdout="PiKaraoke-0000\n")
+            return _done(returncode=0)
+
+        with patch(RUN, side_effect=fake_run) as run:
+            manager.set_hotspot_password("venuewifi123")
+        assert any(
+            "connection modify PiKaraoke-0000 wifi-sec.psk venuewifi123" in c
+            for c in _commands(run)
+        )
+
+    def test_unchanged_password_touches_nothing(self, manager):
+        current = manager.hotspot_password  # generates and stores a random one
+        with patch(RUN) as run:
+            ok, _message = manager.set_hotspot_password(current)
+        assert ok is True
+        run.assert_not_called()

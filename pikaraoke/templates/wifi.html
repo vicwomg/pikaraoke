@@ -14,19 +14,29 @@
 				{# MSG: Placeholder while the current network is being looked up. #}
 				<span class="has-text-grey-light">{% trans %}Checking…{% endtrans %}</span>
 			</div>
-			<div id="wifi-hotspot-details" class="is-hidden mt-4 content">
+			<div id="wifi-hotspot-details" class="is-hidden mt-4">
 				{# MSG: Intro line above the hotspot name and password guests use to join. #}
 				<p class="mb-2">{% trans %}Guests join this network to sing:{% endtrans %}</p>
-				<p class="mb-1">
+				<p class="mb-3">
 					{# MSG: Label before the hotspot's network name. #}
 					{% trans %}Network{% endtrans %}:
 					<strong id="wifi-hotspot-name" class="is-family-monospace"></strong>
 				</p>
-				<p class="mb-0">
-					{# MSG: Label before the hotspot's password. #}
-					{% trans %}Password{% endtrans %}:
-					<strong id="wifi-hotspot-password" class="is-family-monospace"></strong>
-				</p>
+				<div class="field">
+					{# MSG: Label of the editable field holding the password guests type to join the hotspot. #}
+					<label class="label" for="wifi-hotspot-password">{% trans %}Password guests type{% endtrans %}</label>
+					<div class="field has-addons mb-0">
+						<div class="control is-expanded">
+							<input id="wifi-hotspot-password" class="input is-family-monospace" type="text" autocomplete="off" maxlength="63">
+						</div>
+						<div class="control">
+							{# MSG: Button that saves a changed hotspot password. #}
+							<button id="wifi-hotspot-password-save" class="button is-primary">{% trans %}Save{% endtrans %}</button>
+						</div>
+					</div>
+					{# MSG: Hint under the hotspot password field. #}
+					<p class="help">{% trans %}8 to 63 characters. Takes effect the next time the hotspot starts.{% endtrans %}</p>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -95,6 +105,7 @@
 		state: "{{ url_for('wifi_api.wifi_state') }}",
 		networks: "{{ url_for('wifi_api.wifi_networks') }}",
 		connect: "{{ url_for('wifi_api.wifi_connect') }}",
+		password: "{{ url_for('wifi_api.wifi_password') }}",
 	};
 	const WIFI_MSG = {
 		connected: {{ _('Connected to') | tojson }},
@@ -145,7 +156,7 @@
 			if (state.kind === "hotspot") {
 				setStatus("ph-broadcast", WIFI_MSG.hotspot);
 				$("#wifi-hotspot-name").text(state.hotspot_name);
-				$("#wifi-hotspot-password").text(state.hotspot_password);
+				$("#wifi-hotspot-password").val(state.hotspot_password);
 				$hotspot.removeClass("is-hidden");
 			} else if (state.kind === "connected") {
 				setStatus("ph-wifi-high", WIFI_MSG.connected + " " + (state.network || ""));
@@ -187,6 +198,16 @@
 		}
 
 		$("#wifi-refresh").on("click", loadNetworks);
+
+		$("#wifi-hotspot-password-save").on("click", function () {
+			$.post(WIFI_API.password, { password: $("#wifi-hotspot-password").val() || "" })
+				.done(function (data) {
+					showNotification(data[1], data[0] ? "is-success" : "is-danger");
+				})
+				.fail(function () {
+					showNotification(WIFI_MSG.failed, "is-danger");
+				});
+		});
 
 		$("#wifi-connect").on("click", function () {
 			const name = ($name.val() || "").trim();
