@@ -195,9 +195,9 @@
 		npElapsed = $("#np-progress .np-elapsed");
 		npRemaining = $("#np-progress .np-remaining");
 
-		// Advanced reveals the less-used controls in a dark panel, like the search
-		// page's. Its open state is remembered across SPA page swaps (which rebuild
-		// this content), and both states' panels move together off the one flag.
+		// The faders toggle reveals the less-used controls. Its open state is
+		// remembered across SPA page swaps (which rebuild this content), and both
+		// states' toggles and panels move together off the one flag.
 		var advancedOpen = sessionStorage.getItem("homeAdvancedOpen") === "1";
 		$(".js-advanced-panel").toggle(advancedOpen);
 		$(".js-show-advanced").attr("aria-expanded", advancedOpen);
@@ -388,17 +388,21 @@
 
 {% block content %}
 
-{# The Advanced disclosure (key + mic controls), shared by both boxes. prefix
-   namespaces the key control's ids per state; gated adds the owner-start seam. #}
+{# The faders icon that reveals advanced_panel, sitting inline with the transport
+   rather than on its own line. Gated on the same features as the panel. #}
+{% macro advanced_toggle() %}
+{% if is_transpose_enabled or mic_available %}
+{# MSG: Title text on the icon that reveals the key and microphone controls. #}
+<a class="js-show-advanced is-flex is-align-items-center ml-3" aria-expanded="false" title="{{ _('Audio settings') }}">
+	<span class="icon is-text-size"><i class="ph ph-faders-horizontal"></i></span>
+</a>
+{% endif %}
+{% endmacro %}
+
+{# The key + mic controls, shared by both boxes. prefix namespaces the key
+   control's ids per state; gated adds the owner-start seam. #}
 {% macro advanced_panel(prefix="", gated=false) %}
 {% if is_transpose_enabled or mic_available %}
-<div class="has-text-right mt-2">
-	<a class="js-show-advanced is-inline-flex is-align-items-center" aria-expanded="false">
-		{# MSG: Link that reveals the less-used player controls. #}
-		<span>{% trans %}Advanced{% endtrans %}</span>
-		<span class="icon ml-1"><i class="ph ph-caret-right"></i></span>
-	</a>
-</div>
 <div class="js-advanced-panel" style="display: none">
 	<hr />
 	{% if is_transpose_enabled %}
@@ -406,7 +410,7 @@
 	<div class="is-flex is-justify-content-space-between is-align-items-center">
 		{# MSG: Title of a control to change the key/pitch of the playing song. #}
 		<h5 class="mb-0">{% trans %}Change key{% endtrans %}</h5>
-		<span class="icon-text is-size-5 has-text-weight-bold">
+		<span class="icon-text is-size-6 has-text-weight-bold">
 			<span id="{{ prefix }}semitones-label"></span>
 			<a class="js-semitones-info"><span class="icon"><i class="ph ph-info" title="Info"></i></span></a>
 		</span>
@@ -471,17 +475,17 @@
 	{# Playing state: the control box. #}
 	<div id="focus-playing" style="display: none">
 		{% if admin %}
-		{# The controls sit in their own dark box; Advanced expands the key and mic
-		   panels within that same box rather than opening a separate one. #}
+		{# The controls sit in their own dark box; the faders toggle expands the key
+		   and mic panels within that same box. #}
 		<div class="box has-background-dark mt-3">
-			<div class="focus-transport is-flex is-align-items-center is-justify-content-space-between is-size-4">
-				{# Playback controls a size larger to fill the space; the lesser-used
-				   volume group stays is-size-4. Both centred, so they stay aligned. #}
-				<span class="is-flex is-align-items-center is-size-3">
+			<div class="focus-transport is-flex is-align-items-center is-justify-content-space-between is-size-5">
+				{# Playback icons sit at the 24px standard (is-size-4); the lesser-used
+				   volume group is a notch smaller. Both centred, so they stay aligned. #}
+				<span class="is-flex is-align-items-center is-size-4">
 					{# MSG: Title attribute on the button to restart the current song. #}
 					<a title="{{ _('Restart song') }}" id="restart" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-back"></i></span></a>
 					{# MSG: Title attribute on the button to play or pause the current song. #}
-					<a title="{{ _('Play/Pause') }}" class="is-flex is-align-items-center mx-4"><span class="icon is-text-size"><i id="pause-resume" class="ph ph-pause"></i></span></a>
+					<a title="{{ _('Play/Pause') }}" class="is-flex is-align-items-center mx-3 mx-4-tablet"><span class="icon is-text-size"><i id="pause-resume" class="ph ph-pause"></i></span></a>
 					{# MSG: Title attribute on the button to skip to the next song. #}
 					<a title="{{ _('Stop current song') }}" id="skip" class="is-flex is-align-items-center"><span class="icon is-text-size"><i class="ph ph-skip-forward"></i></span></a>
 				</span>
@@ -497,6 +501,7 @@
 						style="margin: 0 8px; width: 100px"
 					/>
 					<span class="icon is-text-size"><i id="vol-up" class="ph ph-speaker-high"></i></span>
+					{{ advanced_toggle() }}
 				</span>
 			</div>
 
@@ -513,19 +518,22 @@
 	{% if admin %}
 	<div id="focus-pending" style="display: none">
 		<div class="box has-background-dark mt-3">
-			<div class="focus-pending-actions buttons mb-0">
-				<div class="focus-gate" data-gate="start">
-					{# MSG: Button that starts the song waiting to play. #}
-					<button id="start-song" class="button is-primary">
-						<span class="icon"><i class="ph ph-play"></i></span><span>{% trans %}Start{% endtrans %}</span>
-					</button>
+			<div class="focus-pending-actions is-flex is-align-items-center is-justify-content-space-between">
+				<div class="buttons mb-0">
+					<div class="focus-gate" data-gate="start">
+						{# MSG: Button that starts the song waiting to play. #}
+						<button id="start-song" class="button is-primary">
+							<span class="icon"><i class="ph ph-play"></i></span><span>{% trans %}Start{% endtrans %}</span>
+						</button>
+					</div>
+					<div class="focus-gate" data-gate="skip">
+						{# MSG: Button that drops the waiting song without playing it. #}
+						<button id="pending-skip" class="button">
+							<span class="icon"><i class="ph ph-skip-forward"></i></span><span>{% trans %}Skip{% endtrans %}</span>
+						</button>
+					</div>
 				</div>
-				<div class="focus-gate" data-gate="skip">
-					{# MSG: Button that drops the waiting song without playing it. #}
-					<button id="pending-skip" class="button">
-						<span class="icon"><i class="ph ph-skip-forward"></i></span><span>{% trans %}Skip{% endtrans %}</span>
-					</button>
-				</div>
+				<span class="is-size-5 is-flex">{{ advanced_toggle() }}</span>
 			</div>
 
 			{{ advanced_panel(prefix="pending-", gated=true) }}
@@ -546,7 +554,7 @@
 		<a class="button is-fullwidth is-justify-content-flex-start" href="{{ url_for('search.search') }}">
 			<span class="icon"><i class="ph ph-music-notes-plus"></i></span>
 			{# MSG: Idle-screen link to the page used to get new songs into the library. #}
-			<span>{% trans %}Add a song from YouTube{% endtrans %}</span>
+			<span>{% trans %}Add a song{% endtrans %}</span>
 		</a>
 		{# No Join in here: the newcomer welcome above owns joining, so a guest is
 		   never shown two Join buttons at once. #}

@@ -488,12 +488,11 @@ a.navbar-item.is-active {
 }
 
 /* Transport and other icon links in the focus slot read as controls, not teal
-   hyperlinks; Start/Skip and the signpost are .button and keep their own colour,
-   and the Advanced toggle stays a link. */
-#focus-slot a:not(.button):not(.js-show-advanced) {
+   hyperlinks; Start/Skip and the signpost are .button and keep their own colour. */
+#focus-slot a:not(.button) {
   color: var(--bulma-text);
 }
-#focus-slot a:not(.button):not(.js-show-advanced):hover {
+#focus-slot a:not(.button):hover {
   color: var(--bulma-text-strong);
 }
 
@@ -519,23 +518,24 @@ a.navbar-item.is-active {
   align-items: center;
 }
 /* Keep Bulma's horizontal gap between Start and Skip but drop the per-button
-   bottom margin, which otherwise leaves dead space before the Advanced toggle. */
+   bottom margin, which otherwise leaves dead space beside the toggle. */
 .focus-pending-actions .button {
   margin-bottom: 0;
 }
 
-/* Advanced toggle: a caret that flips when its panel is open. */
+/* Audio-settings toggle: white at rest like the transport, teal on hover (as the
+   app's other icon links) and teal while its panel is open. */
 .js-show-advanced {
   cursor: pointer;
 }
-.js-show-advanced .icon {
-  transition: transform 120ms ease;
+#focus-slot a.js-show-advanced:hover {
+  color: var(--bulma-link-text-hover);
 }
-.js-show-advanced[aria-expanded="true"] .icon {
-  transform: rotate(90deg);
+#focus-slot .js-show-advanced[aria-expanded="true"] {
+  color: var(--bulma-link);
 }
-/* Tighten the opened Advanced panel: Bulma's default hr margin leaves too much
-   dead space under the toggle and around the rule between controls. */
+/* Tighten the opened panel: Bulma's default hr margin leaves too much dead
+   space under the controls and around the rule between them. */
 .js-advanced-panel hr {
   margin: 0.6rem 0;
 }
