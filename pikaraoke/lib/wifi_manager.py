@@ -189,13 +189,18 @@ class WifiManager:
         return NetworkState(kind="none")
 
     def networks(self) -> list[dict]:
-        """Nearby networks from a live scan, strongest first, deduplicated, own hotspot omitted."""
+        """Nearby networks from a live scan, strongest first, deduplicated.
+
+        Leaves out the Pi's own hotspot and the network it is already on (both
+        marked IN-USE), so the list only offers somewhere new to go. One SSID on
+        several mesh radios collapses to its strongest entry.
+        """
         result = _run(
             [
                 "nmcli",
                 "-t",
                 "-f",
-                "SSID,SIGNAL,SECURITY",
+                "IN-USE,SSID,SIGNAL,SECURITY",
                 "device",
                 "wifi",
                 "list",
@@ -207,13 +212,24 @@ class WifiManager:
         if result.returncode != 0:
             return []
 
-        strongest: dict[str, dict] = {}
+        parsed: list[tuple[str, str, str]] = []
+        in_use_ssids: set[str] = set()
         for line in result.stdout.splitlines():
             fields = _split_terse(line)
-            if len(fields) < 3:
+            if len(fields) < 4:
                 continue
-            ssid, signal, security = fields[0], fields[1], fields[2]
+            in_use, ssid, signal, security = fields[0], fields[1], fields[2], fields[3]
             if not ssid or ssid == self.hotspot_name:
+                continue
+            if in_use == "*":
+                # The network we are on. A mesh marks only one of its same-named
+                # rows IN-USE, so exclude the whole SSID, not just this row.
+                in_use_ssids.add(ssid)
+            parsed.append((ssid, signal, security))
+
+        strongest: dict[str, dict] = {}
+        for ssid, signal, security in parsed:
+            if ssid in in_use_ssids:
                 continue
             try:
                 signal_value = int(signal)

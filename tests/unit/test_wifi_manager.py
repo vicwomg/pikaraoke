@@ -143,11 +143,11 @@ class TestState:
 class TestNetworks:
     def test_dedupes_by_name_excludes_own_hotspot_and_sorts_by_signal(self, manager):
         output = (
-            "HomeNet:60:WPA2\n"
-            "HomeNet:80:WPA2\n"  # stronger duplicate wins
-            "Cafe:40:WPA1 WPA2\n"
-            "PiKaraoke-0000:0:WPA2\n"  # the Pi's own hotspot, left out
-            ":50:--\n"  # hidden/blank SSID, skipped
+            ":HomeNet:60:WPA2\n"
+            ":HomeNet:80:WPA2\n"  # stronger duplicate wins
+            ":Cafe:40:WPA1 WPA2\n"
+            ":PiKaraoke-0000:0:WPA2\n"  # the Pi's own hotspot, left out
+            "::50:--\n"  # hidden/blank SSID, skipped
         )
         with patch(RUN, return_value=_done(stdout=output)) as run:
             networks = manager.networks()
@@ -155,8 +155,21 @@ class TestNetworks:
         assert networks[0]["signal"] == 80
         assert "--rescan" in _commands(run)[0]
 
+    def test_excludes_the_whole_in_use_mesh_network(self, manager):
+        # One mesh SSID on several radios, only one row marked IN-USE: the whole
+        # SSID is left out, leaving only a different network to switch to.
+        output = (
+            "*:88_Symes:100:WPA2 WPA3\n"
+            ":88_Symes:78:WPA2 WPA3\n"
+            ":88_Symes:54:WPA2 WPA3\n"
+            ":Neighbour:40:WPA2\n"
+        )
+        with patch(RUN, return_value=_done(stdout=output)):
+            networks = manager.networks()
+        assert [n["name"] for n in networks] == ["Neighbour"]
+
     def test_handles_an_ssid_containing_a_colon(self, manager):
-        with patch(RUN, return_value=_done(stdout="My\\:Net:70:WPA2\n")):
+        with patch(RUN, return_value=_done(stdout=":My\\:Net:70:WPA2\n")):
             networks = manager.networks()
         assert networks[0]["name"] == "My:Net"
 
@@ -291,7 +304,7 @@ class TestReconcile:
         router = self._router(
             joined="",  # nobody on the hotspot
             saved="HomeNet:802-11-wireless\nPiKaraoke-0000:802-11-wireless\n",
-            scan="HomeNet:70:WPA2\n",
+            scan=":HomeNet:70:WPA2\n",
         )
         with patch(RUN, side_effect=router) as run:
             assert manager.reconcile() is True
@@ -301,7 +314,7 @@ class TestReconcile:
         router = self._router(
             joined="Station aa:bb:cc:dd:ee:ff (on wlan0)\n",
             saved="HomeNet:802-11-wireless\n",
-            scan="HomeNet:70:WPA2\n",
+            scan=":HomeNet:70:WPA2\n",
         )
         with patch(RUN, side_effect=router) as run:
             assert manager.reconcile() is False
@@ -311,7 +324,7 @@ class TestReconcile:
         router = self._router(
             joined="",
             saved="HomeNet:802-11-wireless\n",
-            scan="SomeoneElse:70:WPA2\n",  # HomeNet not in range
+            scan=":SomeoneElse:70:WPA2\n",  # HomeNet not in range
         )
         with patch(RUN, side_effect=router) as run:
             assert manager.reconcile() is False
