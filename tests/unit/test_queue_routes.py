@@ -113,6 +113,58 @@ class TestEnqueueRequiresName:
         mock_get_instance.assert_not_called()
 
 
+class TestEnqueueRequiresSongInLibrary:
+    """POST /api/enqueue must only accept songs that exist in k.song_manager.songs."""
+
+    @pytest.mark.parametrize(
+        "bad_song",
+        [
+            "/home/pi/Videos/private.mp4",
+            "/etc/passwd",
+            "http://192.168.1.1/stream.mp4",
+            "-loglevel",
+        ],
+    )
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_song_outside_library_rejected_with_400(
+        self, mock_get_instance, mock_broadcast, client, bad_song, queue_env
+    ):
+        qm, mock_karaoke, _queue_updates, _now_playing_updates = queue_env
+        mock_karaoke.song_manager.songs = {"/songs/legitimate---dQw4w9WgXcQ.mp4"}
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post(
+            "/api/enqueue", data={"song_to_add": bad_song, "song_added_by": "guest"}
+        )
+
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"][0] is False
+        assert qm.queue == []
+        mock_broadcast.assert_not_called()
+
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_song_in_library_accepted(self, mock_get_instance, mock_broadcast, client, queue_env):
+        song_path = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+        qm, mock_karaoke, _queue_updates, _now_playing_updates = queue_env
+        mock_karaoke.song_manager.songs = {song_path}
+        mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post(
+            "/api/enqueue", data={"song_to_add": song_path, "song_added_by": "guest"}
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["song"] == "Artist - Song"
+        assert response.get_json()["success"][0] is True
+        assert qm.queue[0]["file"] == song_path
+        assert qm.queue[0]["user"] == "guest"
+        mock_broadcast.assert_called_once_with("queue_update")
+
+
 class TestQueueApiContract:
     """Tests that verify the queue API returns expected data structure.
 
@@ -166,6 +218,34 @@ def _make_queue_item(n: int) -> dict:
     return {"file": f"/songs/song{n}.mp4", "title": f"Song {n}", "user": f"User{n}", "semitones": 0}
 
 
+@pytest.fixture
+def queue_env(tmp_path):
+    """Create a QueueManager with event tracking and mock karaoke instance.
+
+    Returns (queue_manager, mock_karaoke, queue_updates, now_playing_updates).
+    """
+    events = EventSystem()
+    preferences = PreferenceManager(config_file_path=str(tmp_path / "config.ini"))
+    qm = QueueManager(
+        preferences=preferences,
+        events=events,
+        get_now_playing_user=lambda: None,
+        filename_from_path=lambda path, *args: path.split("/")[-1],
+        get_available_songs=lambda: [],
+    )
+
+    queue_updates = []
+    now_playing_updates = []
+    events.on("queue_update", lambda: queue_updates.append(True))
+    events.on("now_playing_update", lambda: now_playing_updates.append(True))
+
+    mock_karaoke = MagicMock()
+    mock_karaoke.queue_manager = qm
+    mock_karaoke.song_manager.display_name_from_path.return_value = "song"
+
+    return qm, mock_karaoke, queue_updates, now_playing_updates
+
+
 class TestQueueEditSocketUpdates:
     """Tests that queue edit actions call appropriate QueueManager methods.
 
@@ -187,33 +267,6 @@ class TestQueueEditSocketUpdates:
     def client_with_session(self, app_with_secret):
         """Create a test client with session support."""
         return app_with_secret.test_client()
-
-    @pytest.fixture
-    def queue_env(self, tmp_path):
-        """Create a QueueManager with event tracking and mock karaoke instance.
-
-        Returns (queue_manager, mock_karaoke, queue_updates, now_playing_updates).
-        """
-        events = EventSystem()
-        preferences = PreferenceManager(config_file_path=str(tmp_path / "config.ini"))
-        qm = QueueManager(
-            preferences=preferences,
-            events=events,
-            get_now_playing_user=lambda: None,
-            filename_from_path=lambda path, *args: path.split("/")[-1],
-            get_available_songs=lambda: [],
-        )
-
-        queue_updates = []
-        now_playing_updates = []
-        events.on("queue_update", lambda: queue_updates.append(True))
-        events.on("now_playing_update", lambda: now_playing_updates.append(True))
-
-        mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager = qm
-        mock_karaoke.song_manager.display_name_from_path.return_value = "song"
-
-        return qm, mock_karaoke, queue_updates, now_playing_updates
 
     @pytest.mark.parametrize(
         "action,song_param",
