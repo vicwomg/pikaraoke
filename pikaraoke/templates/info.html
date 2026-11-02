@@ -50,6 +50,18 @@
 				<img id="qr-img" src="{{ url_for('images.qrcode') }}" alt="{{ url }}" style="image-rendering: pixelated" />
 			</figure>
 			<div class="ml-5">
+				{% if hotspot %}
+				{# Guests must join the hotspot Wi-Fi before the address works. #}
+				<div class="is-inline-flex is-align-items-flex-start is-gap-1 mb-3 has-text-left">
+					<span class="icon"><i class="ph ph-broadcast"></i></span>
+					<div>
+						{# MSG: Short label before the hotspot's network name (SSID). #}
+						<div><span class="is-family-monospace has-text-grey-light mr-2">{% trans %}SSID{% endtrans %}</span><strong class="is-family-monospace">{{ hotspot_name }}</strong></div>
+						{# MSG: Short label before the hotspot's password. #}
+						<div><span class="is-family-monospace has-text-grey-light mr-2">{% trans %}Pass{% endtrans %}</span><strong class="is-family-monospace">{{ hotspot_password }}</strong></div>
+					</div>
+				</div>
+				{% endif %}
 				{# MSG: Explains the QR code and web address beside it, which let another person open Pikaraoke on their own phone. #}
 				<p class="mb-1">{% trans %}Scan the code or open this address to join in.{% endtrans %}</p>
 				<p class="is-size-5 has-text-warning">{{ url }}</p>

@@ -217,6 +217,7 @@ class Karaoke:
             self.wifi_manager = WifiManager(
                 self.preferences, self.is_raspberry_pi, events=self.events
             )
+        self._refresh_network_info()
 
         logging.info("PiKaraoke version: " + VERSION)
 
@@ -531,23 +532,23 @@ class Karaoke:
         """Recompute the address and QR code after a network change and push them live."""
         self.url = self.get_url()
         self.generate_qr_code()
+        self._refresh_network_info()
         self.update_network_socket()
 
+    def _refresh_network_info(self) -> None:
+        """Cache the hotspot state, so /splash renders it without an nmcli call each time."""
+        on_hotspot = self.wifi_manager.supported and self.wifi_manager.state().kind == "hotspot"
+        self.network_info = {
+            "hotspot": on_hotspot,
+            "hotspot_name": self.wifi_manager.hotspot_name if on_hotspot else "",
+            "hotspot_password": self.wifi_manager.hotspot_password if on_hotspot else "",
+        }
+
     def update_network_socket(self) -> None:
-        """Broadcast the current address, and the hotspot's details while it is up."""
+        """Broadcast the current address and the cached hotspot details to every splash."""
         if not self.socketio:
             return
-        on_hotspot = self.wifi_manager.supported and self.wifi_manager.state().kind == "hotspot"
-        self.socketio.emit(
-            "network_update",
-            {
-                "url": self.url,
-                "hotspot": on_hotspot,
-                "hotspot_name": self.wifi_manager.hotspot_name if on_hotspot else None,
-                "hotspot_password": self.wifi_manager.hotspot_password if on_hotspot else None,
-            },
-            namespace="/",
-        )
+        self.socketio.emit("network_update", {"url": self.url, **self.network_info}, namespace="/")
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.

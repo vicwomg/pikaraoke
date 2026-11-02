@@ -27,6 +27,9 @@ def info():
         # MSG: Title of the page with the QR code to join and the system information.
         title=_("Info"),
         url=k.url,
+        hotspot=k.network_info.get("hotspot", False),
+        hotspot_name=k.network_info.get("hotspot_name", ""),
+        hotspot_password=k.network_info.get("hotspot_password", ""),
         admin=is_admin(),
         platform=k.platform,
         os_version=k.os_version,

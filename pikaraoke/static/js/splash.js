@@ -664,6 +664,22 @@ const applyPreferencesReset = (defaults) => {
   Object.entries(defaults).forEach(([key, value]) => applyPreferenceUpdate({ key, value }));
 };
 
+// A network change: show or hide the hotspot's details (they ignore hide_url /
+// hide_qr_code, so the room can always join), and point the address and QR code
+// at whatever network is now current. The QR src is cache-busted since assigning
+// an <img> the src it already has would not reload it.
+const applyNetworkUpdate = (data) => {
+  $("#hotspot-info").toggle(!!data.hotspot);
+  if (data.hotspot) {
+    $("#hotspot-ssid").text(data.hotspot_name || "");
+    $("#hotspot-pass").text(data.hotspot_password || "");
+  }
+  if (data.url) $(".address-value").text(data.url);
+  $('img[src*="qrcode"]').each(function () {
+    this.src = this.src.split("?")[0] + "?v=" + Date.now();
+  });
+};
+
 const setupSocketEvents = () => {
   socket.on('connect', () => {
     console.log('Socket connected');
@@ -741,6 +757,7 @@ const setupSocketEvents = () => {
   socket.on("now_playing", handleNowPlayingUpdate);
   socket.on("preferences_update", applyPreferenceUpdate);
   socket.on("preferences_reset", applyPreferencesReset);
+  socket.on("network_update", applyNetworkUpdate);
   socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });
 
   socket.on("playback_position", (position) => {
