@@ -286,3 +286,40 @@ class TestFavourites:
         # identity index; the handler skips the clash rather than aborting.
         events.emit("song_renamed", other_id, _display_name(library["local"]))
         assert singers.get_favourite_paths("Alice") == {library["local"], "/s/Other.mp4"}
+
+
+class TestRename:
+    def test_moves_the_row_keeping_its_id(self, singers):
+        singer_id = singers.get_or_create("Dvae")
+        assert singers.rename("Dvae", "Davey") is True
+        assert singers.find("Davey")["id"] == singer_id
+        assert singers.find("Dvae") is None
+
+    def test_a_name_with_no_row_does_not_move(self, singers):
+        assert singers.rename("Ghost", "Davey") is False
+        assert singers.find("Davey") is None
+
+    def test_a_change_of_casing_updates_the_one_row(self, db, singers):
+        singer_id = singers.get_or_create("dave")
+        assert singers.rename("dave", "Dave") is True
+        assert _performer(db, singer_id) == "Dave"
+
+    def test_favourites_follow_the_singer(self, db, singers):
+        db.insert_songs(
+            [
+                {
+                    "file_path": "/s/Halo---dQw4w9WgXcQ.mp4",
+                    "youtube_id": "dQw4w9WgXcQ",
+                    "format": "mp4",
+                }
+            ]
+        )
+        singers.add_favourite("Dvae", "/s/Halo---dQw4w9WgXcQ.mp4")
+        singers.rename("Dvae", "Davey")
+        assert singers.get_favourite_paths("Davey") == {"/s/Halo---dQw4w9WgXcQ.mp4"}
+        assert singers.get_favourite_paths("Dvae") == set()
+
+    def test_the_new_name_is_stored_normalised(self, db, singers):
+        singer_id = singers.get_or_create("Dvae")
+        singers.rename("Dvae", "  Dav   ey  ")
+        assert _performer(db, singer_id) == "Dav ey"

@@ -677,3 +677,31 @@ class TestQueueManagerHelpers:
 
         qm.enqueue("/songs/song1---abc.mp4", "LimitedUser")
         assert qm.is_user_limited("LimitedUser") is True
+
+
+class TestRenameSinger:
+    """Re-attributing queued items when a singer renames themselves."""
+
+    def test_moves_every_matching_item_and_counts_them(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "Dvae")
+        queue_manager.enqueue("/songs/song2---def.mp4", "Other")
+        queue_manager.enqueue("/songs/song3---ghi.mp4", "dvae")
+        moved = queue_manager.rename_singer("Dvae", "Davey")
+        assert moved == 2
+        users = [item["user"] for item in queue_manager.queue]
+        assert users == ["Davey", "Other", "Davey"]
+
+    def test_matches_case_insensitively(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "DVAE")
+        assert queue_manager.rename_singer("dvae", "Davey") == 1
+        assert queue_manager.queue[0]["user"] == "Davey"
+
+    def test_a_name_with_no_items_moves_nothing(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "Other")
+        assert queue_manager.rename_singer("Dvae", "Davey") == 0
+        assert queue_manager.queue[0]["user"] == "Other"
+
+    def test_has_user_sees_a_queued_name_case_insensitively(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "Dvae")
+        assert queue_manager.has_user("dvae") is True
+        assert queue_manager.has_user("Someone") is False

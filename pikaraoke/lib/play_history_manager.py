@@ -464,6 +464,17 @@ class PlayHistoryManager:
         self._current_performer = None
         self.events.emit("play_logged")
 
+    def rename_current_performer(self, old_name: str, new_name: str) -> None:
+        """Point the in-flight play's performer marker at a renamed singer.
+
+        record_play() recognises a transpose restart by _current_performer ==
+        performer, so a singer who renames mid-song and then changes key would
+        otherwise log a second play. The play row reads its name through
+        singer_id (the row the rename moved), so only this marker needs touching.
+        """
+        if self._current_performer and self._current_performer.lower() == old_name.lower():
+            self._current_performer = new_name
+
     def _forget_deleted_play(self) -> None:
         """Drop the in-flight bookkeeping when a reset has taken its row away.
 

@@ -29,6 +29,8 @@
       enqueueUrl: "{% if not blank_page %}{{ url_for('queue_api.enqueue_form') }}{% endif %}",
       // Likewise: the splash page renders no favourite controls.
       favouriteUrl: "{% if not blank_page %}{{ url_for('singers_api.set_favourite') }}{% endif %}",
+      // Likewise: the splash page has no identity dialog to rename from.
+      renameUrl: "{% if not blank_page %}{{ url_for('singers_api.rename_singer') }}{% endif %}",
       singerNameMaxLength: {{ singer_name_max_length }}
     };
     // Translations for JS (static JS cannot use Jinja2 directly).
@@ -44,6 +46,10 @@
       identityJoinAction: {{ _('Join') | tojson }},
       // {# MSG: Primary button in the identity dialog when saving profile changes. #}
       identityProfileAction: {{ _('Save') | tojson }},
+      // {# MSG: Help under the name field when editing a profile, warning that saving renames the singer everywhere - queue, play history and favourites all move. #}
+      identityRenameNote: {{ _('Editing your name renames you everywhere.') | tojson }},
+      // {# MSG: Toast confirming a singer renamed themselves. {name} is the new name. #}
+      identityRenamed: {{ _('You are now {name}') | tojson }},
       // {# MSG: Label on the name field in the identity dialog. #}
       usernameLabel: {{ _('Name') | tojson }},
       // {# MSG: Hint under the name field noting the name is public. #}
@@ -762,6 +768,9 @@
           </div>
         </section>
         <footer class="modal-card-foot is-justify-content-flex-end">
+          {# Quiet, left-pushed by mr-auto: hands the device to a different singer.
+             Shown only when the dialog carries a secondary action (profile mode). #}
+          <button class="button is-ghost is-hidden mr-auto" id="text-prompt-secondary"></button>
           <button class="button text-prompt-cancel">{% trans %}Cancel{% endtrans %}</button>
           <button class="button is-primary" id="text-prompt-ok">{% trans %}Save{% endtrans %}</button>
         </footer>

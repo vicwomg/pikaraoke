@@ -103,3 +103,60 @@ class TestCurrentSingerName:
         # js-cookie percent-encodes what it writes, so the server must decode it.
         with app.test_request_context("/", headers={"Cookie": "user=Bj%C3%B6rk"}):
             assert current_singer_name() == "Björk"
+
+
+class TestRenameSinger:
+    def _post(self, client, old_name, new_name, cookie=None):
+        if cookie is not None:
+            client.set_cookie("user", cookie)
+        return client.post("/api/singer/rename", data={"old_name": old_name, "new_name": new_name})
+
+    def test_a_free_rename_succeeds_and_reports_the_action(self, client, karaoke):
+        karaoke.rename_singer.return_value = "renamed"
+        resp = self._post(client, "Dvae", "Davey", cookie="Dvae")
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body == {"success": True, "name": "Davey", "action": "renamed"}
+        karaoke.rename_singer.assert_called_once_with("Dvae", "Davey")
+
+    def test_adoption_also_succeeds(self, client, karaoke):
+        karaoke.rename_singer.return_value = "adopt"
+        resp = self._post(client, "Dvae", "Davey", cookie="Dvae")
+        assert resp.status_code == 200
+        assert resp.get_json()["action"] == "adopt"
+
+    def test_a_taken_name_is_refused(self, client, karaoke):
+        karaoke.rename_singer.return_value = "taken"
+        resp = self._post(client, "Dvae", "Dave", cookie="Dvae")
+        assert resp.status_code == 409
+        assert resp.get_json()["success"] is False
+
+    def test_a_reserved_name_is_refused(self, client, karaoke):
+        karaoke.rename_singer.return_value = "reserved"
+        resp = self._post(client, "Dvae", "Pikaraoke", cookie="Dvae")
+        assert resp.status_code == 409
+
+    def test_you_cannot_rename_a_name_you_are_not_holding(self, client, karaoke):
+        resp = self._post(client, "Dvae", "Davey", cookie="Someone")
+        assert resp.status_code == 403
+        karaoke.rename_singer.assert_not_called()
+
+    def test_a_nameless_device_cannot_rename(self, client, karaoke):
+        resp = self._post(client, "Dvae", "Davey")
+        assert resp.status_code == 403
+        karaoke.rename_singer.assert_not_called()
+
+    def test_a_blank_new_name_is_refused(self, client, karaoke):
+        resp = self._post(client, "Dvae", "   ", cookie="Dvae")
+        assert resp.status_code == 422
+        karaoke.rename_singer.assert_not_called()
+
+    def test_a_new_name_over_the_cap_is_refused(self, client, karaoke):
+        resp = self._post(client, "Dvae", "x" * (SINGER_NAME_MAX_LENGTH + 1), cookie="Dvae")
+        assert resp.status_code == 422
+        karaoke.rename_singer.assert_not_called()
+
+    def test_names_are_normalised_before_the_orchestrator_sees_them(self, client, karaoke):
+        karaoke.rename_singer.return_value = "renamed"
+        self._post(client, "Dvae", "  Dav   ey  ", cookie="Dvae")
+        karaoke.rename_singer.assert_called_once_with("Dvae", "Dav ey")

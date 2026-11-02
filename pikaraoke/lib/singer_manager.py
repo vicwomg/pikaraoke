@@ -103,6 +103,26 @@ class SingerManager:
         )
         return dict(rows[0]) if rows else None
 
+    def rename(self, old_name: str, new_name: str) -> bool:
+        """Move a singer's row from old_name to new_name; True when a row moved.
+
+        Everything a singer owns -- plays, favourites, preferences -- hangs off
+        singers.id, so renaming the one row carries all of it with no further
+        writes. A name that has never sung or starred has no row, and the
+        caller's queue and now-playing moves are then the whole rename.
+
+        The caller guarantees new_name is free (Karaoke.rename_singer refuses a
+        taken target), so this never collides; a change of casing alone updates
+        the same row, since new_name resolves back to it under NOCASE.
+        """
+        old_name = normalize_name(old_name)
+        new_name = normalize_name(new_name)
+        rows = self.db.query("SELECT id FROM singers WHERE name = ? COLLATE NOCASE", (old_name,))
+        if not rows:
+            return False
+        self.db.execute("UPDATE singers SET name = ? WHERE id = ?", (new_name, rows[0]["id"]))
+        return True
+
     def backfill(self) -> None:
         """Give every pre-singers play a singer_id; the one-time history upgrade.
 
