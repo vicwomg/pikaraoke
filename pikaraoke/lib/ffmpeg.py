@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import platform
 import subprocess
+import time
 from typing import TYPE_CHECKING, Any
 
 import ffmpeg
@@ -24,11 +25,14 @@ def get_media_duration(file_path: str) -> float | None:
     Returns:
         Duration in seconds, or None if unable to determine.
     """
+    start = time.monotonic()
     try:
-        duration = ffmpeg.probe(file_path)["format"]["duration"]
-        return float(duration)
-    except:
+        duration = float(ffmpeg.probe(file_path)["format"]["duration"])
+    except Exception:
+        logging.debug("Duration probe failed for %s", file_path)
         return None
+    logging.debug("Duration probe of %s took %.0f ms", file_path, (time.monotonic() - start) * 1000)
+    return duration
 
 
 def build_ffmpeg_cmd(

@@ -14,6 +14,7 @@ from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
 from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.duration_populator import DurationPopulator
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
     get_ffmpeg_version,
@@ -305,6 +306,16 @@ class Karaoke:
 
         # Play history recording and reporting (subscribes to song_ended itself)
         self.play_history = PlayHistoryManager(db=self.db, events=self.events)
+
+        # Fills songs.duration as songs are played and queued (subscribes itself).
+        self.duration_populator = DurationPopulator(
+            db=self.db,
+            events=self.events,
+            get_now_playing=lambda: (
+                self.playback_controller.now_playing_filename,
+                self.playback_controller.now_playing_duration,
+            ),
+        )
 
         # Initialize and start download manager
         self.download_manager = DownloadManager(

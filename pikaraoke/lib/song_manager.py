@@ -6,6 +6,7 @@ import os
 from collections.abc import Callable
 
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
 from pikaraoke.lib.metadata_parser import (
@@ -346,6 +347,13 @@ class SongManager:
         return new_path
 
     def register_download(self, song_path: str) -> None:
-        """Register a newly downloaded song in SongList and DB."""
+        """Register a newly downloaded song in SongList and DB.
+
+        The duration is filled as the row is born -- one probe of a file just
+        written and warm in cache -- so a downloaded song never needs the sweep.
+        """
         self.songs.add_if_valid(song_path)
         self._db.insert_songs([build_song_record(song_path)])
+        duration = get_media_duration(song_path)
+        if duration is not None:
+            self._db.set_duration(song_path, duration)
