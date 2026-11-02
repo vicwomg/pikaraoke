@@ -15,7 +15,7 @@
 <template id="alpha-bar-fresh">{% include 'partials/alpha_bar.html' %}</template>
 {% endif %}
 {{ pager.pager(page, per_page, total, page_href, size_options=per_page_options) }}
-<table class="table is-striped">
+<table class="table is-striped songs-table">
 	{% for song in songs %}
 	{% set display_name = filename_from_path(song) %}
 	{% set is_fav = song in favourite_paths() %}

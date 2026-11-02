@@ -658,7 +658,8 @@ td {
     --bulma-table-cell-padding: 0.5em 4px;
   }
   .history-table,
-  .rankings-table {
+  .rankings-table,
+  .songs-table {
     font-size: 0.9rem;
   }
   /* Headers set smaller than the rows under them. They are single words that
