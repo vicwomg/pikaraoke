@@ -17,6 +17,7 @@ ROUTE_PREFIX = "pikaraoke.routes.wifi_api"
 WIFI_API_LINKS = [
     ("/api/wifi/state", "wifi_api.wifi_state"),
     ("/api/wifi/networks", "wifi_api.wifi_networks"),
+    ("/api/wifi/saved", "wifi_api.wifi_saved"),
     ("/api/wifi/connect", "wifi_api.wifi_connect"),
     ("/api/wifi/password", "wifi_api.wifi_password"),
 ]
@@ -63,6 +64,10 @@ class TestWhenSupported:
         body = client.get("/api/wifi/networks").get_json()
         assert body == [{"name": "HomeNet", "signal": 70, "security": "WPA2"}]
 
+    def test_saved_returns_remembered_networks(self, client, karaoke):
+        karaoke.wifi_manager.saved_networks.return_value = ["HomeNet", "Office"]
+        assert client.get("/api/wifi/saved").get_json() == ["HomeNet", "Office"]
+
     def test_connect_answers_switching_and_schedules_the_attempt(self, client, karaoke):
         response = client.post("/api/wifi/connect", data={"name": "HomeNet", "password": "hunter2"})
         assert response.get_json() == {"status": "switching", "network": "HomeNet"}
@@ -91,6 +96,9 @@ class TestWhenNotSupported:
 
     def test_networks_is_absent(self, client, unsupported):
         assert client.get("/api/wifi/networks").status_code == 404
+
+    def test_saved_is_absent(self, client, unsupported):
+        assert client.get("/api/wifi/saved").status_code == 404
 
     def test_connect_is_absent(self, client, unsupported):
         response = client.post("/api/wifi/connect", data={"name": "HomeNet"})

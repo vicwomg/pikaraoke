@@ -55,6 +55,12 @@ def wifi_networks():
     return jsonify(_require_supported().networks())
 
 
+@wifi_api_bp.route("/api/wifi/saved")
+def wifi_saved():
+    """Remembered networks, which rejoin without a password."""
+    return jsonify(_require_supported().saved_networks())
+
+
 @wifi_api_bp.route("/api/wifi/connect", methods=["POST"])
 @wifi_api_bp.arguments(ConnectForm, location="form")
 def wifi_connect(form):

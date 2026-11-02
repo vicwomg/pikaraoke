@@ -48,6 +48,9 @@ class FakeWifiManager(WifiManager):
     def networks(self) -> list[dict]:
         return [dict(network) for network in self._FAKE_NETWORKS]
 
+    def saved_networks(self) -> list[str]:
+        return ["HomeNet", "Coffee Shop"]
+
     def start_hotspot(self) -> bool:
         self._kind = "hotspot"
         self._network = None

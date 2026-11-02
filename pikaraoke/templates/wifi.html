@@ -58,6 +58,15 @@
 		<div class="panel is-shadowless mb-0" id="wifi-networks"></div>
 	</div>
 
+	{# Remembered networks: tap one to rejoin with no password. Hidden when none. #}
+	<div id="wifi-saved-card" class="card mb-5 is-hidden">
+		<header class="card-header py-3 px-5">
+			{# MSG: Heading of the list of remembered networks that rejoin without a password. #}
+			<h3 class="m-0">{% trans %}Saved networks{% endtrans %}</h3>
+		</header>
+		<div class="panel is-shadowless mb-0" id="wifi-saved"></div>
+	</div>
+
 	{# Connect form. The name field doubles as manual entry for a hidden network
 	   or a phone's hotspot that is not switched on yet. #}
 	<div class="card">
@@ -107,16 +116,20 @@
 	const WIFI_API = {
 		state: "{{ url_for('wifi_api.wifi_state') }}",
 		networks: "{{ url_for('wifi_api.wifi_networks') }}",
+		saved: "{{ url_for('wifi_api.wifi_saved') }}",
 		connect: "{{ url_for('wifi_api.wifi_connect') }}",
 		password: "{{ url_for('wifi_api.wifi_password') }}",
 	};
 	const WIFI_MSG = {
 		connected: {{ _('Connected to') | tojson }},
+		wired: {{ _('Connected by Ethernet') | tojson }},
+		wiredAndWifi: {{ _('Connected by Ethernet, Wi-Fi also on:') | tojson }},
 		hotspot: {{ _('Broadcasting the hotspot') | tojson }},
 		notConnected: {{ _('Not connected to any network.') | tojson }},
 		scanning: {{ _('Scanning for networks…') | tojson }},
 		none: {{ _('No networks found. Try Rescan.') | tojson }},
 		secured: {{ _('Secured') | tojson }},
+		savedHint: {{ _('Saved - no password needed') | tojson }},
 		switching: {{ _('Switching network. Watch the TV to see what happens.') | tojson }},
 		needName: {{ _('Enter or choose a network name first.') | tojson }},
 		failed: {{ _('Could not reach PiKaraoke to switch networks.') | tojson }},
@@ -161,6 +174,12 @@
 				$("#wifi-hotspot-name").text(state.hotspot_name);
 				$("#wifi-hotspot-password").val(state.hotspot_password);
 				$hotspot.removeClass("is-hidden");
+			} else if (state.kind === "connected" && state.ethernet_count > 0) {
+				// Ethernet is the live route; name the Wi-Fi too if it is also up.
+				const text = state.network
+					? WIFI_MSG.wiredAndWifi + " " + state.network
+					: WIFI_MSG.wired;
+				setStatus("ph-network", text);
 			} else if (state.kind === "connected") {
 				setStatus("ph-wifi-high", WIFI_MSG.connected + " " + (state.network || ""));
 			} else {
@@ -200,6 +219,30 @@
 			});
 		}
 
+		function renderSaved(names) {
+			const $saved = $("#wifi-saved").empty();
+			if (!names.length) {
+				$("#wifi-saved-card").addClass("is-hidden");
+				return;
+			}
+			names.forEach(function (name) {
+				const $row = $('<a class="panel-block px-5 py-3 is-justify-content-space-between">');
+				$row.append($("<span>").text(name)).append(icon("ph-key", WIFI_MSG.savedHint));
+				$row.on("click", function () {
+					// Remembered: no password needed, so clear it and go to Connect.
+					$name.val(name);
+					$password.val("");
+					$("#wifi-connect").focus();
+				});
+				$saved.append($row);
+			});
+			$("#wifi-saved-card").removeClass("is-hidden");
+		}
+
+		function loadSaved() {
+			$.getJSON(WIFI_API.saved).done(renderSaved);
+		}
+
 		$("#wifi-refresh").on("click", loadNetworks);
 
 		$("#wifi-hotspot-password-save").on("click", function () {
@@ -233,6 +276,7 @@
 
 		loadState();
 		loadNetworks();
+		loadSaved();
 	});
 </script>
 {% endblock %}

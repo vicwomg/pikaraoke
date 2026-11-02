@@ -337,7 +337,7 @@ class WifiManager:
 
         if self._joined_device_count() > 0:
             return False
-        saved = set(self._saved_network_names())
+        saved = set(self.saved_networks())
         if not saved:
             return False
         in_range = [network["name"] for network in self.networks()]
@@ -368,7 +368,8 @@ class WifiManager:
         result = _run(["nmcli", "-t", "-f", "NAME", "connection", "show"])
         return name in result.stdout.splitlines()
 
-    def _saved_network_names(self) -> list[str]:
+    def saved_networks(self) -> list[str]:
+        """Remembered Wi-Fi profiles (so they rejoin without a password), hotspot aside."""
         result = _run(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"])
         if result.returncode != 0:
             return []

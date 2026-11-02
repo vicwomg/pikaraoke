@@ -455,46 +455,38 @@ class Karaoke:
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
 
-        On Raspberry Pi, retries getting the IP address for up to 30 seconds
-        in case the network is still initializing at startup.
+        On a Pi, waits up to 30 seconds for the network at startup, then picks the
+        address preferring ethernet over Wi-Fi when the box is dual-homed. --url
+        and --prefer-hostname describe the network the Pi normally lives on, so
+        they do not apply while it is on its own hotspot, where guests can only
+        reach the AP's own address.
 
         Returns:
             URL string in format http://ip:port
         """
         if self.is_raspberry_pi:
-            # retry in case pi is still starting up
-            # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
+            # Wait for an address at boot (e.g. when launched from rc.local).
             end_time = int(time.time()) + 30
             while int(time.time()) < end_time:
-                addresses_str = (
-                    subprocess.check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
-                )
-                addresses = addresses_str.split(" ")
-                self.ip = addresses[0]
-                if len(self.ip) < 7:
-                    logging.debug("Couldn't get IP, retrying....")
-                else:
+                if len(subprocess.check_output(["hostname", "-I"]).strip()) >= 7:
                     break
-        else:
-            self.ip = get_ip(self.platform)
+                logging.debug("Couldn't get IP, retrying....")
+        self.ip = get_ip(self.platform)
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
-        if self.url_override != None:
+        on_hotspot = self.network_info.get("hotspot", False)
+        if not on_hotspot and self.url_override is not None:
             logging.debug("Overriding URL with " + self.url_override)
-            url = self.url_override
+            split_url = urlsplit(self.url_override)
+            if split_url.path not in ("", "/"):
+                return self.url_override
+            return append_base_path_to_url(self.url_override, self.url_base_path)
+
+        if not on_hotspot and self.prefer_hostname:
+            url = f"http://{socket.getfqdn().lower()}:{self.port}"
         else:
-            if self.prefer_hostname:
-                url = f"http://{socket.getfqdn().lower()}:{self.port}"
-            else:
-                url = f"http://{self.ip}:{self.port}"
-
-        if self.url_override is None:
-            return append_base_path_to_url(url, self.url_base_path)
-
-        split_url = urlsplit(url)
-        if split_url.path not in ("", "/"):
-            return url
+            url = f"http://{self.ip}:{self.port}"
         return append_base_path_to_url(url, self.url_base_path)
 
     def log_settings_to_debug(self) -> None:
@@ -538,9 +530,9 @@ class Karaoke:
 
     def refresh_url(self) -> None:
         """Recompute the address and QR code after a network change and push them live."""
+        self._refresh_network_info()  # first, so get_url knows whether the hotspot is up
         self.url = self.get_url()
         self.generate_qr_code()
-        self._refresh_network_info()
         self.update_network_socket()
 
     def _refresh_network_info(self) -> None:
