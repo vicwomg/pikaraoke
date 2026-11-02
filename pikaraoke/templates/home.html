@@ -7,6 +7,10 @@
 	// Duration of the song the bar is tracking, held between position ticks; null
 	// when nothing is playing or the duration is unknown (the bar then hides).
 	var npDuration = null;
+	// Whether the focus song is actually playing. Position beacons only move the
+	// bar then; a cued song has a length to show but no position, and the splash
+	// beacons its idle background video's position while one waits.
+	var npPlaying = false;
 	// Last position the bar drew, to tell a one-second tick from a seek or a song
 	// change (which must snap, not slide across the gap).
 	var lastBarPosition = 0;
@@ -129,7 +133,9 @@
 		// the payload (snap, so it lands exact on a load or a song change); the live
 		// socket ticks it between seeds.
 		$("#np-progress").toggle(!idle);
-		npDuration = (playing || gap) ? np.now_playing_duration : null;
+		// A playing song's live probed length; a cued one's stored length, if any.
+		npPlaying = playing;
+		npDuration = playing ? np.now_playing_duration : (pending ? np.up_next_duration : null);
 		renderBar(np.now_playing_position || 0, npDuration, true);
 
 		// Up Next. While playing, the queue head is the next song; while a song
@@ -316,7 +322,7 @@
 		// The splash's video beacons its position to the room once a second; drive
 		// the bar from it between the coarser now_playing seeds.
 		window.onPageSocket("playback_position", function (position) {
-			if (npDuration) renderBar(position, npDuration, false);
+			if (npPlaying && npDuration) renderBar(position, npDuration, false);
 		});
 
 		document.addEventListener("visibilitychange", function () {

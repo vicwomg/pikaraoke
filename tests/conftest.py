@@ -10,6 +10,7 @@ from flask_babel import Babel
 
 from pikaraoke.lib.auth import document_auth, install_auth_gate, public
 from pikaraoke.lib.events import EventSystem
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
 from pikaraoke.lib.song_manager import SongManager
@@ -258,6 +259,7 @@ class MockKaraoke:
     def __init__(self, tmp_path):
         self.song_manager = MockSongManager()
         self.sound_manager = MockSoundManager()
+        self.db = KaraokeDatabase(str(tmp_path / "test.db"))
         self._keep_awake = MockKeepAwake()
         self._socketio = None
         self.events = EventSystem()

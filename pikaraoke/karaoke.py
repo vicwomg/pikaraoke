@@ -681,6 +681,9 @@ class Karaoke:
             "autoplay": self.preferences.get_or_default("autoplay"),
             "up_next_file": next_song["file"] if next_song else None,
             "up_next_transpose": next_song["semitones"] if next_song else 0,
+            # The cued song's length, so the focus bar reads before it starts;
+            # None until the row is filled, where the bar stays an empty track.
+            "up_next_duration": self.db.get_duration(next_song["file"]) if next_song else None,
             "next_after": following_song["title"] if following_song else None,
             "next_after_user": following_song["user"] if following_song else None,
             "volume": self.volume,
