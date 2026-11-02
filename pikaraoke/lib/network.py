@@ -4,8 +4,6 @@ import logging
 import socket
 import subprocess
 
-import requests
-
 # (url, expected status, body sentinel); independent operators so no single one
 # (or a national block of it) decides the answer. Plain HTTP so a captive portal
 # shows up as a readable redirect rather than a TLS failure.
@@ -208,6 +206,9 @@ def probe_internet() -> bool:
     An expected GET, not a bare connect: it exercises DNS and a portal fails the
     sentinel, where a socket to an IP would read "online" for both.
     """
+    # Lazy so importing this module never pulls requests in ahead of gevent's patching.
+    import requests
+
     for url, expected_status, sentinel in _PROBE_ENDPOINTS:
         try:
             response = requests.get(url, timeout=_PROBE_TIMEOUT_SECONDS)

@@ -357,7 +357,7 @@ class TestProbeInternet:
 
     def test_online_on_first_endpoint_stops_early(self):
         """The first endpoint's sentinel reply wins; the rest are never tried."""
-        with patch("pikaraoke.lib.network.requests.get", return_value=_response(204)) as mock_get:
+        with patch("requests.get", return_value=_response(204)) as mock_get:
             assert probe_internet() is True
             assert mock_get.call_count == 1
 
@@ -367,25 +367,23 @@ class TestProbeInternet:
             requests.ConnectionError("down"),
             _response(200, "<HTML>Success</HTML>"),
         ]
-        with patch("pikaraoke.lib.network.requests.get", side_effect=side_effects) as mock_get:
+        with patch("requests.get", side_effect=side_effects) as mock_get:
             assert probe_internet() is True
             assert mock_get.call_count == 2
 
     def test_offline_when_all_endpoints_time_out(self):
         """Every endpoint timing out reads offline, after trying each once."""
-        with patch(
-            "pikaraoke.lib.network.requests.get", side_effect=requests.Timeout("slow")
-        ) as mock_get:
+        with patch("requests.get", side_effect=requests.Timeout("slow")) as mock_get:
             assert probe_internet() is False
             assert mock_get.call_count == 3
 
     def test_captive_portal_200_without_sentinel_is_offline(self):
         """A 200 is not enough: a portal's login page lacks every endpoint's sentinel."""
         portal = _response(200, "<html>Please log in to continue</html>")
-        with patch("pikaraoke.lib.network.requests.get", return_value=portal):
+        with patch("requests.get", return_value=portal):
             assert probe_internet() is False
 
     def test_204_endpoint_answering_200_is_offline(self):
         """The generate_204 endpoint returning 200 (an interception) is not online."""
-        with patch("pikaraoke.lib.network.requests.get", return_value=_response(200, "")):
+        with patch("requests.get", return_value=_response(200, "")):
             assert probe_internet() is False
