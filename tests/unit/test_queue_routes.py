@@ -7,7 +7,7 @@ from flask_babel import Babel
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
-from pikaraoke.lib.queue_manager import QueueManager
+from pikaraoke.lib.queue_manager import SINGER_NAME_MAX_LENGTH, QueueManager
 from pikaraoke.routes.queue_api import queue_api_bp
 
 
@@ -108,6 +108,24 @@ class TestEnqueueRequiresName:
     @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
     def test_absent_name_refused(self, mock_get_instance, client):
         response = client.post("/api/enqueue", data={"song_to_add": "Song.mp4"})
+
+        assert response.status_code == 422
+        mock_get_instance.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            '<img src=x onerror="console.log(document.domain)">',
+            "Alice <script>",
+            "Bob > Carol",
+            "x" * (SINGER_NAME_MAX_LENGTH + 1),
+        ],
+    )
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_angle_brackets_or_overlong_name_refused(self, mock_get_instance, client, bad_name):
+        response = client.post(
+            "/api/enqueue", data={"song_to_add": "Song.mp4", "song_added_by": bad_name}
+        )
 
         assert response.status_code == 422
         mock_get_instance.assert_not_called()

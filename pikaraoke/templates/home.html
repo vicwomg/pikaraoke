@@ -28,8 +28,8 @@
 		var autoplayGap = !np.now_playing && !!np.up_next && np.autoplay;
 
 		if (np.now_playing) {
-			var nowPlayingHtml = `<p class="mb-1">${np.now_playing}</p>
-          <p class="has-text-text mb-1"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${np.now_playing_user}</p>`;
+			var nowPlayingHtml = `<p class="mb-1">${escapeHtml(np.now_playing)}</p>
+          <p class="has-text-text mb-1"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${escapeHtml(np.now_playing_user)}</p>`;
 
 			if (np.now_playing_transpose != 0) {
 				nowPlayingHtml +=
@@ -50,10 +50,10 @@
 		$(".playing_gif").toggle(!!np.now_playing);
 
 		if (np.up_next) {
-			$("#up-next").html(`<p class="mb-1">${np.up_next}</p>
+			$("#up-next").html(`<p class="mb-1">${escapeHtml(np.up_next)}</p>
           <p class="has-text-text">
             {# MSG: Title text for the icon marking the next person to sing. #}
-            <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${np.next_user}</p>`);
+            <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${escapeHtml(np.next_user)}</p>`);
 		} else {
 			// {# MSG: Alternative text for the "Up next" section if no more songs are queued up. #}
 			$("#up-next").html({{ _('No song is queued.') | tojson }});

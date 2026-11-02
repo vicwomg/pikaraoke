@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 from flask_babel import Babel
 
+from pikaraoke.lib.queue_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.youtube_dl import SearchResult
 from pikaraoke.routes.search import search_bp
 from pikaraoke.routes.search_api import search_api_bp
@@ -160,6 +161,26 @@ class TestDownloadRequiresName:
     @patch("pikaraoke.routes.search_api.get_karaoke_instance")
     def test_absent_name_refused(self, mock_get_instance, api_client):
         body = {"song_url": "https://youtu.be/dQw4w9WgXcQ", "song_title": "T"}
+
+        assert self._download(api_client, body).status_code == 422
+        mock_get_instance.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            '<img src=x onerror="console.log(document.domain)">',
+            "Alice <script>",
+            "Bob > Carol",
+            "x" * (SINGER_NAME_MAX_LENGTH + 1),
+        ],
+    )
+    @patch("pikaraoke.routes.search_api.get_karaoke_instance")
+    def test_angle_brackets_or_overlong_name_refused(self, mock_get_instance, api_client, bad_name):
+        body = {
+            "song_url": "https://youtu.be/dQw4w9WgXcQ",
+            "song_title": "T",
+            "song_added_by": bad_name,
+        }
 
         assert self._download(api_client, body).status_code == 422
         mock_get_instance.assert_not_called()

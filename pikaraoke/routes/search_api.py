@@ -3,10 +3,11 @@
 import flask_babel
 from flask import jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, ValidationError, fields, validates_schema
+from marshmallow import Schema, ValidationError, fields, validate, validates_schema
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.queue_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.youtube_dl import canonical_youtube_url, get_stream_url
 
 _ = flask_babel.gettext
@@ -33,7 +34,9 @@ class PreviewQuery(Schema):
 class DownloadBody(Schema):
     song_url = fields.String(required=True, metadata={"description": "YouTube URL to download"})
     song_added_by = fields.String(
-        required=True, metadata={"description": "Name of the user requesting the download"}
+        required=True,
+        validate=validate.Length(max=SINGER_NAME_MAX_LENGTH),
+        metadata={"description": "Name of the user requesting the download"},
     )
     song_title = fields.String(
         required=True, metadata={"description": "Display title for the song"}
@@ -44,10 +47,14 @@ class DownloadBody(Schema):
 
     @validates_schema
     def check_fields(self, data, **kwargs):
+        name = data["song_added_by"]
         # Whitespace-only is blank: it would be truthy everywhere the name is read.
-        if not data["song_added_by"].strip():
+        if not name.strip():
             # MSG: Error when a download is requested without a name
             raise ValidationError(_("A name is required"), "song_added_by")
+        if "<" in name or ">" in name:
+            # MSG: Error when a singer name contains disallowed HTML angle brackets
+            raise ValidationError(_("Invalid singer name"), "song_added_by")
         data["song_url"] = _validate_youtube_target(data["song_url"], "song_url")
 
 

@@ -19,6 +19,10 @@ from pikaraoke.lib.preference_manager import PreferenceManager
 # exempt from per-singer limits and hold no turn in the fair queue.
 _PLACEHOLDER_SINGERS = frozenset({"pikaraoke", "randomizer"})
 
+# Cap singer names submitted through public endpoints so they fit on screen and
+# in the queue.
+SINGER_NAME_MAX_LENGTH = 60
+
 
 class QueueManager:
     """Manages the song queue: enqueueing, editing, reordering, and fair queue logic."""
