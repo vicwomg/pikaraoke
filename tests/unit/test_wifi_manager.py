@@ -179,13 +179,15 @@ class TestNetworks:
 
 
 class TestConnect:
-    def test_success_makes_no_further_calls(self, manager):
+    def test_success_connects_and_brings_the_hotspot_down(self, manager):
         with patch(RUN, return_value=_done(returncode=0)) as run:
             result = manager.connect("HomeNet", "goodpassword")
         assert result == ConnectResult.CONNECTED
-        assert len(run.call_args_list) == 1
-        assert "device wifi connect HomeNet" in _commands(run)[0]
-        assert "password goodpassword" in _commands(run)[0]
+        commands = _commands(run)
+        assert "device wifi connect HomeNet" in commands[0]
+        assert "password goodpassword" in commands[0]
+        # The AP is brought down so the splash stops showing the hotspot.
+        assert any("connection down PiKaraoke-0000" in c for c in commands)
 
     def test_wrong_password_deletes_profile_and_restarts_hotspot(self, manager):
         def fake_run(cmd, **kwargs):
@@ -220,6 +222,21 @@ class TestConnect:
         commands = _commands(run)
         assert not any("connection delete" in c for c in commands)
         assert any("connection add" in c for c in commands)  # hotspot brought back
+
+    def test_failed_switch_while_on_wifi_does_not_raise_the_hotspot(self, manager):
+        def fake_run(cmd, **kwargs):
+            joined = " ".join(cmd)
+            if "device wifi connect" in joined:
+                return _done(returncode=1, stderr="Error: No network with SSID 'Other' found.")
+            if "device status" in joined:
+                return _done(stdout="wlan0:wifi:connected:HomeNet\n")  # still on Wi-Fi
+            return _done(returncode=0)
+
+        with patch(RUN, side_effect=fake_run) as run:
+            result = manager.connect("Other", "password")
+
+        assert result == ConnectResult.NOT_FOUND
+        assert not any("connection add" in c for c in _commands(run))  # hotspot not raised
 
 
 class TestPrivilegeLadder:

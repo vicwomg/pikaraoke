@@ -308,6 +308,10 @@ class WifiManager:
 
         result = self._run_privileged(args, timeout=_CONNECT_TIMEOUT_SECONDS)
         if result.returncode == 0:
+            # This chip can run AP and client at once, so connecting does not
+            # always tear the hotspot down - which would leave the splash still
+            # showing it. Bring the AP down explicitly; harmless if already down.
+            self._run_privileged(["connection", "down", self.hotspot_name])
             self._announce_change()
             return ConnectResult.CONNECTED
 
@@ -317,7 +321,10 @@ class WifiManager:
         else:
             outcome = ConnectResult.NOT_FOUND
 
-        self.start_hotspot()
+        # Fall back to the hotspot only if the attempt left the Pi with no
+        # network; a failed switch between two Wi-Fi networks must not raise it.
+        if self.state().kind == "none":
+            self.start_hotspot()
         return outcome
 
     def reconcile(self) -> bool:
