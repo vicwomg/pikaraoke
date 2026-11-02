@@ -260,15 +260,15 @@ class TestBuildYtdlDownloadCommand:
         assert cmd[sort_idx] == "vcodec:h264"
 
     @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
-    def test_url_is_last_argument(self, mock_js):
-        """Test that video URL is always the last argument."""
+    def test_url_is_last_argument_after_end_of_options(self, mock_js):
+        """Test that video URL is always the last argument preceded by --."""
         cmd = build_ytdl_download_command(
             video_url="https://www.youtube.com/watch?v=test123",
             download_path="/songs",
             youtubedl_proxy="http://proxy:8080",
             additional_args="--no-playlist",
         )
-        assert cmd[-1] == "https://www.youtube.com/watch?v=test123"
+        assert cmd[-2:] == ["--", "https://www.youtube.com/watch?v=test123"]
 
 
 class TestGetStreamUrl:
@@ -346,6 +346,30 @@ class TestGetStreamUrl:
         with self._run_with_output(url.encode() + b"\n"):
             with self._serving(*[False] * _PREVIEW_ATTEMPTS):
                 assert get_stream_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ") is None
+
+    @pytest.mark.parametrize(
+        "bad_input",
+        [
+            "--batch-file=/etc/hostname",
+            "-U",
+            "http://169.254.169.254/latest/meta-data/",
+            "https://evil.example.com/watch?v=dQw4w9WgXcQ",
+        ],
+    )
+    def test_refuses_non_youtube_urls_and_options_without_spawning_ytdlp(self, bad_input):
+        """Test that option strings and non-YouTube URLs never reach subprocess.run."""
+        with patch("subprocess.run") as mock_run:
+            assert get_stream_url(bad_input) is None
+            mock_run.assert_not_called()
+
+    @patch("pikaraoke.lib.youtube_dl.get_installed_js_runtime", return_value=None)
+    def test_rebuilds_canonical_url_behind_double_dash(self, mock_js):
+        """Test that a short URL or bare video ID is canonicalized and passed after --."""
+        url = "https://rr1.googlevideo.com/videoplayback?itag=18"
+        with self._run_with_output(url.encode() + b"\n") as mock_run, self._serving(True):
+            assert get_stream_url("https://youtu.be/dQw4w9WgXcQ?si=tracking") == url
+            cmd = mock_run.call_args[0][0]
+            assert cmd[-2:] == ["--", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
 
 
 class TestServesBytes:

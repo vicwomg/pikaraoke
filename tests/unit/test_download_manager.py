@@ -112,7 +112,7 @@ class TestDownloadManagerQueueDownload:
         download_events = []
         events.on("download_started", lambda: download_events.append("started"))
 
-        download_manager.queue_download("https://youtube.com/watch?v=test", user="TestUser")
+        download_manager.queue_download("https://youtube.com/watch?v=dQw4w9WgXcQ", user="TestUser")
 
         assert download_manager.download_queue.qsize() == 1
         assert len(notifications) == 1
@@ -127,7 +127,7 @@ class TestDownloadManagerQueueDownload:
 
         download_manager._is_downloading = True  # Simulate active download
 
-        download_manager.queue_download("https://youtube.com/watch?v=test", user="TestUser")
+        download_manager.queue_download("https://youtube.com/watch?v=dQw4w9WgXcQ", user="TestUser")
 
         assert len(notifications) == 1
         assert "Download queued" in notifications[0]
@@ -139,7 +139,7 @@ class TestDownloadManagerQueueDownload:
         events.on("notification", lambda msg, *args: notifications.append(msg))
 
         download_manager.queue_download(
-            "https://youtube.com/watch?v=test",
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
             title="My Custom Title",
             user="TestUser",
         )
@@ -151,14 +151,14 @@ class TestDownloadManagerQueueDownload:
     def test_queue_download_stores_request_data(self, mock_gettext, download_manager):
         """Test that queue stores all request data."""
         download_manager.queue_download(
-            "https://youtube.com/watch?v=test123",
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
             enqueue=True,
             user="TestUser",
             title="Test Song",
         )
 
         item = download_manager.download_queue.get_nowait()
-        assert item["video_url"] == "https://youtube.com/watch?v=test123"
+        assert item["video_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         assert item["enqueue"] is True
         assert item["user"] == "TestUser"
         assert item["title"] == "Test Song"
@@ -167,12 +167,21 @@ class TestDownloadManagerQueueDownload:
     def test_queue_download_strips_playlist_param(self, mock_gettext, download_manager):
         """Test that playlist parameter is stripped from URL."""
         download_manager.queue_download(
-            "https://youtube.com/watch?v=test123&list=PLxxx",
+            "https://youtube.com/watch?v=dQw4w9WgXcQ&list=PLxxx",
             user="TestUser",
         )
 
         item = download_manager.download_queue.get_nowait()
-        assert item["video_url"] == "https://youtube.com/watch?v=test123"
+        assert item["video_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    def test_queue_download_refuses_invalid_url(self, mock_gettext, download_manager):
+        """Test that non-YouTube URLs or yt-dlp options are rejected."""
+        download_manager.queue_download("--batch-file=/etc/hostname", user="TestUser")
+        download_manager.queue_download("http://example.com/video.mp4", user="TestUser")
+
+        assert download_manager.download_queue.empty()
+        assert download_manager.pending_downloads == []
 
 
 class TestDownloadManagerExecuteDownload:
@@ -502,7 +511,7 @@ class TestDownloadManagerRetry:
         assert download_manager.download_errors == []
 
         request = download_manager.download_queue.get_nowait()
-        assert request["video_url"] == "https://youtube.com/watch?v=dQw4w9WgXcQ"
+        assert request["video_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         assert request["enqueue"] is True
         assert request["user"] == "TestUser"
         assert request["attempts"] == 0
@@ -758,8 +767,8 @@ class TestDownloadManagerStatus:
 
     def test_get_downloads_status_pending(self, download_manager):
         """Test status with pending downloads."""
-        download_manager.queue_download("http://example.com/1", title="Song 1")
-        download_manager.queue_download("http://example.com/2", title="Song 2")
+        download_manager.queue_download("https://youtu.be/aaaaaaaaaaa", title="Song 1")
+        download_manager.queue_download("https://youtu.be/bbbbbbbbbbb", title="Song 2")
 
         status = download_manager.get_downloads_status()
 

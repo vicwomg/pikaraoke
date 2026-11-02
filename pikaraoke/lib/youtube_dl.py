@@ -57,7 +57,8 @@ def get_youtubedl_version() -> str:
 def get_youtube_id_from_url(url: str) -> str | None:
     """Extract the YouTube video ID from a URL.
 
-    Supports youtube.com/watch?v=, m.youtube.com/?v=, and youtu.be/ formats.
+    Supports youtube.com/watch?v=, m.youtube.com/?v=, youtube.com/v/,
+    youtube.com/shorts/, and youtu.be/ formats.
 
     The ID is validated against the canonical 11-character shape so tracking
     params (&pp=, &t=, &si=) can never leak into the ID and silently break
@@ -70,15 +71,38 @@ def get_youtube_id_from_url(url: str) -> str | None:
         The video ID string, or None if parsing failed.
     """
     parsed = urlparse(url)
-    if parsed.hostname and parsed.hostname.endswith("youtu.be"):
+    host = (parsed.hostname or "").lower()
+    video_id = ""
+    if host == "youtu.be" or host.endswith(".youtu.be"):
         video_id = parsed.path.lstrip("/").split("/")[0]
-    else:
+    elif host in ("youtube.com", "youtube-nocookie.com") or host.endswith(
+        (".youtube.com", ".youtube-nocookie.com")
+    ):
         video_id = parse_qs(parsed.query).get("v", [""])[0]
+        if not video_id:
+            parts = [p for p in parsed.path.split("/") if p]
+            if len(parts) >= 2 and parts[0] in ("v", "shorts", "embed", "live"):
+                video_id = parts[1]
 
     if not YOUTUBE_ID_PATTERN.fullmatch(video_id):
         logging.error(f"Error parsing youtube id from url: {url}")
         return None
     return video_id
+
+
+def canonical_youtube_url(url_or_id: str) -> str | None:
+    """Validate a YouTube URL or 11-char video ID and return the canonical watch URL.
+
+    Returns:
+        Canonical 'https://www.youtube.com/watch?v=<id>' URL, or None if invalid.
+    """
+    if YOUTUBE_ID_PATTERN.fullmatch(url_or_id):
+        video_id = url_or_id
+    else:
+        video_id = get_youtube_id_from_url(url_or_id)
+    if video_id is None:
+        return None
+    return f"https://www.youtube.com/watch?v={video_id}"
 
 
 def upgrade_youtubedl() -> str:
@@ -237,7 +261,7 @@ def build_ytdl_download_command(
         cmd += ["--proxy", youtubedl_proxy]
     if additional_args:
         cmd += shlex.split(additional_args)
-    cmd += [video_url]
+    cmd += ["--", video_url]
     return cmd
 
 
@@ -303,7 +327,7 @@ def _resolve_stream_url(video_url: str) -> str | None:
         "youtube:player_client=android",
     ]
     cmd += _js_runtime_args()
-    cmd += [video_url]
+    cmd += ["--", video_url]
     logging.debug(f"yt-dlp get stream URL command: {' '.join(cmd)}")
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=15)
@@ -353,19 +377,22 @@ def get_stream_url(video_url: str) -> str | None:
     """Get a browser-playable stream URL for a YouTube video, without downloading it.
 
     Args:
-        video_url: YouTube video URL.
+        video_url: YouTube video URL or 11-character video ID.
 
     Returns:
-        A stream URL confirmed to serve bytes, or None if every attempt was refused.
+        A stream URL confirmed to serve bytes, or None if invalid or every attempt was refused.
     """
+    canonical_url = canonical_youtube_url(video_url)
+    if canonical_url is None:
+        return None
     for attempt in range(_PREVIEW_ATTEMPTS):
-        stream_url = _resolve_stream_url(video_url)
+        stream_url = _resolve_stream_url(canonical_url)
         if stream_url is None:
             return None
         if _serves_bytes(stream_url):
             return stream_url
         logging.info(
-            f"Preview stream refused for {video_url}, re-resolving "
+            f"Preview stream refused for {canonical_url}, re-resolving "
             f"(attempt {attempt + 1}/{_PREVIEW_ATTEMPTS})"
         )
     return None
