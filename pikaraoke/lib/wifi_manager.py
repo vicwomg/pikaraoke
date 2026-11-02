@@ -150,36 +150,42 @@ class WifiManager:
                 )
         return (True, "Hotspot password saved.")
 
-    def state(self) -> NetworkState:
-        """What the Pi is attached to: a network, its own hotspot, or nothing."""
+    def _read_device_status(self) -> tuple[bool, str | None, int]:
+        """(hotspot up on wlan0, connected non-hotspot wifi network, ethernet count)."""
         result = _run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"])
-        if result.returncode != 0:
-            return NetworkState(kind="none")
-
+        hotspot_up = False
         wifi_network: str | None = None
         ethernet_count = 0
-        hotspot_up = False
-        for line in result.stdout.splitlines():
-            fields = _split_terse(line)
-            if len(fields) < 4:
-                continue
-            _device, dev_type, dev_state, connection = fields[0], fields[1], fields[2], fields[3]
-            if dev_state != "connected":
-                continue
-            if dev_type == "wifi":
-                if connection == self.hotspot_name:
-                    hotspot_up = True
-                else:
-                    wifi_network = connection
-            elif dev_type == "ethernet":
-                ethernet_count += 1
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                fields = _split_terse(line)
+                if len(fields) < 4:
+                    continue
+                dev_type, dev_state, connection = fields[1], fields[2], fields[3]
+                if dev_state != "connected":
+                    continue
+                if dev_type == "wifi":
+                    if connection == self.hotspot_name:
+                        hotspot_up = True
+                    else:
+                        wifi_network = connection
+                elif dev_type == "ethernet":
+                    ethernet_count += 1
+        return hotspot_up, wifi_network, ethernet_count
 
-        if hotspot_up:
-            return NetworkState(kind="hotspot", network=self.hotspot_name)
+    def state(self) -> NetworkState:
+        """What the Pi is attached to: a network, its own hotspot, or nothing.
+
+        A real connection outranks the hotspot, so an ethernet cable plugged in
+        while the AP is still up reads as "connected", which the reconcile acts on.
+        """
+        hotspot_up, wifi_network, ethernet_count = self._read_device_status()
         if wifi_network or ethernet_count:
             return NetworkState(
                 kind="connected", network=wifi_network, ethernet_count=ethernet_count
             )
+        if hotspot_up:
+            return NetworkState(kind="hotspot", network=self.hotspot_name)
         return NetworkState(kind="none")
 
     def networks(self) -> list[dict]:
@@ -298,13 +304,23 @@ class WifiManager:
         self.start_hotspot()
         return outcome
 
-    def retry_saved_networks(self) -> bool:
-        """Join a saved network in range, only with nobody on the hotspot to drop."""
-        if self.state().kind != "hotspot":
+    def reconcile(self) -> bool:
+        """Keep the hotspot only while there is no real connection, else move off it.
+
+        A real connection appearing alongside the AP (an ethernet cable, or a
+        Wi-Fi that autoconnected) drops the hotspot at once, even with guests
+        joined - a plugged cable means the admin wants the box on that network.
+        With the hotspot alone, a saved network in range is joined instead, but
+        only with nobody joined so a guest or an admin mid-setup is never dropped.
+        """
+        hotspot_up, wifi_network, ethernet_count = self._read_device_status()
+        if not hotspot_up:
             return False
+        if wifi_network or ethernet_count:
+            return self.stop_hotspot()
+
         if self._joined_device_count() > 0:
             return False
-
         saved = set(self._saved_network_names())
         if not saved:
             return False
@@ -312,7 +328,6 @@ class WifiManager:
         candidate = next((name for name in in_range if name in saved), None)
         if candidate is None:
             return False
-
         return self.connect(candidate) == ConnectResult.CONNECTED
 
     def _detect_supported(self) -> bool:

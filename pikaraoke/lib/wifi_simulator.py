@@ -75,7 +75,9 @@ class FakeWifiManager(WifiManager):
         self._announce_change()
         return ConnectResult.CONNECTED
 
-    def retry_saved_networks(self) -> bool:
+    def reconcile(self) -> bool:
+        if self._kind != "hotspot":
+            return False
         known = {network["name"] for network in self._FAKE_NETWORKS}
         candidate = next((name for name in self._saved if name in known), None)
         if candidate is None:

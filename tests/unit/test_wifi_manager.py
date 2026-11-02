@@ -123,6 +123,13 @@ class TestState:
         assert state.kind == "hotspot"
         assert state.network == "PiKaraoke-0000"
 
+    def test_ethernet_outranks_a_running_hotspot(self, manager):
+        output = "wlan0:wifi:connected:PiKaraoke-0000\neth0:ethernet:connected:Wired connection 1\n"
+        with patch(RUN, return_value=_done(stdout=output)):
+            state = manager.state()
+        assert state.kind == "connected"
+        assert state.ethernet_count == 1
+
     def test_nothing_connected(self, manager):
         output = "wlan0:wifi:disconnected:\neth0:ethernet:unavailable:\n"
         with patch(RUN, return_value=_done(stdout=output)):
@@ -260,7 +267,7 @@ class TestStartStopHotspot:
         assert "connection down PiKaraoke-0000" in _commands(run)[0]
 
 
-class TestRetrySavedNetworks:
+class TestReconcile:
     def _router(self, *, joined: str, saved: str, scan: str, connect_rc: int = 0):
         """A subprocess.run side_effect posing as a hotspot-up Pi."""
 
@@ -287,7 +294,7 @@ class TestRetrySavedNetworks:
             scan="HomeNet:70:WPA2\n",
         )
         with patch(RUN, side_effect=router) as run:
-            assert manager.retry_saved_networks() is True
+            assert manager.reconcile() is True
         assert any("device wifi connect HomeNet" in c for c in _commands(run))
 
     def test_does_nothing_while_a_device_is_joined(self, manager):
@@ -297,7 +304,7 @@ class TestRetrySavedNetworks:
             scan="HomeNet:70:WPA2\n",
         )
         with patch(RUN, side_effect=router) as run:
-            assert manager.retry_saved_networks() is False
+            assert manager.reconcile() is False
         assert not any("device wifi connect" in c for c in _commands(run))
 
     def test_does_nothing_when_no_saved_network_is_in_range(self, manager):
@@ -307,7 +314,7 @@ class TestRetrySavedNetworks:
             scan="SomeoneElse:70:WPA2\n",  # HomeNet not in range
         )
         with patch(RUN, side_effect=router) as run:
-            assert manager.retry_saved_networks() is False
+            assert manager.reconcile() is False
         assert not any("device wifi connect" in c for c in _commands(run))
 
     def test_does_nothing_when_not_on_the_hotspot(self, manager):
@@ -317,8 +324,24 @@ class TestRetrySavedNetworks:
             return _done(returncode=0)
 
         with patch(RUN, side_effect=fake_run) as run:
-            assert manager.retry_saved_networks() is False
+            assert manager.reconcile() is False
         assert not any("device wifi connect" in c for c in _commands(run))
+
+    def test_drops_the_hotspot_when_ethernet_appears(self, manager):
+        def fake_run(cmd, **kwargs):
+            joined = " ".join(cmd)
+            if "device status" in joined:
+                # Hotspot still broadcasting, but an ethernet cable is now up.
+                return _done(
+                    stdout="wlan0:wifi:connected:PiKaraoke-0000\neth0:ethernet:connected:Wired\n"
+                )
+            return _done(returncode=0)
+
+        with patch(RUN, side_effect=fake_run) as run:
+            assert manager.reconcile() is True
+        commands = _commands(run)
+        assert any("connection down PiKaraoke-0000" in c for c in commands)
+        assert not any("device wifi connect" in c for c in commands)  # never a saved-net join
 
 
 class TestNetworkChangeEvents:

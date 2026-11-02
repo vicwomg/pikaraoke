@@ -43,6 +43,9 @@ from pikaraoke.lib.wifi_manager import WifiManager
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 from pikaraoke.version import __version__ as VERSION
 
+# How often the background sweep moves the Pi off its hotspot onto a real network.
+_RECONCILE_INTERVAL_SECONDS = 120
+
 
 class SongInUseError(Exception):
     """Raised when a rename targets the file playback has claimed."""
@@ -368,6 +371,11 @@ class Karaoke:
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
 
+        # Bring up the hotspot if there is no network, then keep sweeping to leave
+        # it when a real one appears.
+        self._auto_start_hotspot()
+        self._start_network_watch()
+
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
         if result.added or result.moved or result.deleted:
@@ -549,6 +557,67 @@ class Karaoke:
         if not self.socketio:
             return
         self.socketio.emit("network_update", {"url": self.url, **self.network_info}, namespace="/")
+
+    def _auto_start_hotspot(self) -> None:
+        """On a supported Pi with no network, raise the hotspot so the box stays reachable."""
+        if self.wifi_manager.supported and self.wifi_manager.state().kind == "none":
+            logging.info("No network found at startup; starting the PiKaraoke hotspot.")
+            self.wifi_manager.start_hotspot()
+
+    def _start_network_watch(self) -> None:
+        """React within seconds to a cable or auto-join, and sweep periodically.
+
+        `nmcli monitor` reports a change at once (the cable case), while the sweep
+        covers a saved network coming into range, which only an active scan finds
+        because the hotspot holds wlan0 and NetworkManager will not switch it.
+        """
+        if not (self.wifi_manager.supported and self.socketio):
+            return
+        self._last_network_event = 0.0
+        self.socketio.start_background_task(self._nmcli_monitor)
+        self.socketio.start_background_task(self._network_loop)
+
+    def _nmcli_monitor(self) -> None:
+        """Stamp the time of each NetworkManager change for the loop to act on."""
+        # stdbuf forces line buffering so events are not held back in a pipe buffer;
+        # plain nmcli is the fallback where stdbuf is absent.
+        for command in (["stdbuf", "-oL", "nmcli", "monitor"], ["nmcli", "monitor"]):
+            try:
+                proc = subprocess.Popen(command, stdout=subprocess.PIPE, text=True)
+            except OSError:
+                continue
+            if proc.stdout is None:
+                continue
+            for _line in proc.stdout:  # one or more lines per change
+                self._last_network_event = time.monotonic()
+            return
+        logging.info("Could not start nmcli monitor; relying on the periodic sweep.")
+
+    def _network_loop(self) -> None:
+        assert self.socketio is not None  # only started when socketio is present
+        last_sweep = time.monotonic()
+        while True:
+            self.socketio.sleep(2)
+            now = time.monotonic()
+            event = self._last_network_event
+            if event and now - event >= 1.5:
+                # A change has settled (trailing debounce): act on it and push the
+                # new address live, since a cable or lease we did not initiate still
+                # moves the address.
+                self._last_network_event = 0.0
+                last_sweep = now
+                self._reconcile(refresh=True)
+            elif now - last_sweep >= _RECONCILE_INTERVAL_SECONDS:
+                last_sweep = now
+                self._reconcile(refresh=False)
+
+    def _reconcile(self, refresh: bool) -> None:
+        try:
+            self.wifi_manager.reconcile()
+            if refresh:
+                self.refresh_url()
+        except Exception as e:  # a background sweep must never take the app down
+            logging.warning("Wi-Fi reconcile failed: %s", e)
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.

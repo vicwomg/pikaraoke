@@ -6,8 +6,11 @@
 	{# Where the Pi is now. Filled from /api/wifi/state. #}
 	<div class="card mb-5">
 		<header class="card-header py-3 px-5">
-			{# MSG: Heading of the panel showing which network the box is on now. #}
-			<h3 class="m-0">{% trans %}Current network{% endtrans %}</h3>
+			<h3 class="m-0 is-flex is-align-items-center is-gap-2">
+				<span class="icon"><i class="ph ph-wifi-high"></i></span>
+				{# MSG: Heading of the panel showing which network the box is on now. #}
+				<span>{% trans %}Current network{% endtrans %}</span>
+			</h3>
 		</header>
 		<div class="card-content px-5 py-4">
 			<div id="wifi-status">
