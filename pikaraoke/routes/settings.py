@@ -34,7 +34,6 @@ def settings():
         admin=is_admin(),
         admin_password_set=get_admin_auth().is_password_set(),
         is_pi=k.is_raspberry_pi,
-        wifi_supported=k.wifi_manager.supported,
         is_linux=is_linux(),
         is_container=is_running_in_docker(),
         youtubedl_version=k.youtubedl_version,

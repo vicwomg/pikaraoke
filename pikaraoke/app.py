@@ -92,6 +92,7 @@ app.jinja_env.globals.update(
     # of rows costs one query. Empty for an unnamed device, so every star draws
     # unfilled until a name is set.
     favourite_paths=favourite_paths,
+    wifi_supported=lambda: get_karaoke_instance().wifi_manager.supported,
 )
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).

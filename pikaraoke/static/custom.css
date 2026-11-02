@@ -885,3 +885,14 @@ td {
   font-variant-numeric: tabular-nums;
   gap: 12px;
 }
+
+/* A clickable reveal icon inside an input. Bulma dims .icon.is-right and shifts
+   its colour on hover/focus; force one dark colour in every state (important, or
+   those state rules win) so it reads on the light input and never fades. Uses
+   --bulma-dark, a global token: the input's own --bulma-input-color is defined
+   only on the input element, so it does not resolve on this sibling icon. */
+.control.has-icons-right .input-reveal {
+  pointer-events: auto;
+  cursor: pointer;
+  color: var(--bulma-dark) !important;
+}

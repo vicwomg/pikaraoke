@@ -7,10 +7,18 @@ from flask import Flask
 
 from pikaraoke.lib.auth import install_auth_gate
 from pikaraoke.lib.wifi_manager import NetworkState
+from pikaraoke.routes.wifi import wifi_bp
 from pikaraoke.routes.wifi_api import wifi_api_bp
-from tests.conftest import StubAdminAuth
+from tests.conftest import StubAdminAuth, make_route_app
 
 ROUTE_PREFIX = "pikaraoke.routes.wifi_api"
+
+# The page url_for()s the API endpoints, which its own blueprint does not define.
+WIFI_API_LINKS = [
+    ("/api/wifi/state", "wifi_api.wifi_state"),
+    ("/api/wifi/networks", "wifi_api.wifi_networks"),
+    ("/api/wifi/connect", "wifi_api.wifi_connect"),
+]
 
 
 def _app(admin: bool = True):
@@ -89,3 +97,30 @@ class TestAdminOnly:
         assert client.get("/api/wifi/state").status_code == 403
         assert client.get("/api/wifi/networks").status_code == 403
         assert client.post("/api/wifi/connect", data={"name": "X"}).status_code == 403
+
+
+class TestWifiPage:
+    def test_renders_when_supported(self):
+        app = make_route_app(wifi_bp, WIFI_API_LINKS, admin=True)
+        k = MagicMock()
+        k.wifi_manager.supported = True
+        with (
+            patch("pikaraoke.routes.wifi.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.wifi.get_site_name", return_value="PiKaraoke"),
+        ):
+            response = app.test_client().get("/wifi")
+        assert response.status_code == 200
+        assert "wifi-page" in response.get_data(as_text=True)
+
+    def test_is_absent_when_not_supported(self):
+        app = make_route_app(wifi_bp, WIFI_API_LINKS, admin=True)
+        k = MagicMock()
+        k.wifi_manager.supported = False
+        with patch("pikaraoke.routes.wifi.get_karaoke_instance", return_value=k):
+            response = app.test_client().get("/wifi")
+        assert response.status_code == 404
+
+    def test_redirects_a_non_admin(self):
+        app = make_route_app(wifi_bp, WIFI_API_LINKS, admin=False)
+        response = app.test_client().get("/wifi")
+        assert response.status_code == 302
