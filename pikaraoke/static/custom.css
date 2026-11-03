@@ -160,6 +160,26 @@
   --bulma-table-striped-row-even-hover-background-color: var(--bulma-table-row-hover-background-color);
 }
 
+/* A clickable sort header, keyed on .sortable not the table's class so it is
+   not tied to one table's name. */
+th.sortable {
+  cursor: pointer;
+  white-space: nowrap;
+}
+th.sortable:hover {
+  color: var(--bulma-text-strong);
+}
+/* A bare Phosphor glyph, not a Bulma .icon whose 1.5rem box would float it off
+   the baseline. */
+.sort-arrow {
+  font-size: 0.8em;
+}
+/* width:auto drops the centred .ph box so margin-left alone sets the gap. */
+.sort-arrow i:before {
+  width: auto;
+  margin-left: 0.35em;
+}
+
 /* Bulma sets a modal's header apart from its body only by the shadow turned off
    above; the page colour does it by fill, as the wells do. */
 .modal {

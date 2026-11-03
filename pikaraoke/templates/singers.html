@@ -18,6 +18,10 @@
 	// Off by default, like Hide skipped on the play log: tombstones show, muted,
 	// until the operator hides them.
 	var hideMerged = false;
+	// Client-side sort over the whole roster, which is loaded in one go. Name
+	// A-Z to start, the order the roster reads in without being asked.
+	var singerSort = "name";
+	var singerDirection = "asc";
 
 	// Gettext output is Markup, so |tojson emits a literal an apostrophe cannot
 	// break out of. See tests/unit/test_template_i18n.py.
@@ -74,11 +78,53 @@
 		});
 	}
 
+	// System singers have no Added date, so they sink to the bottom of that
+	// sort either way; ties break by name A-Z, never flipped.
+	function compareSingers(a, b) {
+		var dir = singerDirection === "asc" ? 1 : -1;
+		var cmp = 0;
+		if (singerSort === "plays") {
+			cmp = a.play_count - b.play_count;
+		} else if (singerSort === "added") {
+			var av = a.added || "", bv = b.added || "";
+			if (av && bv) { cmp = av < bv ? -1 : av > bv ? 1 : 0; }
+			else if (av) { return -1; }
+			else if (bv) { return 1; }
+		} else {
+			cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+		}
+		if (cmp !== 0) { return cmp * dir; }
+		return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+	}
+
+	// Mark the sorted column with a direction arrow.
+	function renderSortArrows() {
+		var arrow = singerDirection === "asc" ? "ph-sort-ascending" : "ph-sort-descending";
+		$("#singer-list th.sortable").each(function () {
+			var $th = $(this);
+			var active = $th.data("sort") === singerSort;
+			$th.find(".sort-arrow").html(active ? '<i class="ph ' + arrow + '"></i>' : "");
+		});
+	}
+
+	// Re-click flips direction; a new column starts on its natural default
+	// (name A-Z, counts and dates highest first).
+	function applySort(sort) {
+		if (singerSort === sort) {
+			singerDirection = singerDirection === "asc" ? "desc" : "asc";
+		} else {
+			singerSort = sort;
+			singerDirection = sort === "name" ? "asc" : "desc";
+		}
+		render();
+	}
+
 	function render() {
 		var shown = hideMerged
 			? lastRoster.filter(function (s) { return s.merged_into === null; })
 			: lastRoster;
-		renderRoster(shown);
+		renderRoster(shown.slice().sort(compareSingers));
+		renderSortArrows();
 	}
 
 	function renderRoster(singers) {
@@ -263,6 +309,10 @@
 			updateActionBar();
 		});
 
+		$("#singer-list").on("click", "th.sortable", function () {
+			applySort($(this).data("sort"));
+		});
+
 		$("#merge-btn").on("click", openMergeChooser);
 		$("#delete-btn").on("click", confirmDelete);
 		$("#merge-choices").on("change", "input", updateMergeSummary);
@@ -285,19 +335,28 @@
 		margin-bottom: 16px;
 		border-bottom: 1px solid var(--bulma-border);
 	}
+	/* Checkbox and avatar read as one unit: pull the side padding in between them. */
 	#singer-list .col-select {
-		width: 2.5em;
+		width: 2.25em;
+		padding-right: 0.25em;
 	}
 	/* The four fixed columns stay as snug as their content allows; name takes the
 	   rest, since it is the one that has to expand. */
 	#singer-list .col-avatar {
 		width: 2.5em;
+		padding-left: 0.25em;
 	}
 	#singer-list .col-plays {
 		width: 3.5em;
 	}
 	#singer-list .col-when {
-		width: 5.5em;
+		width: 4em;
+	}
+	/* Added hugs the right, like Plays, so a short date sits against the column
+	   edge rather than adrift in it. */
+	#singer-list th.col-when,
+	#singer-list td.when {
+		text-align: right;
 	}
 	/* The roster's avatar is larger than the navbar's; the shared .singer-avatar
 	   does the rest. */
@@ -396,11 +455,11 @@
 			</th>
 			<th class="col-avatar"></th>
 			{# MSG: Singer list column header for the singer's name. #}
-			<th>{% trans %}Name{% endtrans %}</th>
+			<th class="sortable" data-sort="name">{% trans %}Name{% endtrans %}<span class="sort-arrow"></span></th>
 			{# MSG: Singer list column header for how many songs the singer has sung. #}
-			<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+			<th class="sortable has-text-right" data-sort="plays">{% trans %}Plays{% endtrans %}<span class="sort-arrow"></span></th>
 			{# MSG: Singer list column header for the date the singer first sang. #}
-			<th class="col-when">{% trans %}Added{% endtrans %}</th>
+			<th class="sortable col-when" data-sort="added">{% trans %}Added{% endtrans %}<span class="sort-arrow"></span></th>
 		</tr>
 	</thead>
 	<tbody id="singers-body"></tbody>
