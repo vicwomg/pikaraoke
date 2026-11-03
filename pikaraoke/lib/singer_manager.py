@@ -248,7 +248,7 @@ class SingerManager:
     # ------------------------------------------------------------------
 
     def get_roster(self) -> list[dict]:
-        """Every singer with play count, first play and merge status, for the admin page.
+        """Every singer with play count, added date and merge status, for the admin page.
 
         Named columns, never SELECT *, so secret_hash never leaves the database.
         A tombstone carries the surviving name to show "merged into Dave".
@@ -259,9 +259,8 @@ class SingerManager:
                    s.merged_into,
                    surv.name AS merged_into_name,
                    COUNT(p.id) AS play_count,
-                   -- Stored UTC so ordering survives a daylight-saving rollback;
-                   -- the host only ever wants wall-clock, converted here in SQL.
-                   datetime(MIN(p.played_at), 'localtime') AS first_sung
+                   -- Stored UTC, shown wall-clock, converted here in SQL.
+                   datetime(s.created_at, 'localtime') AS added
             FROM singers s
             LEFT JOIN plays p ON p.singer_id = s.id
             LEFT JOIN singers surv ON surv.id = s.merged_into

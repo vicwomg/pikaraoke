@@ -24,20 +24,20 @@
 	var singerText = {
 		// {# MSG: Shown on the Singers page before anyone has sung or starred a song. #}
 		empty: {{ _('No singers yet.') | tojson }},
-		// {# MSG: Hint shown on the Singers page when no singer is ticked for an action. #}
-		selectHint: {{ _('Select singers to merge or delete') | tojson }},
 		// {# MSG: Count of singers ticked for a bulk action. {count} is replaced with a number. #}
 		selectedCount: {{ _('{count} selected') | tojson }},
 		// {# MSG: Tag shown against a singer merged into another. {name} is the surviving name. #}
 		mergedInto: {{ _('merged into {name}') | tojson }},
-		// {# MSG: Shown against a singer with no plays in place of a first-sung date. #}
-		neverSung: {{ _('never sung') | tojson }},
 		// {# MSG: A singer's play total in the merge dialog, singular. {count} is 1. #}
 		playsMetaOne: {{ _('{count} play') | tojson }},
 		// {# MSG: A singer's play total in the merge dialog, plural. {count} is replaced with a number. #}
 		playsMeta: {{ _('{count} plays') | tojson }},
+		// {# MSG: Title of the dialog confirming a delete of singers. #}
+		deleteTitle: {{ _('Delete singers') | tojson }},
 		// {# MSG: Confirmation before deleting singers. {count} is replaced with a number. #}
 		confirmDelete: {{ _('Delete {count} singer(s)? This cannot be undone.') | tojson }},
+		// {# MSG: Button confirming the delete in the delete dialog. #}
+		deleteAction: {{ _('Delete') | tojson }},
 		// {# MSG: Shown after a delete when none could be removed because they still have plays. #}
 		deleteNone: {{ _('Nothing deleted: those singers still have plays. Clear their history first.') | tojson }},
 		// {# MSG: Shown after a delete that removed some but kept others with plays. {deleted} and {requested} are numbers. #}
@@ -92,14 +92,11 @@
 			var isTomb = s.merged_into !== null;
 			var ticked = !!selected[s.name];
 			var mergedLabel = isTomb ? singerText.mergedInto.replace("{name}", s.merged_into_name) : "";
-			// The avatar slot PR 4's photo will fill: a lettered circle for a live
-			// singer, the knocked-out face for a retired one -- status at a glance,
-			// as the skip glyph marks a skipped song on the play log. Array.from
-			// takes the first whole character, so a surrogate-pair name is not halved.
 			var badge = isTomb
-				? '<span class="singer-badge is-retired" title="' + escapeHtml(mergedLabel) + '">' +
-						'<i class="ph ph-smiley-x-eyes"></i></span>'
-				: '<span class="singer-badge">' + escapeHtml(Array.from(s.name)[0] || "?") + "</span>";
+				? window.renderSingerAvatar({ retired: true, title: mergedLabel })
+				: s.is_system
+					? window.renderSingerAvatar({ system: true, title: s.name })
+					: window.renderSingerAvatar({ name: s.name });
 			// Who the retired name folded into, muted beside the name.
 			var mergedNote = isTomb
 				? ' <span class="has-text-grey-light is-size-7 ml-2">' + escapeHtml(mergedLabel) + "</span>"
@@ -108,10 +105,11 @@
 			// it can be neither merged nor deleted, as rename already refuses it.
 			var check = s.is_system
 				? ""
-				: '<input type="checkbox" class="singer-check"' + (ticked ? " checked" : "") + ">";
-			var firstSung = s.first_sung
-				? whenCell(s.first_sung)
-				: '<td class="when has-text-grey-light">' + escapeHtml(singerText.neverSung) + "</td>";
+				: '<input type="checkbox" class="singer-check" aria-label="' + name + '"' +
+						(ticked ? " checked" : "") + ">";
+			// Randomizer and Pikaraoke are not people, so an "added" date for them
+			// says nothing; leave the cell blank.
+			var added = s.is_system ? '<td class="when"></td>' : whenCell(s.added);
 			return (
 				'<tr class="singer-row' + (isTomb ? " is-tombstone" : "") +
 					'" data-name="' + name + '">' +
@@ -119,7 +117,7 @@
 					'<td class="col-avatar">' + badge + "</td>" +
 					'<td class="col-name"><span class="singer-name">' + name + "</span>" + mergedNote + "</td>" +
 					'<td class="col-plays has-text-right">' + s.play_count + "</td>" +
-					firstSung +
+					added +
 				"</tr>"
 			);
 		});
@@ -130,10 +128,10 @@
 		var names = selectedNames();
 		var mergeable = names.map(function (n) { return rosterByName[n]; }).filter(isMergeable);
 
-		// Always shown, so the controls do not jump in and out: a hint while empty,
-		// the count once something is ticked.
+		// The count once something is ticked; empty otherwise, the header icon being
+		// the standing signpost for the checkboxes.
 		$("#selected-count").text(
-			names.length ? singerText.selectedCount.replace("{count}", names.length) : singerText.selectHint
+			names.length ? singerText.selectedCount.replace("{count}", names.length) : ""
 		);
 		// Merge fuses exactly two identities. Delete is offered on any tick: the
 		// server keeps back a singer who still has plays and the toast says so,
@@ -208,27 +206,33 @@
 	function confirmDelete() {
 		var names = selectedNames();
 		if (!names.length) { return; }
-		if (!window.confirm(singerText.confirmDelete.replace("{count}", names.length))) { return; }
-		$.ajax({
-			url: deleteUrl,
-			type: "POST",
-			contentType: "application/json",
-			data: JSON.stringify({ names: names })
-		}).done(function (data) {
-			selected = {};
-			loadRoster();
-			// A singer with plays is kept back by the server; the row vanishing is
-			// feedback enough when all go, so only a shortfall needs saying.
-			if (data.deleted === 0) {
-				showNotification(singerText.deleteNone, "is-warning");
-			} else if (data.deleted < data.requested) {
-				showNotification(
-					singerText.deletePartial
-						.replace("{deleted}", data.deleted)
-						.replace("{requested}", data.requested),
-					"is-warning"
-				);
-			}
+		window.confirmAction({
+			title: singerText.deleteTitle,
+			message: singerText.confirmDelete.replace("{count}", names.length),
+			confirmLabel: singerText.deleteAction,
+			danger: true
+		}).done(function () {
+			$.ajax({
+				url: deleteUrl,
+				type: "POST",
+				contentType: "application/json",
+				data: JSON.stringify({ names: names })
+			}).done(function (data) {
+				selected = {};
+				loadRoster();
+				// A singer with plays is kept back by the server; the row vanishing is
+				// feedback enough when all go, so only a shortfall needs saying.
+				if (data.deleted === 0) {
+					showNotification(singerText.deleteNone, "is-warning");
+				} else if (data.deleted < data.requested) {
+					showNotification(
+						singerText.deletePartial
+							.replace("{deleted}", data.deleted)
+							.replace("{requested}", data.requested),
+						"is-warning"
+					);
+				}
+			});
 		});
 	}
 
@@ -284,33 +288,21 @@
 	#singer-list .col-select {
 		width: 2.5em;
 	}
+	/* The four fixed columns stay as snug as their content allows; name takes the
+	   rest, since it is the one that has to expand. */
 	#singer-list .col-avatar {
-		width: 3em;
+		width: 2.5em;
 	}
 	#singer-list .col-plays {
-		width: 4.5em;
+		width: 3.5em;
 	}
 	#singer-list .col-when {
-		width: 9em;
+		width: 5.5em;
 	}
-	/* The avatar slot: a lettered circle now, PR 4's uploaded photo later, in the
-	   one footprint. A retired singer shows the knocked-out face instead. */
-	.singer-badge {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		border-radius: 50%;
-		background-color: color-mix(in srgb, var(--bulma-text) 12%, transparent);
-		color: var(--bulma-text-strong);
-		font-weight: 600;
-		font-size: 0.9rem;
-		text-transform: uppercase;
-	}
-	.singer-badge.is-retired {
-		color: var(--bulma-grey-light);
-		font-size: 1.1rem;
+	/* The roster's avatar is larger than the navbar's; the shared .singer-avatar
+	   does the rest. */
+	#singer-list .singer-avatar {
+		--avatar-size: 2rem;
 	}
 	/* A merged singer is retired but kept -- like a skipped song on the play log,
 	   the row reads in grey, its name italic, and a switch hides the lot. */
@@ -356,14 +348,6 @@
 		font-size: 0.85em;
 		color: var(--bulma-grey);
 	}
-	@media screen and (max-width: 600px) {
-		/* First sung is the column to shed first on a phone: the name and its plays
-		   are what an operator merges on. */
-		#singer-list .col-when,
-		#singer-list td.when {
-			display: none;
-		}
-	}
 </style>
 {% endblock %}
 
@@ -404,14 +388,19 @@
 	</colgroup>
 	<thead>
 		<tr>
-			<th></th>
-			<th></th>
+			<th class="col-select">
+				{# MSG: Tooltip on the select-column header icon above the row checkboxes. #}
+				<span class="icon" title="{% trans %}Select singers to merge or delete{% endtrans %}">
+					<i class="ph ph-list-checks" aria-hidden="true"></i>
+				</span>
+			</th>
+			<th class="col-avatar"></th>
 			{# MSG: Singer list column header for the singer's name. #}
 			<th>{% trans %}Name{% endtrans %}</th>
 			{# MSG: Singer list column header for how many songs the singer has sung. #}
 			<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
-			{# MSG: Singer list column header for when the singer first sang. #}
-			<th>{% trans %}First sung{% endtrans %}</th>
+			{# MSG: Singer list column header for the date the singer first sang. #}
+			<th class="col-when">{% trans %}Added{% endtrans %}</th>
 		</tr>
 	</thead>
 	<tbody id="singers-body"></tbody>

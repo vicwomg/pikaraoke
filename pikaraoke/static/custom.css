@@ -422,17 +422,59 @@ a.navbar-item.is-active {
 #current-user .is-truncated {
   max-width: 8rem;
 }
-/* Avatar slot: today just the user-circle glyph, a cropped photo in a later PR.
-   It is its own flex wrapper rather than a Bulma .icon so the circle can fill the
-   slot edge to edge instead of sitting inside a padded box. The glyph is sized to
-   the full .icon box (1.5rem, not the 1.25rem tier) so its thin ring still reads
-   as large as the neighbouring bar icons, and it hugs its label the way they do. */
+/* One avatar slot for the navbar and the roster, a photo later: one footprint.
+   --avatar-size drives slot and glyph so the roster enlarges it in one place;
+   position:relative anchors PR 4's lock badge. Its own flex wrapper, not a Bulma
+   .icon, so a disc or photo fills the slot rather than a padded box. */
 .singer-avatar {
+  --avatar-size: 1.5rem;
+  position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
   margin-right: 0.125rem;
 }
-.singer-avatar .ph {
-  font-size: 1.5rem;
+.singer-avatar > .ph {
+  font-size: var(--avatar-size);
+}
+/* The monogram disc: --singer-hue is set per name inline by renderSingerAvatar;
+   the fixed saturation and lightness here are dark enough for the white letter to
+   read in both themes. The hue is the one bespoke colour tokens cannot cover. */
+.singer-monogram {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: hsl(var(--singer-hue, 0) 52% 42%);
+  color: #fff;
+  font-weight: 600;
+  font-size: calc(var(--avatar-size) * 0.5);
+  text-transform: uppercase;
+}
+/* A retired (merged) singer: a knocked-out face on a muted disc, meant to read
+   as inactive. */
+.singer-avatar.is-retired {
+  border-radius: 50%;
+  background-color: color-mix(in srgb, var(--bulma-text) 12%, transparent);
+}
+.singer-avatar.is-retired > .ph {
+  font-size: calc(var(--avatar-size) * 0.6);
+  color: var(--bulma-grey-light);
+}
+/* A system performer (Randomizer, Pikaraoke): a solid accent disc, not a hued
+   monogram and not muted, so it reads as the app's own and active. */
+.singer-avatar.is-system {
+  border-radius: 50%;
+  background-color: var(--bulma-link);
+}
+.singer-avatar.is-system > .ph {
+  font-size: calc(var(--avatar-size) * 0.6);
+  color: var(--bulma-link-invert);
 }
 
 /* The box and the first navbar icon share one left inset, so the bar icons line

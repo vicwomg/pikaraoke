@@ -97,10 +97,16 @@
         // Null clears it, so a cap never leaks into another caller of this prompt.
         $input.attr('maxlength', opts.maxlength || null);
         if (opts.submitLabel) { $ok.text(opts.submitLabel); }
-        // A left-pushed quiet action (e.g. "someone else is singing"), shown only
-        // when the caller asks for one; its click rejects with { secondary: true }
-        // so the caller tells it apart from a plain cancel.
-        $secondary.text(opts.secondaryLabel || '').toggleClass('is-hidden', !opts.secondaryLabel);
+        // A left-pushed quiet action (e.g. log out), shown only when the caller
+        // asks for one, with an optional leading icon; its click rejects with
+        // { secondary: true } so the caller tells it apart from a plain cancel.
+        $secondary.toggleClass('is-hidden', !opts.secondaryLabel).empty();
+        if (opts.secondaryLabel) {
+            if (opts.secondaryIcon) {
+                $secondary.append($('<span class="icon">').append($('<i>').addClass('ph ' + opts.secondaryIcon)));
+            }
+            $secondary.append($('<span>').text(opts.secondaryLabel));
+        }
 
         // Namespaced so a prior, unclosed prompt leaves no handler behind.
         function teardown() {
@@ -146,6 +152,48 @@
         $ok.prop('disabled', !$input.val().trim());
         $modal.addClass('is-active');
         $input.trigger('focus').trigger('select');
+        return d;
+    };
+
+    // Reusable clickable confirm over #confirm-modal, the yes/no companion to
+    // promptForText. Resolves on confirm, rejects on cancel/Escape/background, so
+    // callers attach .done() and leave .fail() off. danger reddens the confirm
+    // and focuses cancel, so a stray Enter cannot fire a destructive action.
+    window.confirmAction = function (opts) {
+        opts = opts || {};
+        const d = $.Deferred();
+        const $modal = $('#confirm-modal');
+        if (!$modal.length) {
+            return d.reject();
+        }
+        const $ok = $('#confirm-ok');
+        const $cancel = $modal.find('.confirm-cancel');
+
+        $('#confirm-title').text(opts.title || '');
+        $('#confirm-message').text(opts.message || '').toggleClass('is-hidden', !opts.message);
+        $ok.text(opts.confirmLabel || '').toggleClass('is-danger', !!opts.danger);
+
+        function teardown() {
+            $modal.removeClass('is-active');
+            $ok.off('.confirm');
+            $cancel.off('.confirm');
+            $modal.find('.modal-background').off('.confirm');
+            $(document).off('keydown.confirm');
+        }
+        function accept() { teardown(); d.resolve(); }
+        function dismiss() { teardown(); d.reject(); }
+
+        $ok.on('click.confirm', accept);
+        $cancel.on('click.confirm', dismiss);
+        $modal.find('.modal-background').on('click.confirm', dismiss);
+        $(document).on('keydown.confirm', function (e) {
+            if (e.key === 'Escape') { e.preventDefault(); dismiss(); }
+        });
+
+        $modal.addClass('is-active');
+        // A focused button answers Enter natively, so focusing cancel on a danger
+        // dialog is what keeps Enter from confirming it.
+        (opts.danger ? $modal.find('footer .confirm-cancel') : $ok).trigger('focus');
         return d;
     };
 
@@ -244,6 +292,10 @@
                 placeholder: t.usernamePlaceholder,
                 maxlength: window.pikaraokeConfig.singerNameMaxLength,
                 submitLabel: joining ? t.identityJoinAction : t.identityProfileAction,
+                // Log out clears the name on this device and nothing else; offered
+                // only when there is a name to clear.
+                secondaryLabel: joining ? null : t.identityLogout,
+                secondaryIcon: joining ? null : 'ph-sign-out',
                 value: currentName
             }).done(function (res) {
                 if (joining) {
@@ -254,10 +306,28 @@
                 } else {
                     changeIdentity(currentName, res.name);
                 }
+            }).fail(function (reason) {
+                if (reason && reason.secondary) {
+                    logout();
+                }
             });
             // Remove focus from the link to prevent CSS focus styling (black background)
             $(this).blur();
         });
+    }
+
+    /**
+     * Clear the name on this device: forget the cookie, revert the navbar to
+     * "Join in" and re-render so the server redraws the page with no singer. A
+     * local act only -- the singer's stored data is untouched and reappears when
+     * the name is typed again.
+     */
+    function logout() {
+        Cookies.remove('user', { path: window.pikaraokeConfig.cookiePath });
+        window.clearCurrentUser();
+        if (window.spaNavigation) {
+            window.spaNavigation.rerender();
+        }
     }
 
     /**
