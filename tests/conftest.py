@@ -32,6 +32,7 @@ _BASE_TEMPLATE_ENDPOINTS = [
     ("/rankings", "sessions.rankings"),
     ("/history", "sessions.history"),
     ("/sessions", "sessions.sessions"),
+    ("/singers", "singers.singers"),
     ("/api/sessions/singers", "sessions_api.get_singers"),
     ("/api/enqueue", "queue_api.enqueue_form"),
     ("/api/singer/favourite", "singers_api.set_favourite"),
@@ -333,6 +334,7 @@ class MockKaraoke:
     is_song_in_use = Karaoke.is_song_in_use
     rename_song = Karaoke.rename_song
     rename_singer = Karaoke.rename_singer
+    merge_singers = Karaoke.merge_singers
     reset_now_playing = Karaoke.reset_now_playing
     _recue_current = Karaoke._recue_current
     transpose_current = Karaoke.transpose_current

@@ -69,6 +69,17 @@ CREATE TABLE IF NOT EXISTS plays (
 """
 
 
+# The singers table as shipped at v2, before the merge tombstone column.
+_SINGERS_V2 = """
+CREATE TABLE IF NOT EXISTS singers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    secret_hash TEXT
+);
+"""
+
+
 def _song_columns(conn):
     return {row[1] for row in conn.execute("PRAGMA table_info(songs)").fetchall()}
 
@@ -98,7 +109,7 @@ class TestInit:
 
     def test_user_version(self, db):
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 2
+        assert ver == 3
 
     def test_fresh_schema_has_the_new_v2_columns(self, db):
         assert _NEW_IN_V2 <= _song_columns(db._conn)
@@ -181,11 +192,11 @@ class TestSchemaV2Migration:
         db.close()
         assert _NEW_IN_V2 <= columns
 
-    def test_version_is_stamped_to_2(self, legacy_db_path):
+    def test_version_is_stamped_current(self, legacy_db_path):
         db = KaraokeDatabase(legacy_db_path)
         ver = db._conn.execute("PRAGMA user_version").fetchone()[0]
         db.close()
-        assert ver == 2
+        assert ver == 3
 
     def test_existing_row_survives_with_nulls_in_the_new_columns(self, legacy_db_path):
         db = KaraokeDatabase(legacy_db_path)
@@ -282,6 +293,51 @@ class TestSchemaV2PlaysMigration:
         db.execute("UPDATE plays SET singer_id = ?", (singer_id,))
         with pytest.raises(sqlite3.IntegrityError):
             db.execute("UPDATE plays SET singer_id = 999")
+        db.close()
+
+
+class TestSchemaV3Migration:
+    """The merge tombstone: a v2 singers table gains merged_into by ALTER."""
+
+    @pytest.fixture
+    def v2_db_path(self, tmp_path):
+        path = str(tmp_path / "pikaraoke.db")
+        conn = sqlite3.connect(path)
+        conn.executescript(_SCHEMA_1_20_0)
+        conn.executescript(_PLAY_HISTORY_PRE_V2)
+        conn.executescript(_SINGERS_V2)
+        # The columns a real v2 database gained in the v1->v2 migration.
+        conn.execute("ALTER TABLE plays ADD COLUMN singer_id INTEGER REFERENCES singers(id)")
+        conn.execute("ALTER TABLE plays ADD COLUMN semitones INTEGER DEFAULT 0")
+        conn.execute("INSERT INTO singers (name) VALUES ('Dave')")
+        conn.execute("PRAGMA user_version = 2")
+        conn.commit()
+        conn.close()
+        return path
+
+    def test_singers_gains_the_v3_columns(self, v2_db_path):
+        db = KaraokeDatabase(v2_db_path)
+        columns = {r[1] for r in db._conn.execute("PRAGMA table_info(singers)").fetchall()}
+        db.close()
+        assert {"merged_into", "avatar_path"} <= columns
+
+    def test_existing_singer_survives_as_a_live_row(self, v2_db_path):
+        db = KaraokeDatabase(v2_db_path)
+        row = db._conn.execute("SELECT name, merged_into FROM singers").fetchone()
+        db.close()
+        assert tuple(row) == ("Dave", None)
+
+    def test_reopening_does_not_re_run_the_migration(self, v2_db_path):
+        for _ in range(3):
+            db = KaraokeDatabase(v2_db_path)
+            db.close()
+
+    def test_merged_into_references_a_singer(self, v2_db_path):
+        db = KaraokeDatabase(v2_db_path)
+        dave = db.query("SELECT id FROM singers WHERE name = 'Dave'")[0]["id"]
+        db.execute("INSERT INTO singers (name, merged_into) VALUES ('Dvae', ?)", (dave,))
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("UPDATE singers SET merged_into = 999 WHERE name = 'Dvae'")
         db.close()
 
 

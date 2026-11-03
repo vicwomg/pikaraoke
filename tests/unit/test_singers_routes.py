@@ -11,7 +11,9 @@ from pikaraoke.lib.auth import install_auth_gate, public
 from pikaraoke.lib.current_app import current_singer_name
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
+from pikaraoke.routes.singers import singers_bp
 from pikaraoke.routes.singers_api import singers_api_bp
+from tests.conftest import make_route_app
 
 
 @pytest.fixture
@@ -36,6 +38,9 @@ def client(app):
 def karaoke():
     with patch("pikaraoke.routes.singers_api.get_karaoke_instance") as get_instance:
         k = MagicMock()
+        # The default singer is live: a MagicMock would read as a tombstone and
+        # trip the merged-name guard in every test that does not set it.
+        k.singer_manager.merged_into_name.return_value = None
         get_instance.return_value = k
         yield k
 
@@ -84,6 +89,87 @@ class TestSetFavourite:
             data={"song": "/s/a.mp4", "starred": "true", "song_added_by": "  Jo   B  "},
         )
         karaoke.singer_manager.add_favourite.assert_called_once_with("Jo B", "/s/a.mp4")
+
+    def test_a_merged_name_is_turned_away(self, client, karaoke):
+        karaoke.singer_manager.merged_into_name.return_value = "Dave"
+        resp = client.post(
+            "/api/singer/favourite",
+            data={"song": "/s/a.mp4", "starred": "true", "song_added_by": "Dvae"},
+        )
+        body = resp.get_json()
+        assert body["success"] is False
+        assert "Dave" in body["error"]
+        karaoke.singer_manager.add_favourite.assert_not_called()
+
+
+class TestMergeSingers:
+    def _post(self, client, loser, survivor):
+        return client.post("/api/singer/merge", json={"loser": loser, "survivor": survivor})
+
+    def test_a_merge_succeeds(self, client, karaoke):
+        karaoke.merge_singers.return_value = "merged"
+        resp = self._post(client, "Dvae", "Dave")
+        assert resp.status_code == 200
+        assert resp.get_json() == {"success": True}
+        karaoke.merge_singers.assert_called_once_with("Dvae", "Dave")
+
+    def test_a_reserved_name_is_refused(self, client, karaoke):
+        karaoke.merge_singers.return_value = "reserved"
+        assert self._post(client, "Dvae", "Pikaraoke").status_code == 409
+
+    def test_an_unknown_singer_is_a_404(self, client, karaoke):
+        karaoke.merge_singers.return_value = "unknown"
+        assert self._post(client, "Ghost", "Dave").status_code == 404
+
+
+class TestDeleteSingers:
+    def test_deletes_each_named_singer(self, client, karaoke):
+        karaoke.singer_manager.delete_singer.return_value = True
+        resp = client.post("/api/singer/delete", json={"names": ["Dvae", "Old"]})
+        assert resp.status_code == 200
+        assert resp.get_json() == {"success": True, "deleted": 2, "requested": 2}
+        assert karaoke.singer_manager.delete_singer.call_count == 2
+
+    def test_reports_how_many_were_kept_back(self, client, karaoke):
+        karaoke.singer_manager.delete_singer.side_effect = [True, False]
+        resp = client.post("/api/singer/delete", json={"names": ["Dvae", "HasPlays"]})
+        assert resp.get_json() == {"success": True, "deleted": 1, "requested": 2}
+
+    def test_an_empty_list_is_refused(self, client, karaoke):
+        resp = client.post("/api/singer/delete", json={"names": []})
+        assert resp.status_code == 422
+        karaoke.singer_manager.delete_singer.assert_not_called()
+
+
+class TestRoster:
+    def test_returns_the_roster(self, client, karaoke):
+        karaoke.singer_manager.get_roster.return_value = [{"name": "Dave", "play_count": 3}]
+        resp = client.get("/api/singers")
+        assert resp.status_code == 200
+        assert resp.get_json() == {"singers": [{"name": "Dave", "play_count": 3}]}
+
+
+class TestSingersPage:
+    """The page itself renders (the roster loads over the API, so no karaoke here)."""
+
+    _LINKS = [
+        ("/api/singers", "singers_api.get_roster"),
+        ("/api/singer/merge", "singers_api.merge_singers"),
+        ("/api/singer/delete", "singers_api.delete_singers"),
+    ]
+
+    def test_renders_for_an_admin(self):
+        app = make_route_app(singers_bp, self._LINKS)
+        with patch("pikaraoke.routes.singers.get_site_name", return_value="PiKaraoke"):
+            resp = app.test_client().get("/singers")
+        assert resp.status_code == 200
+        assert "singer-action-bar" in resp.data.decode()
+
+    def test_redirects_a_non_admin(self):
+        app = make_route_app(singers_bp, self._LINKS, admin=False)
+        with patch("pikaraoke.routes.singers.get_site_name", return_value="PiKaraoke"):
+            resp = app.test_client().get("/singers")
+        assert resp.status_code == 302
 
 
 class TestCurrentSingerName:

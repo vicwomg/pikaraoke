@@ -535,3 +535,30 @@ class TestRenameSinger:
         assert mock_karaoke.rename_singer("dave", "Dave") == "renamed"
         assert mock_karaoke.queue_manager.queue[0]["user"] == "Dave"
         mock_karaoke.singer_manager.rename.assert_called_once_with("dave", "Dave")
+
+
+class TestMergeSingers:
+    """The admin merge, folding the loser's queue, screen and data into the survivor."""
+
+    def test_a_merge_moves_the_queue_screen_and_data(self, mock_karaoke):
+        mock_karaoke.singer_manager.merge.return_value = True
+        mock_karaoke.queue_manager.enqueue("/songs/s1---abc.mp4", "Dvae")
+        mock_karaoke.playback_controller.now_playing_user = "Dvae"
+        mock_karaoke.play_history._current_performer = "Dvae"
+
+        assert mock_karaoke.merge_singers("Dvae", "Dave") == "merged"
+        assert mock_karaoke.queue_manager.queue[0]["user"] == "Dave"
+        assert mock_karaoke.playback_controller.now_playing_user == "Dave"
+        assert mock_karaoke.play_history._current_performer == "Dave"
+        mock_karaoke.singer_manager.merge.assert_called_once_with("Dvae", "Dave")
+
+    def test_a_refused_merge_moves_nothing(self, mock_karaoke):
+        mock_karaoke.singer_manager.merge.return_value = False
+        mock_karaoke.queue_manager.enqueue("/songs/s1---abc.mp4", "Dvae")
+        assert mock_karaoke.merge_singers("Ghost", "Dave") == "unknown"
+        assert mock_karaoke.queue_manager.queue[0]["user"] == "Dvae"
+
+    def test_a_placeholder_is_reserved(self, mock_karaoke):
+        assert mock_karaoke.merge_singers("Dvae", "Pikaraoke") == "reserved"
+        assert mock_karaoke.merge_singers("Randomizer", "Dave") == "reserved"
+        mock_karaoke.singer_manager.merge.assert_not_called()

@@ -155,6 +155,13 @@ def _do_enqueue(song: str, user: str) -> Response | tuple[Response, int]:
             ),
             400,
         )
+    # A merged name is retired; reuse the [ok, message] shape the add-song
+    # handler already shows as a danger toast.
+    survivor = k.singer_manager.merged_into_name(user)
+    if survivor:
+        # MSG: Error when queueing under a name the host merged into another. %(name)s is the surviving name.
+        message = _("This name was merged into %(name)s. Set your name to continue.", name=survivor)
+        return jsonify({"song": user, "success": [False, message]})
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.display_name_from_path(song)

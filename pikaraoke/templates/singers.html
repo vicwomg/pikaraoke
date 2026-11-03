@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% import 'partials/history_tables.html' as tables with context %}
+
+{% block scripts %}
+{{ tables.table_scripts(50) }}
+<script>
+	var rosterUrl = "{{ url_for('singers_api.get_roster') }}";
+	var mergeUrl = "{{ url_for('singers_api.merge_singers') }}";
+	var deleteUrl = "{{ url_for('singers_api.delete_singers') }}";
+
+	// Ticked names, by name (NOCASE-unique). Kept across refreshes so a play
+	// landing mid-selection does not clear it.
+	var selected = {};
+	// The last roster keyed by name, to validate an action and name the survivor.
+	var rosterByName = {};
+	// The last roster as served, re-rendered on a filter toggle without a refetch.
+	var lastRoster = [];
+	// Off by default, like Hide skipped on the play log: tombstones show, muted,
+	// until the operator hides them.
+	var hideMerged = false;
+
+	// Gettext output is Markup, so |tojson emits a literal an apostrophe cannot
+	// break out of. See tests/unit/test_template_i18n.py.
+	var singerText = {
+		// {# MSG: Shown on the Singers page before anyone has sung or starred a song. #}
+		empty: {{ _('No singers yet.') | tojson }},
+		// {# MSG: Hint shown on the Singers page when no singer is ticked for an action. #}
+		selectHint: {{ _('Select singers to merge or delete') | tojson }},
+		// {# MSG: Count of singers ticked for a bulk action. {count} is replaced with a number. #}
+		selectedCount: {{ _('{count} selected') | tojson }},
+		// {# MSG: Tag shown against a singer merged into another. {name} is the surviving name. #}
+		mergedInto: {{ _('merged into {name}') | tojson }},
+		// {# MSG: Shown against a singer with no plays in place of a first-sung date. #}
+		neverSung: {{ _('never sung') | tojson }},
+		// {# MSG: A singer's play total in the merge dialog, singular. {count} is 1. #}
+		playsMetaOne: {{ _('{count} play') | tojson }},
+		// {# MSG: A singer's play total in the merge dialog, plural. {count} is replaced with a number. #}
+		playsMeta: {{ _('{count} plays') | tojson }},
+		// {# MSG: Confirmation before deleting singers. {count} is replaced with a number. #}
+		confirmDelete: {{ _('Delete {count} singer(s)? This cannot be undone.') | tojson }},
+		// {# MSG: Shown after a delete when none could be removed because they still have plays. #}
+		deleteNone: {{ _('Nothing deleted: those singers still have plays. Clear their history first.') | tojson }},
+		// {# MSG: Shown after a delete that removed some but kept others with plays. {deleted} and {requested} are numbers. #}
+		deletePartial: {{ _('Deleted {deleted} of {requested}. The rest still have plays -- clear their history first.') | tojson }},
+		// {# MSG: Summary in the merge dialog of which name is folded into which. {loser} and {survivor} are names. #}
+		mergeSummary: {{ _('{loser} will be merged into {survivor}') | tojson }}
+	};
+
+	function isMergeable(row) {
+		// A live, non-system singer; a tombstone is already retired.
+		return row.merged_into === null && !row.is_system;
+	}
+
+	function selectedNames() {
+		return Object.keys(selected).filter(function (n) { return selected[n]; });
+	}
+
+	function playsMeta(count) {
+		var template = count === 1 ? singerText.playsMetaOne : singerText.playsMeta;
+		return template.replace("{count}", count);
+	}
+
+	function loadRoster() {
+		return $.getJSON(rosterUrl, function (data) {
+			lastRoster = data.singers;
+			rosterByName = {};
+			data.singers.forEach(function (s) { rosterByName[s.name] = s; });
+			// A name merged or deleted since the tick is gone from the roster.
+			Object.keys(selected).forEach(function (n) {
+				if (!rosterByName[n]) { delete selected[n]; }
+			});
+			render();
+			updateActionBar();
+		});
+	}
+
+	function render() {
+		var shown = hideMerged
+			? lastRoster.filter(function (s) { return s.merged_into === null; })
+			: lastRoster;
+		renderRoster(shown);
+	}
+
+	function renderRoster(singers) {
+		var $body = $("#singers-body");
+		if (!singers.length) {
+			$body.html($("<tr>").append($("<td>").attr("colspan", 5).text(singerText.empty)));
+			return;
+		}
+		var rows = singers.map(function (s) {
+			var name = escapeHtml(s.name);
+			var isTomb = s.merged_into !== null;
+			var ticked = !!selected[s.name];
+			var mergedLabel = isTomb ? singerText.mergedInto.replace("{name}", s.merged_into_name) : "";
+			// The avatar slot PR 4's photo will fill: a lettered circle for a live
+			// singer, the knocked-out face for a retired one -- status at a glance,
+			// as the skip glyph marks a skipped song on the play log. Array.from
+			// takes the first whole character, so a surrogate-pair name is not halved.
+			var badge = isTomb
+				? '<span class="singer-badge is-retired" title="' + escapeHtml(mergedLabel) + '">' +
+						'<i class="ph ph-smiley-x-eyes"></i></span>'
+				: '<span class="singer-badge">' + escapeHtml(Array.from(s.name)[0] || "?") + "</span>";
+			// Who the retired name folded into, muted beside the name.
+			var mergedNote = isTomb
+				? ' <span class="has-text-grey-light is-size-7 ml-2">' + escapeHtml(mergedLabel) + "</span>"
+				: "";
+			// A system name (Randomizer, Pikaraoke) is not a person: no checkbox, so
+			// it can be neither merged nor deleted, as rename already refuses it.
+			var check = s.is_system
+				? ""
+				: '<input type="checkbox" class="singer-check"' + (ticked ? " checked" : "") + ">";
+			var firstSung = s.first_sung
+				? whenCell(s.first_sung)
+				: '<td class="when has-text-grey-light">' + escapeHtml(singerText.neverSung) + "</td>";
+			return (
+				'<tr class="singer-row' + (isTomb ? " is-tombstone" : "") +
+					'" data-name="' + name + '">' +
+					'<td class="col-select">' + check + "</td>" +
+					'<td class="col-avatar">' + badge + "</td>" +
+					'<td class="col-name"><span class="singer-name">' + name + "</span>" + mergedNote + "</td>" +
+					'<td class="col-plays has-text-right">' + s.play_count + "</td>" +
+					firstSung +
+				"</tr>"
+			);
+		});
+		$body.html(rows.join(""));
+	}
+
+	function updateActionBar() {
+		var names = selectedNames();
+		var mergeable = names.map(function (n) { return rosterByName[n]; }).filter(isMergeable);
+
+		// Always shown, so the controls do not jump in and out: a hint while empty,
+		// the count once something is ticked.
+		$("#selected-count").text(
+			names.length ? singerText.selectedCount.replace("{count}", names.length) : singerText.selectHint
+		);
+		// Merge fuses exactly two identities. Delete is offered on any tick: the
+		// server keeps back a singer who still has plays and the toast says so,
+		// rather than a button that is disabled for a reason the operator cannot see.
+		$("#merge-btn").prop("disabled", !(names.length === 2 && mergeable.length === 2));
+		$("#delete-btn").prop("disabled", names.length === 0);
+	}
+
+	// --- Merge chooser -------------------------------------------------------
+
+	var $mergeModal = null;
+
+	function updateMergeSummary() {
+		var survivor = $("#merge-choices input:checked").val();
+		var loser = selectedNames().filter(function (n) { return n !== survivor; })[0];
+		// The template text is our own; the names are escaped before they go in.
+		$("#merge-summary").html(
+			singerText.mergeSummary
+				.replace("{loser}", "<strong>" + escapeHtml(loser) + "</strong>")
+				.replace("{survivor}", "<strong>" + escapeHtml(survivor) + "</strong>")
+		);
+	}
+
+	function openMergeChooser() {
+		var names = selectedNames();
+		if (names.length !== 2) { return; }
+		// Default the survivor to the one with more plays -- usually the regular a
+		// typo is folded into -- but let the operator override it.
+		var keep = rosterByName[names[0]].play_count >= rosterByName[names[1]].play_count
+			? names[0] : names[1];
+		var $choices = $("#merge-choices").empty();
+		names.forEach(function (n) {
+			var row = rosterByName[n];
+			var $label = $('<label class="merge-choice">');
+			$('<input type="radio" name="survivor">')
+				.attr("value", n)
+				.prop("checked", n === keep)
+				.appendTo($label);
+			var $detail = $('<span class="merge-choice-detail">');
+			$('<span class="merge-choice-name">').text(n).appendTo($detail);
+			$('<span class="merge-choice-meta">').text(playsMeta(row.play_count)).appendTo($detail);
+			$detail.appendTo($label);
+			$choices.append($label);
+		});
+		updateMergeSummary();
+		$mergeModal.addClass("is-active");
+	}
+
+	function closeMergeChooser() {
+		$mergeModal.removeClass("is-active");
+	}
+
+	function confirmMerge() {
+		var names = selectedNames();
+		var survivor = $("#merge-choices input:checked").val();
+		var loser = names.filter(function (n) { return n !== survivor; })[0];
+		if (!survivor || !loser) { return; }
+		closeMergeChooser();
+		$.ajax({
+			url: mergeUrl,
+			type: "POST",
+			contentType: "application/json",
+			data: JSON.stringify({ loser: loser, survivor: survivor })
+		}).done(function () {
+			selected = {};
+			loadRoster();
+		});
+	}
+
+	// --- Delete --------------------------------------------------------------
+
+	function confirmDelete() {
+		var names = selectedNames();
+		if (!names.length) { return; }
+		if (!window.confirm(singerText.confirmDelete.replace("{count}", names.length))) { return; }
+		$.ajax({
+			url: deleteUrl,
+			type: "POST",
+			contentType: "application/json",
+			data: JSON.stringify({ names: names })
+		}).done(function (data) {
+			selected = {};
+			loadRoster();
+			// A singer with plays is kept back by the server; the row vanishing is
+			// feedback enough when all go, so only a shortfall needs saying.
+			if (data.deleted === 0) {
+				showNotification(singerText.deleteNone, "is-warning");
+			} else if (data.deleted < data.requested) {
+				showNotification(
+					singerText.deletePartial
+						.replace("{deleted}", data.deleted)
+						.replace("{requested}", data.requested),
+					"is-warning"
+				);
+			}
+		});
+	}
+
+	$(function () {
+		$mergeModal = $("#merge-modal");
+		loadRoster();
+
+		// A play landing while the page is open moves a count and can add a singer.
+		window.onPageSocket("play_logged", debounce(loadRoster, 400));
+
+		$("#singers-body").on("change", ".singer-check", function () {
+			// data() coerces a numeric-looking name to a Number, so read it back as
+			// a string to match rosterByName.
+			var name = String($(this).closest(".singer-row").data("name"));
+			if (this.checked) { selected[name] = true; } else { delete selected[name]; }
+			updateActionBar();
+		});
+
+		$("#hide-merged").on("change", function () {
+			hideMerged = $(this).is(":checked");
+			if (hideMerged) {
+				// Drop now-hidden tombstones, so the bar counts only what is on screen.
+				Object.keys(selected).forEach(function (n) {
+					if (rosterByName[n] && rosterByName[n].merged_into !== null) { delete selected[n]; }
+				});
+			}
+			render();
+			updateActionBar();
+		});
+
+		$("#merge-btn").on("click", openMergeChooser);
+		$("#delete-btn").on("click", confirmDelete);
+		$("#merge-choices").on("change", "input", updateMergeSummary);
+		$mergeModal.on("click", ".modal-background, .modal-close-btn", closeMergeChooser);
+		$("#merge-confirm").on("click", confirmMerge);
+	});
+</script>
+{% endblock %}
+
+{% block header %}
+<style>
+	/* A standing toolbar above the table rather than one that appears on the
+	   first tick, which read as a jump. Its buttons enable with the selection. */
+	#singer-action-bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		align-items: center;
+		padding-bottom: 12px;
+		margin-bottom: 16px;
+		border-bottom: 1px solid var(--bulma-border);
+	}
+	#singer-list .col-select {
+		width: 2.5em;
+	}
+	#singer-list .col-avatar {
+		width: 3em;
+	}
+	#singer-list .col-plays {
+		width: 4.5em;
+	}
+	#singer-list .col-when {
+		width: 9em;
+	}
+	/* The avatar slot: a lettered circle now, PR 4's uploaded photo later, in the
+	   one footprint. A retired singer shows the knocked-out face instead. */
+	.singer-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 50%;
+		background-color: color-mix(in srgb, var(--bulma-text) 12%, transparent);
+		color: var(--bulma-text-strong);
+		font-weight: 600;
+		font-size: 0.9rem;
+		text-transform: uppercase;
+	}
+	.singer-badge.is-retired {
+		color: var(--bulma-grey-light);
+		font-size: 1.1rem;
+	}
+	/* A merged singer is retired but kept -- like a skipped song on the play log,
+	   the row reads in grey, its name italic, and a switch hides the lot. */
+	.is-tombstone td {
+		color: var(--bulma-grey-light);
+	}
+	.is-tombstone .singer-name {
+		font-style: italic;
+	}
+	/* The confirmation line, readable rather than a dim grey on the dark card. */
+	#merge-summary {
+		color: var(--bulma-text);
+	}
+	/* The merge survivor is picked from two cards rather than a bare radio list,
+	   so which name is kept reads at a glance. */
+	.merge-choice {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		margin-bottom: 0.5rem;
+		border: 2px solid var(--bulma-border);
+		border-radius: var(--bulma-radius);
+		cursor: pointer;
+		transition: border-color 0.1s ease, background-color 0.1s ease;
+	}
+	.merge-choice:hover {
+		border-color: var(--bulma-link);
+	}
+	.merge-choice:has(input:checked) {
+		border-color: var(--bulma-success);
+		background-color: color-mix(in srgb, var(--bulma-success) 8%, transparent);
+	}
+	.merge-choice-detail {
+		display: flex;
+		flex-direction: column;
+		line-height: 1.3;
+	}
+	.merge-choice-name {
+		font-weight: 600;
+	}
+	.merge-choice-meta {
+		font-size: 0.85em;
+		color: var(--bulma-grey);
+	}
+	@media screen and (max-width: 600px) {
+		/* First sung is the column to shed first on a phone: the name and its plays
+		   are what an operator merges on. */
+		#singer-list .col-when,
+		#singer-list td.when {
+			display: none;
+		}
+	}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div id="singer-action-bar">
+	{# Off by default, like Hide skipped on the play log: tombstones show, muted,
+	   until the operator clears them out and hides the rest. #}
+	<label class="checkbox is-size-7 is-inline-flex is-align-items-center is-gap-0.5 has-text-grey-light">
+		<input type="checkbox" class="switch" id="hide-merged" />
+		{# MSG: Checkbox which hides singers that were merged into another. #}
+		{% trans %}Hide merged{% endtrans %}
+	</label>
+	<div class="is-flex is-align-items-center is-gap-3 ml-auto">
+		<span id="selected-count" class="has-text-grey"></span>
+		<div class="is-flex is-gap-2">
+			<button id="merge-btn" class="button is-small" disabled>
+				<span class="icon"><i class="ph ph-arrows-merge"></i></span>
+				{# MSG: Button which merges two selected singers into one. #}
+				<span>{% trans %}Merge{% endtrans %}</span>
+			</button>
+			<button id="delete-btn" class="button is-small is-danger" disabled>
+				<span class="icon"><i class="ph ph-trash"></i></span>
+				{# MSG: Button which deletes the selected singers. #}
+				<span>{% trans %}Delete{% endtrans %}</span>
+			</button>
+		</div>
+	</div>
+</div>
+
+<table class="table is-striped history-table" id="singer-list">
+	<colgroup>
+		<col class="col-select" />
+		<col class="col-avatar" />
+		<col />
+		<col class="col-plays" />
+		<col class="col-when" />
+	</colgroup>
+	<thead>
+		<tr>
+			<th></th>
+			<th></th>
+			{# MSG: Singer list column header for the singer's name. #}
+			<th>{% trans %}Name{% endtrans %}</th>
+			{# MSG: Singer list column header for how many songs the singer has sung. #}
+			<th class="has-text-right">{% trans %}Plays{% endtrans %}</th>
+			{# MSG: Singer list column header for when the singer first sang. #}
+			<th>{% trans %}First sung{% endtrans %}</th>
+		</tr>
+	</thead>
+	<tbody id="singers-body"></tbody>
+</table>
+
+<div class="modal" id="merge-modal">
+	<div class="modal-background"></div>
+	<div class="modal-card is-prose">
+		<header class="modal-card-head">
+			<p class="modal-card-title is-size-6 mb-0">{% trans %}Merge singers{% endtrans %}</p>
+			<button class="delete modal-close-btn" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<p class="mb-4">{% trans %}Everything moves onto the name you keep. This cannot be undone.{% endtrans %}</p>
+			<div id="merge-choices"></div>
+			<p id="merge-summary" class="mt-4"></p>
+		</section>
+		<footer class="modal-card-foot is-justify-content-flex-end">
+			<button id="merge-confirm" class="button is-danger">
+				{# MSG: Button confirming a merge of two singers in the merge dialog. #}
+				{% trans %}Merge{% endtrans %}
+			</button>
+			<button class="button modal-close-btn">
+				{# MSG: Button cancelling the merge dialog. #}
+				{% trans %}Cancel{% endtrans %}
+			</button>
+		</footer>
+	</div>
+</div>
+
+{% endblock %}

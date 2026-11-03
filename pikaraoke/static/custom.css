@@ -183,13 +183,14 @@
   border-end-end-radius: var(--bulma-modal-card-foot-radius);
 }
 
-/* The text-prompt dialog is a form, not the self-padding option list the shared
-   style zeroes body padding for, so its message and input get the head's inset. */
-#text-prompt-modal .modal-card {
+/* A prose or form modal, not the self-padding option list the shared style
+   above zeroes body padding for: its message, fields and buttons take the head's
+   inset, and its foot buttons the gap the foot itself gives none. Opt in with
+   `is-prose` on the modal-card; the option-list modals keep the 0 default. */
+.modal-card.is-prose {
   --bulma-modal-card-body-padding: 1rem;
 }
-/* Space the Save and Cancel buttons apart; the foot gives them none. */
-#text-prompt-modal .modal-card-foot {
+.modal-card.is-prose .modal-card-foot {
   gap: 0.75rem;
 }
 

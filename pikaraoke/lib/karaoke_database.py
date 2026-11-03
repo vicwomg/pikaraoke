@@ -7,7 +7,7 @@ import threading
 from pikaraoke.lib.get_platform import get_data_directory
 
 # Bump when the schema changes and add a branch to _migrate().
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 _SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -75,7 +75,14 @@ CREATE TABLE IF NOT EXISTS singers (
     name TEXT NOT NULL COLLATE NOCASE UNIQUE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     -- Optional name-lock hash, NULL until a singer protects their name; unused yet.
-    secret_hash TEXT
+    secret_hash TEXT,
+    -- A tombstone: the surviving singer's id once an admin merges this name
+    -- away, NULL on a live singer. Kept rather than deleted so a device still on
+    -- the old name is told to re-name rather than silently re-forking a row.
+    merged_into INTEGER REFERENCES singers(id),
+    -- Relative path to an uploaded avatar; NULL until set. Reserved here, written
+    -- only once avatars land behind the name lock (never on an unprotected name).
+    avatar_path TEXT
 );
 
 -- Three ways of saying "which song", each for a different job:
@@ -244,6 +251,15 @@ class KaraokeDatabase:
                     if not self._table_exists(table):
                         continue
                     self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+            if from_version < 3:
+                # The merge tombstone and the reserved avatar path. A v1 database
+                # has no singers table yet; _SCHEMA below creates it complete, so
+                # only a v2 upgrade alters.
+                if self._table_exists("singers"):
+                    self._conn.execute(
+                        "ALTER TABLE singers ADD COLUMN merged_into INTEGER REFERENCES singers(id)"
+                    )
+                    self._conn.execute("ALTER TABLE singers ADD COLUMN avatar_path TEXT")
 
     def _table_exists(self, name: str) -> bool:
         row = self._conn.execute(

@@ -369,6 +369,12 @@
           "&starred=" + (makeStarred ? "true" : "false") +
           "&song_added_by=" + encodeURIComponent(name);
         $.post(window.pikaraokeConfig.favouriteUrl, body, function (data) {
+          if (data.error) {
+            // A name merged into another is retired: the server refuses and says
+            // which name to take, as the queue add does.
+            showNotification(data.error, "is-danger");
+            return;
+          }
           if (data.success) {
             var template = data.starred
               ? window.translations.favouriteAdded
@@ -695,6 +701,11 @@
             {# MSG: Menu link to the karaoke session management page, only shown to the host. #}
             <span>{% trans %}Sessions{% endtrans %}</span>
           </a>
+          <a id="singers" class="navbar-item" href="{{ url_for('singers.singers') }}">
+            <span class="icon"><i class="ph ph-microphone-stage"></i></span>
+            {# MSG: Menu link to the admin page listing singers, where they are merged and deleted. #}
+            <span>{% trans %}Singers{% endtrans %}</span>
+          </a>
           {% endif %}
           <a id="settings" class="navbar-item" href="{{ url_for('settings.settings') }}">
             <span class="icon"><i class="ph ph-gear"></i></span>
@@ -752,7 +763,7 @@
        swaps only .box) cannot destroy it. Driven by promptForText(). #}
     <div class="modal" id="text-prompt-modal">
       <div class="modal-background"></div>
-      <div class="modal-card">
+      <div class="modal-card is-prose">
         <header class="modal-card-head">
           <p class="modal-card-title is-size-5 mb-0" id="text-prompt-title"></p>
           <button class="delete text-prompt-cancel" aria-label="close"></button>

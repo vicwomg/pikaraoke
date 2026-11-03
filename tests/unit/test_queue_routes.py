@@ -144,6 +144,25 @@ class TestEnqueueRequiresName:
         data = EnqueueForm().load({"song_to_add": "Song.mp4", "song_added_by": "  Jo   B  "})
         assert data["song_added_by"] == "Jo B"
 
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_a_merged_name_is_turned_away(self, mock_get_instance, mock_broadcast, client):
+        mock_karaoke = MagicMock()
+        mock_karaoke.song_manager.songs = {"Song.mp4"}
+        mock_karaoke.singer_manager.merged_into_name.return_value = "Dave"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post(
+            "/api/enqueue", data={"song_to_add": "Song.mp4", "song_added_by": "Dvae"}
+        )
+
+        assert response.status_code == 200
+        ok, message = response.get_json()["success"]
+        assert ok is False
+        assert "Dave" in message
+        # The guard returns before the enqueue path broadcasts, so nothing queued.
+        mock_broadcast.assert_not_called()
+
 
 class TestEnqueueRequiresSongInLibrary:
     """POST /api/enqueue must only accept songs that exist in k.song_manager.songs."""
@@ -183,6 +202,7 @@ class TestEnqueueRequiresSongInLibrary:
         qm, mock_karaoke, _queue_updates, _now_playing_updates = queue_env
         mock_karaoke.song_manager.songs = {song_path}
         mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
+        mock_karaoke.singer_manager.merged_into_name.return_value = None
         mock_get_instance.return_value = mock_karaoke
 
         response = client.post(
