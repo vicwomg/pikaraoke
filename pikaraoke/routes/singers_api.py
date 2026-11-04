@@ -34,6 +34,9 @@ class FavouriteForm(Schema):
                 _("Name must be %(max)d characters or fewer", max=SINGER_NAME_MAX_LENGTH),
                 "song_added_by",
             )
+        if "<" in name or ">" in name:
+            # MSG: Error when a singer name contains disallowed HTML angle brackets
+            raise ValidationError(_("Invalid singer name"), "song_added_by")
         data["song_added_by"] = name
         return data
 
@@ -67,6 +70,9 @@ def _clean_singer_name(raw: str, field: str) -> str:
         raise ValidationError(
             _("Name must be %(max)d characters or fewer", max=SINGER_NAME_MAX_LENGTH), field
         )
+    if "<" in name or ">" in name:
+        # MSG: Error when a singer name contains disallowed HTML angle brackets
+        raise ValidationError(_("Invalid singer name"), field)
     return name
 
 

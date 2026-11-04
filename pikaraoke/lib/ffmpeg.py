@@ -25,6 +25,8 @@ def get_media_duration(file_path: str) -> float | None:
     Returns:
         Duration in seconds, or None if unable to determine.
     """
+    if file_path.startswith("-"):
+        return None
     start = time.monotonic()
     try:
         duration = float(ffmpeg.probe(file_path)["format"]["duration"])

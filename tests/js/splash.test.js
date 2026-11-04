@@ -370,6 +370,28 @@ describe("handleNowPlayingUpdate", () => {
     expect(duration.style.display).not.toBe("none");
   });
 
+  it("renders singer names and song titles as text rather than HTML", () => {
+    const payload = '<img src=x onerror="window.__xss=1">';
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing: payload,
+      now_playing_user: payload,
+      up_next: payload,
+      next_user: payload,
+      now_playing_transpose: 2,
+    });
+    for (const id of [
+      "now-playing-song",
+      "now-playing-singer",
+      "up-next-song",
+      "up-next-singer",
+    ]) {
+      const el = document.getElementById(id);
+      expect(el.querySelectorAll("img").length).toBe(0);
+      expect(el.textContent).toContain(payload);
+    }
+  });
+
   it("hides the now-playing block when nothing is playing", () => {
     splash.handleNowPlayingUpdate({ ...base, now_playing: "Song One" });
     splash.handleNowPlayingUpdate({ ...base });

@@ -28,7 +28,8 @@ class ReorderForm(Schema):
 class EnqueueForm(Schema):
     song_to_add = fields.String(required=True, metadata={"description": "Path to the song file"})
     song_added_by = fields.String(
-        required=True, metadata={"description": "Name of the user adding the song"}
+        required=True,
+        metadata={"description": "Name of the user adding the song"},
     )
 
     @post_load
@@ -45,6 +46,9 @@ class EnqueueForm(Schema):
                 _("Name must be %(max)d characters or fewer", max=SINGER_NAME_MAX_LENGTH),
                 "song_added_by",
             )
+        if "<" in name or ">" in name:
+            # MSG: Error when a singer name contains disallowed HTML angle brackets
+            raise ValidationError(_("Invalid singer name"), "song_added_by")
         data["song_added_by"] = name
         return data
 
@@ -138,8 +142,19 @@ def queue_pitch(query):
     return jsonify({"success": success})
 
 
-def _do_enqueue(song: str, user: str) -> Response:
+def _do_enqueue(song: str, user: str) -> Response | tuple[Response, int]:
     k = get_karaoke_instance()
+    if song not in k.song_manager.songs:
+        return (
+            jsonify(
+                {
+                    "song": False,
+                    # MSG: Error when trying to queue a song that is not in the library
+                    "success": [False, _("Song is not in the library")],
+                }
+            ),
+            400,
+        )
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.display_name_from_path(song)

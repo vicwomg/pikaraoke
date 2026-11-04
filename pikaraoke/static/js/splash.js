@@ -374,19 +374,22 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing) {
 
     // Handle updating now playing HTML
-    let nowPlayingHtml = `<span>${np.now_playing}</span> `;
+    const $nowPlayingSong = $("#now-playing-song")
+      .empty()
+      .append($("<span>").text(np.now_playing), " ");
     if (np.now_playing_transpose !== 0) {
-      nowPlayingHtml += `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(np.now_playing_transpose)} </span>`;
+      $nowPlayingSong.append(
+        `<span class='is-size-6 has-text-success'><b>Key</b>: ${getSemitonesLabel(np.now_playing_transpose)} </span>`
+      );
     }
-    $("#now-playing-song").html(nowPlayingHtml);
-    $("#now-playing-singer").html(np.now_playing_user);
+    $("#now-playing-singer").text(np.now_playing_user);
     $("#now-playing").fadeIn();
   } else {
     $("#now-playing").fadeOut();
   }
   if (np.up_next) {
-    $("#up-next-song").html(np.up_next);
-    $("#up-next-singer").html(np.next_user);
+    $("#up-next-song").text(np.up_next);
+    $("#up-next-singer").text(np.next_user);
     $("#up-next").fadeIn();
   } else {
     $("#up-next").fadeOut();

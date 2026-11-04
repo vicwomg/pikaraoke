@@ -155,10 +155,10 @@
 
     html += '<td>';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span>' + np.now_playing_user + '</span>';
+    html += '<span>' + escapeHtml(np.now_playing_user) + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
-    html += '<span class="has-text-weight-bold has-text-white is-hidden-mobile">' + np.now_playing + '</span>';
-    html += '<span class="is-size-7 has-text-weight-bold has-text-white is-hidden-tablet" style="width: 100%;">' + np.now_playing + '</span>';
+    html += '<span class="has-text-weight-bold has-text-white is-hidden-mobile">' + escapeHtml(np.now_playing) + '</span>';
+    html += '<span class="is-size-7 has-text-weight-bold has-text-white is-hidden-tablet" style="width: 100%;">' + escapeHtml(np.now_playing) + '</span>';
     html += '</div></td>';
 
     if (isAdmin) {
@@ -277,7 +277,7 @@
                       : `<span class="tag is-light ml-auto">{{ _('Queued') | forceescape }}</span>`;
                   html += `
                       <div class="box mb-2 p-3 has-background-dark is-flex is-align-items-center">
-                          <span class="has-text-grey-light">${d.display_title || d.video_url}</span>
+                          <span class="has-text-grey-light">${escapeHtml(d.display_title || d.video_url)}</span>
                           ${tag}
                       </div>
                   `;
@@ -288,16 +288,19 @@
           if (status.errors && status.errors.length > 0) {
               html += `<div class="content"><h5 class="mb-2 has-text-danger">{{ _('Download Errors') | forceescape }}</h5>`;
               status.errors.forEach(function(d) {
+                  var titleOrUrl = escapeHtml(d.title || d.url);
+                  var errorText = escapeHtml(d.error);
+                  var errorId = escapeHtml(d.id);
                   html += `
                       <div class="box mb-2 p-3 is-flex is-align-items-center" style="border-left: 4px solid var(--bulma-danger);">
                           <span class="icon has-text-danger mr-2"><i class="ph ph-x"></i></span>
                           <div class="is-flex-grow-1" style="min-width: 0;">
-                              <p class="has-text-grey-light mb-0" title="${d.title || d.url}">${d.title || d.url}</p>
-                              <p class="help is-danger mb-0" title="${d.error}">${d.error}</p>
+                              <p class="has-text-grey-light mb-0" title="${titleOrUrl}">${titleOrUrl}</p>
+                              <p class="help is-danger mb-0" title="${errorText}">${errorText}</p>
                           </div>
                           <span class="tag is-danger is-light ml-2">{{ _('Failed') | forceescape }}</span>
-                          <button class="button is-small is-info ml-2" onclick="retryDownloadError('${d.id}')">{{ _('Retry') | forceescape }}</button>
-                          <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') | forceescape }}"></button>
+                          <button class="button is-small is-info ml-2" onclick="retryDownloadError('${errorId}')">{{ _('Retry') | forceescape }}</button>
+                          <button class="delete ml-2" onclick="dismissDownloadError('${errorId}')" title="{{ _('Dismiss') | forceescape }}"></button>
                       </div>
                   `;
               });
@@ -374,10 +377,10 @@
 
     html += '<td>';
     html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
-    html += '<span>' + e.user + '</span>';
+    html += '<span>' + escapeHtml(e.user) + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey-light mx-2">&bull;</span>';
-    html += '<span class="is-hidden-mobile">' + e.title + '</span>';
-    html += '<span class="is-size-7 is-hidden-tablet" style="width: 100%;">' + e.title + '</span>';
+    html += '<span class="is-hidden-mobile">' + escapeHtml(e.title) + '</span>';
+    html += '<span class="is-size-7 is-hidden-tablet" style="width: 100%;">' + escapeHtml(e.title) + '</span>';
     html += '</div></td>';
 
     if (isAdmin) {

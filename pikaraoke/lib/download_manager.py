@@ -22,6 +22,7 @@ from pikaraoke.lib.youtube_dl import (
     PROGRESS_PREFIX,
     SIZE_PREFIX,
     build_ytdl_download_command,
+    canonical_youtube_url,
     get_youtube_id_from_url,
 )
 
@@ -249,9 +250,11 @@ class DownloadManager:
         """
         from flask_babel import _
 
-        # Strip playlist parameter to avoid downloading entire playlists
-        if "&list=" in video_url:
-            video_url = video_url.split("&list=")[0]
+        canonical_url = canonical_youtube_url(video_url)
+        if canonical_url is None:
+            logging.error(f"Refusing to queue download for invalid YouTube URL: {video_url}")
+            return
+        video_url = canonical_url
 
         displayed_title = title if title else video_url
 

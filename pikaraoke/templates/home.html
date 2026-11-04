@@ -102,8 +102,8 @@
 		// when idle, where the ways-in take the slot.
 		$("#focus-song").toggle(!idle);
 		if (playing) {
-			var html = `<p class="is-size-4 has-text-warning mb-1">${np.now_playing}</p>
-        <p class="has-text-text mb-0"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${np.now_playing_user}</p>`;
+			var html = `<p class="is-size-4 has-text-warning mb-1">${escapeHtml(np.now_playing)}</p>
+        <p class="has-text-text mb-0"><span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="Current singer"></i></span>${escapeHtml(np.now_playing_user)}</p>`;
 			if (np.now_playing_transpose != 0) {
 				html +=
 					// {# MSG: Label for display of how many semitones the song has been shifted. #}
@@ -113,10 +113,10 @@
 			}
 			$("#focus-song").html(html);
 		} else if (pending) {
-			$("#focus-song").html(`<p class="is-size-4 has-text-warning mb-1">${np.up_next}</p>
+			$("#focus-song").html(`<p class="is-size-4 has-text-warning mb-1">${escapeHtml(np.up_next)}</p>
         <p class="has-text-text mb-0">
           {# MSG: Title text for the icon marking the next person to sing. #}
-          <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${np.next_user}</p>`);
+          <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${escapeHtml(np.next_user)}</p>`);
 		}
 
 		// One control set fills the slot. Through the autoplay gap the transport
@@ -143,10 +143,10 @@
 		var nextTitle = playing ? np.up_next : np.next_after;
 		var nextUser = playing ? np.next_user : np.next_after_user;
 		if (nextTitle) {
-			$("#up-next").html(`<p class="mb-1">${nextTitle}</p>
+			$("#up-next").html(`<p class="mb-1">${escapeHtml(nextTitle)}</p>
         <p class="has-text-text mb-0">
           {# MSG: Title text for the icon marking the next person to sing. #}
-          <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${nextUser}</p>`);
+          <span class="icon is-text-size mr-1"><i class="ph ph-microphone-stage" title="{{ _('Next singer') | forceescape }}"></i></span>${escapeHtml(nextUser)}</p>`);
 			$("#next-song").show();
 		} else {
 			$("#next-song").hide();

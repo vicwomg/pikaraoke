@@ -177,6 +177,12 @@ class TestGetMediaDuration:
             result = get_media_duration("/path/to/video.mp4")
             assert result == 120
 
+    def test_refuses_leading_dash_without_calling_ffprobe(self):
+        """A filename starting with '-' would be parsed by ffprobe as an option."""
+        with patch("pikaraoke.lib.ffmpeg.ffmpeg.probe") as mock_probe:
+            assert get_media_duration("-version") is None
+            mock_probe.assert_not_called()
+
 
 class TestIsTransposeEnabledIndexError:
     """Additional tests for is_transpose_enabled IndexError handling."""
