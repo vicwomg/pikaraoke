@@ -5,8 +5,6 @@ newer yt-dlp exists. Centralised here so the search page and the update worker
 shape one alert from facts rather than guesses.
 """
 
-from __future__ import annotations
-
 import os
 import re
 

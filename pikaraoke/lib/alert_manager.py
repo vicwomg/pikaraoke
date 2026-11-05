@@ -4,8 +4,6 @@ Keyed so raising one twice leaves one alert; the producer that raised it clears
 it. See `admin-alert-system-2026-08-23.md`.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 _SEVERITY_ORDER = {"danger": 0, "warning": 1}

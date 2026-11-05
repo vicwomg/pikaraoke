@@ -4,8 +4,6 @@ The only producer needing a clock, so it runs on a greenlet off the request
 path. Never self-upgrades: the alert carries the command or link to run by hand.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 
