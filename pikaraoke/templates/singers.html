@@ -337,9 +337,12 @@
 		#singer-action-bar .button > span:not(.icon) {
 			display: none;
 		}
-		/* The label is gone but still in the DOM, so Bulma keeps the margin it adds
-		   to space an icon from the text beside it. Zero it so the lone glyph sits
-		   centred rather than shoved to the left of the button. */
+		/* Icon-only, so square: fixed width matching the is-small height. */
+		#singer-action-bar .button {
+			width: 2.5em;
+			height: 2.5em;
+			padding: 0;
+		}
 		#singer-action-bar .button .icon:first-child:not(:last-child) {
 			margin-inline: 0;
 		}
