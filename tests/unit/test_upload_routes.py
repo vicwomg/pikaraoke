@@ -127,6 +127,17 @@ class TestPairs:
         assert os.path.isfile(os.path.join(str(tmp_path), "Song (2).mp3"))
         assert os.path.isfile(os.path.join(str(tmp_path), "Song (2).cdg"))
 
+    def test_companion_collision_moves_the_pair(self, tmp_path, client):
+        # An orphan .cdg holds the stem the .mp3 is free to take.
+        (tmp_path / "Song.cdg").write_text("orphan")
+        k = _instance(tmp_path)
+        files = [(io.BytesIO(b"audio"), "Song.mp3"), (io.BytesIO(b"graphics"), "Song.cdg")]
+        response = _post(client, k, files)
+        assert json.loads(response.data)["results"][0]["ok"] is True
+        assert (tmp_path / "Song.cdg").read_text() == "orphan"
+        assert os.path.isfile(os.path.join(str(tmp_path), "Song (2).mp3"))
+        assert os.path.isfile(os.path.join(str(tmp_path), "Song (2).cdg"))
+
     def test_lone_mp3_is_rejected(self, tmp_path, client):
         k = _instance(tmp_path)
         response = _post(client, k, (io.BytesIO(b"audio"), "Song.mp3"))
@@ -185,6 +196,24 @@ class TestZipValidation:
     def test_a_bomb_is_rejected_by_unpacked_size(self, tmp_path, client):
         k = _instance(tmp_path)
         archive = _zip_bytes([("Song.mp3", b"x" * 1000), ("Song.cdg", b"y" * 1000)])
+        with (
+            patch("pikaraoke.routes.upload.get_karaoke_instance", return_value=k),
+            patch("pikaraoke.routes.upload._MAX_ZIP_UNPACKED_BYTES", 100),
+        ):
+            response = client.post(
+                "/api/upload",
+                data={"files": (archive, "Song.zip")},
+                content_type="multipart/form-data",
+            )
+        assert json.loads(response.data)["results"][0]["ok"] is False
+        assert os.listdir(str(tmp_path)) == []
+
+    def test_a_nested_bomb_is_rejected_by_unpacked_size(self, tmp_path, client):
+        # The top-level pair fits under the cap, but the nested entry does not.
+        k = _instance(tmp_path)
+        archive = _zip_bytes(
+            [("Song.mp3", b"x"), ("Song.cdg", b"y"), ("payload/big.bin", b"z" * 1000)]
+        )
         with (
             patch("pikaraoke.routes.upload.get_karaoke_instance", return_value=k),
             patch("pikaraoke.routes.upload._MAX_ZIP_UNPACKED_BYTES", 100),

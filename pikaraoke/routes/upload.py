@@ -30,14 +30,18 @@ ALLOWED_UPLOAD_EXTENSIONS = PRIMARY_EXTENSIONS | COMPANION_EXTENSIONS
 _MAX_ZIP_UNPACKED_BYTES = 1024 * 1024 * 1024
 
 
-def _unique_target(directory: str, stem: str, ext: str) -> str:
-    """A path in `directory` for `stem+ext` that does not overwrite an existing file."""
-    candidate = os.path.join(directory, stem + ext)
+def _unique_target(directory: str, stem: str, primary_ext: str, group_exts: set[str]) -> str:
+    """A path for `stem+primary_ext` whose stem is free for every ext in the group.
+
+    The pair shares one stem, so a clash on the companion's `.cdg` overwrites an
+    unrelated file as surely as one on the primary.
+    """
+    candidate_stem = stem
     counter = 2
-    while os.path.exists(candidate):
-        candidate = os.path.join(directory, f"{stem} ({counter}){ext}")
+    while any(os.path.exists(os.path.join(directory, candidate_stem + e)) for e in group_exts):
+        candidate_stem = f"{stem} ({counter})"
         counter += 1
-    return candidate
+    return os.path.join(directory, candidate_stem + primary_ext)
 
 
 def _zip_rejection(stream) -> str | None:
@@ -48,8 +52,10 @@ def _zip_rejection(stream) -> str | None:
     """
     try:
         with zipfile.ZipFile(stream) as zf:
-            entries = [i for i in zf.infolist() if "/" not in i.filename and "\\" not in i.filename]
-            unpacked = sum(i.file_size for i in entries)
+            infos = zf.infolist()
+            # Sum every entry extractall unpacks, not just the top-level pair.
+            unpacked = sum(i.file_size for i in infos)
+            entries = [i for i in infos if "/" not in i.filename and "\\" not in i.filename]
     except (zipfile.BadZipFile, OSError):
         # MSG: Error on an uploaded zip that is not a readable archive.
         return _("Not a valid zip file")
@@ -137,7 +143,8 @@ def _save_group(k, name: str, storages: list[FileStorage]) -> dict:
         if reason:
             return {"name": name, "ok": False, "error": reason}
 
-    target = _unique_target(k.download_path, safe_stem, primary_ext)
+    group_exts = {primary_ext} | {comp_ext for comp_ext, _s in companions}
+    target = _unique_target(k.download_path, safe_stem, primary_ext, group_exts)
     try:
         primary.save(target)
         # Companions take the primary's final stem, not their own name: a collision
