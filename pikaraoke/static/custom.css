@@ -179,6 +179,25 @@ th.sortable:hover {
   width: auto;
   margin-left: 0.35em;
 }
+/* Right-aligned sortable headers carry the arrow ahead of the label (the
+   template puts the span first), so the label right-aligns with the cells below
+   and the arrow sits just to its left. The glyph is sub-em, so the gap is small. */
+th.sortable.has-text-right .sort-arrow {
+  margin-right: 0.05em;
+}
+th.sortable.has-text-right .sort-arrow i:before {
+  margin-left: 0;
+}
+/* The arrow is rendered in every sortable header, not only the sorted one (see
+   renderSortArrows). The sorted header colours it in; the rest hold the same
+   glyph transparently, purely to reserve its width -- so the sort can move from
+   one column to another without any column changing width and reflowing. */
+th.sortable .sort-arrow {
+  color: transparent;
+}
+th.sortable.is-sorted .sort-arrow {
+  color: inherit;
+}
 
 /* Bulma sets a modal's header apart from its body only by the shadow turned off
    above; the page colour does it by fill, as the wells do. */

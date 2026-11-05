@@ -74,5 +74,20 @@
 		);
 	}
 
+	// Mark a table's sorted column with a direction arrow. The glyph is rendered
+	// in every sortable header, not only the active one; the inactive headers draw
+	// it transparent (see custom.css) purely to hold the column's width, so the
+	// sort can move from one column to another without the table reflowing. Shared
+	// by every sortable table -- pass the table's selector and its current sort.
+	window.renderSortArrows = function (tableSelector, activeSort, direction) {
+		var arrow = direction === "asc" ? "ph-sort-ascending" : "ph-sort-descending";
+		$(tableSelector + " th.sortable").each(function () {
+			var $th = $(this);
+			var active = $th.data("sort") === activeSort;
+			$th.find(".sort-arrow").html('<i class="ph ' + (active ? arrow : "ph-sort-descending") + '"></i>');
+			$th.toggleClass("is-sorted", active);
+		});
+	};
+
 </script>
 {% endmacro %}

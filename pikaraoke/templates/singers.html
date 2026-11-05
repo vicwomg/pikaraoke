@@ -97,16 +97,6 @@
 		return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 	}
 
-	// Mark the sorted column with a direction arrow.
-	function renderSortArrows() {
-		var arrow = singerDirection === "asc" ? "ph-sort-ascending" : "ph-sort-descending";
-		$("#singer-list th.sortable").each(function () {
-			var $th = $(this);
-			var active = $th.data("sort") === singerSort;
-			$th.find(".sort-arrow").html(active ? '<i class="ph ' + arrow + '"></i>' : "");
-		});
-	}
-
 	// Re-click flips direction; a new column starts on its natural default
 	// (name A-Z, counts and dates highest first).
 	function applySort(sort) {
@@ -124,7 +114,7 @@
 			? lastRoster.filter(function (s) { return s.merged_into === null; })
 			: lastRoster;
 		renderRoster(shown.slice().sort(compareSingers));
-		renderSortArrows();
+		renderSortArrows("#singer-list", singerSort, singerDirection);
 	}
 
 	function renderRoster(singers) {
@@ -376,20 +366,23 @@
 	#singer-list .col-name {
 		padding-left: 0.5em;
 	}
-	/* Counts and date stay as snug as their content allows; the name column
-	   takes the slack, since it is the one that has to expand. */
-	#singer-list .col-plays {
-		width: 3.5em;
+	/* The app's tables are table-layout:fixed (custom.css), which turns every
+	   column width into a constant that has to track the label, the sort arrow,
+	   the body and two font sizes at once -- unmaintainable for the right-aligned
+	   sort columns here. This table opts into auto layout, so each column is
+	   exactly as wide as its content and the sort header right-aligns with the
+	   cells below at any font or translation. Name carries no width, so it is told
+	   to swallow the slack the others leave. */
+	#singer-list {
+		table-layout: auto;
 	}
-	#singer-list .col-when {
-		width: 4em;
+	#singer-list th.col-name {
+		width: 100%;
 	}
-	/* Added hugs the right, like Plays, so a short date sits against the column
-	   edge; nowrap keeps a dated year ("14 Dec 2024") on a single line. */
-	#singer-list th.col-when,
+	/* A time ("13:35") or a same-year date ("14 Jul") sits on one line; a
+	   cross-year date wraps rather than widening the column. */
 	#singer-list td.when {
 		text-align: right;
-		white-space: nowrap;
 	}
 	/* A merged singer is retired but kept -- like a skipped song on the play log,
 	   the row reads in grey, its name italic, and a switch hides the lot. */
@@ -485,9 +478,9 @@
 			{# MSG: Singer list column header for the singer's name. #}
 			<th class="sortable col-name" data-sort="name">{% trans %}Name{% endtrans %}<span class="sort-arrow"></span></th>
 			{# MSG: Singer list column header for how many songs the singer has sung. #}
-			<th class="sortable has-text-right" data-sort="plays">{% trans %}Plays{% endtrans %}<span class="sort-arrow"></span></th>
+			<th class="sortable has-text-right" data-sort="plays"><span class="sort-arrow"></span>{% trans %}Plays{% endtrans %}</th>
 			{# MSG: Singer list column header for the date the singer first sang. #}
-			<th class="sortable col-when" data-sort="added">{% trans %}Added{% endtrans %}<span class="sort-arrow"></span></th>
+			<th class="sortable has-text-right col-when" data-sort="added"><span class="sort-arrow"></span>{% trans %}Added{% endtrans %}</th>
 		</tr>
 	</thead>
 	<tbody id="singers-body"></tbody>

@@ -93,17 +93,6 @@
 		);
 	}
 
-	// Mark the sorted column, so it is clear which one the order came from. The
-	// glyph goes in bare, without Bulma's .icon: see .sort-arrow below.
-	function renderSortArrows() {
-		var arrow = historyDirection === "asc" ? "ph-sort-ascending" : "ph-sort-descending";
-		$("#play-log th.sortable").each(function () {
-			var $th = $(this);
-			var active = $th.data("sort") === historySort;
-			$th.find(".sort-arrow").html(active ? '<i class="ph ' + arrow + '"></i>' : "");
-		});
-	}
-
 	// Clicking the sorted column flips direction; a new one starts on its natural
 	// default (dates newest-first, names A-Z).
 	function applySort(sort) {
@@ -158,7 +147,7 @@
 			params.song = historySong;
 			params.youtube_id = historyYoutubeId;
 		}
-		renderSortArrows();
+		renderSortArrows("#play-log", historySort, historyDirection);
 		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
 			// Deleting the last row on the last page, or filtering down to a
 			// shorter log, would otherwise strand it on an empty one.
