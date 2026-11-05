@@ -115,21 +115,10 @@
       };
     }
 
-    // A monogram's hue, derived from the name so a singer wears one colour on
-    // every surface. A fixed saturation and lightness keep a white letter legible
-    // in light and dark; only the hue varies, the standard letter-avatar recipe.
-    function monogramHue(name) {
-      var hash = 0;
-      var text = String(name);
-      for (var i = 0; i < text.length; i++) {
-        hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-      }
-      return hash % 360;
-    }
-
     // One singer avatar for the navbar and the roster, loaded on every page so
-    // the two cannot drift. Retired face, else a coloured monogram, else the
-    // plain glyph for an unnamed device.
+    // the two cannot drift. Retired face, system robot, else a person glyph for
+    // a singer named or not. A plain icon for now: the named singer's coloured
+    // identity and photo avatars are deferred to their own feature.
     window.renderSingerAvatar = function (opts) {
       opts = opts || {};
       var title = opts.title ? ' title="' + escapeHtml(opts.title) + '"' : "";
@@ -139,17 +128,12 @@
       }
       if (opts.system) {
         // Randomizer and Pikaraoke are the system's own performers, not people:
-        // a robot on a muted disc, never a hued monogram.
+        // a robot on a muted disc.
         return '<span class="singer-avatar is-system"' + title +
           '><i class="ph ph-robot"></i></span>';
       }
-      if (opts.name) {
-        // Array.from keeps a surrogate-pair first character whole.
-        var letter = escapeHtml(Array.from(opts.name)[0] || "?");
-        return '<span class="singer-avatar"' + title +
-          '><span class="singer-monogram" style="--singer-hue:' +
-          monogramHue(opts.name) + '">' + letter + "</span></span>";
-      }
+      // A named singer is where the monogram or photo will slot in later; a
+      // plain person glyph until then, as for an unnamed device.
       return '<span class="singer-avatar"' + title + '><i class="ph ph-user-circle"></i></span>';
     };
 

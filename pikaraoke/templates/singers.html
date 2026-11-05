@@ -174,11 +174,16 @@
 		var names = selectedNames();
 		var mergeable = names.map(function (n) { return rosterByName[n]; }).filter(isMergeable);
 
-		// The count once something is ticked; empty otherwise, the header icon being
-		// the standing signpost for the checkboxes.
-		$("#selected-count").text(
-			names.length ? singerText.selectedCount.replace("{count}", names.length) : ""
-		);
+		// A compact badge once something is ticked: just the number on screen, the
+		// full "{count} selected" riding its tooltip and accessible label. Hidden
+		// otherwise, the header icon being the standing signpost for the checkboxes.
+		var $count = $("#selected-count");
+		if (names.length) {
+			var countLabel = singerText.selectedCount.replace("{count}", names.length);
+			$count.text(names.length).attr({ title: countLabel, "aria-label": countLabel }).removeClass("is-hidden");
+		} else {
+			$count.text("").removeAttr("title aria-label").addClass("is-hidden");
+		}
 		// Merge fuses exactly two identities. Delete is offered on any tick: the
 		// server keeps back a singer who still has plays and the toast says so,
 		// rather than a button that is disabled for a reason the operator cannot see.
@@ -335,17 +340,44 @@
 		margin-bottom: 16px;
 		border-bottom: 1px solid var(--bulma-border);
 	}
-	/* Checkbox and avatar read as one unit: pull the side padding in between them. */
+	/* On a phone the action buttons collapse to their icons, freeing the row for
+	   a third action; each button's title carries the name the hidden label would,
+	   as the navbar does at its own width. */
+	@media screen and (max-width: 600px) {
+		#singer-action-bar .button > span:not(.icon) {
+			display: none;
+		}
+		/* The label is gone but still in the DOM, so Bulma keeps the margin it adds
+		   to space an icon from the text beside it. Zero it so the lone glyph sits
+		   centred rather than shoved to the left of the button. */
+		#singer-action-bar .button .icon:first-child:not(:last-child) {
+			margin-inline: 0;
+		}
+	}
+	/* The checkbox, avatar and name open each row as one evenly spaced group:
+	   equal facing padding on each boundary, the avatar centred in its own
+	   column rather than left-aligned against the checkbox. The select header
+	   icon and the checkboxes beneath it centre on the same axis. */
 	#singer-list .col-select {
 		width: 2.25em;
-		padding-right: 0.25em;
+		text-align: center;
+		padding-right: 0.5em;
 	}
-	/* The four fixed columns stay as snug as their content allows; name takes the
-	   rest, since it is the one that has to expand. */
 	#singer-list .col-avatar {
 		width: 2.5em;
-		padding-left: 0.25em;
+		text-align: center;
+		padding-left: 0.5em;
+		padding-right: 0.5em;
 	}
+	/* Drop the shared avatar margin here so centring is not nudged off-axis. */
+	#singer-list .col-avatar .singer-avatar {
+		margin-right: 0;
+	}
+	#singer-list .col-name {
+		padding-left: 0.5em;
+	}
+	/* Counts and date stay as snug as their content allows; the name column
+	   takes the slack, since it is the one that has to expand. */
 	#singer-list .col-plays {
 		width: 3.5em;
 	}
@@ -353,15 +385,11 @@
 		width: 4em;
 	}
 	/* Added hugs the right, like Plays, so a short date sits against the column
-	   edge rather than adrift in it. */
+	   edge; nowrap keeps a dated year ("14 Dec 2024") on a single line. */
 	#singer-list th.col-when,
 	#singer-list td.when {
 		text-align: right;
-	}
-	/* The roster's avatar is larger than the navbar's; the shared .singer-avatar
-	   does the rest. */
-	#singer-list .singer-avatar {
-		--avatar-size: 2rem;
+		white-space: nowrap;
 	}
 	/* A merged singer is retired but kept -- like a skipped song on the play log,
 	   the row reads in grey, its name italic, and a switch hides the lot. */
@@ -420,17 +448,17 @@
 		{# MSG: Checkbox which hides singers that were merged into another. #}
 		{% trans %}Hide merged{% endtrans %}
 	</label>
-	<div class="is-flex is-align-items-center is-gap-3 ml-auto">
-		<span id="selected-count" class="has-text-grey"></span>
+	<div class="is-flex is-align-items-center is-gap-2 ml-auto">
+		<span id="selected-count" class="tag is-rounded is-info is-hidden"></span>
 		<div class="is-flex is-gap-2">
-			<button id="merge-btn" class="button is-small" disabled>
+			{# MSG: Button which merges two selected singers into one. #}
+			<button id="merge-btn" class="button is-small" title="{% trans %}Merge{% endtrans %}" disabled>
 				<span class="icon"><i class="ph ph-arrows-merge"></i></span>
-				{# MSG: Button which merges two selected singers into one. #}
 				<span>{% trans %}Merge{% endtrans %}</span>
 			</button>
-			<button id="delete-btn" class="button is-small is-danger" disabled>
+			{# MSG: Button which deletes the selected singers. #}
+			<button id="delete-btn" class="button is-small is-danger" title="{% trans %}Delete{% endtrans %}" disabled>
 				<span class="icon"><i class="ph ph-trash"></i></span>
-				{# MSG: Button which deletes the selected singers. #}
 				<span>{% trans %}Delete{% endtrans %}</span>
 			</button>
 		</div>
@@ -455,7 +483,7 @@
 			</th>
 			<th class="col-avatar"></th>
 			{# MSG: Singer list column header for the singer's name. #}
-			<th class="sortable" data-sort="name">{% trans %}Name{% endtrans %}<span class="sort-arrow"></span></th>
+			<th class="sortable col-name" data-sort="name">{% trans %}Name{% endtrans %}<span class="sort-arrow"></span></th>
 			{# MSG: Singer list column header for how many songs the singer has sung. #}
 			<th class="sortable has-text-right" data-sort="plays">{% trans %}Plays{% endtrans %}<span class="sort-arrow"></span></th>
 			{# MSG: Singer list column header for the date the singer first sang. #}
