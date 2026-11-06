@@ -282,6 +282,7 @@
 			message: message,
 			warning: singerText.cannotBeUndone,
 			confirmLabel: singerText.deleteAction,
+			confirmIcon: "ph-trash",
 			danger: true
 		}).done(function () {
 			$.ajax({
@@ -533,8 +534,9 @@
 				{% trans %}Cancel{% endtrans %}
 			</button>
 			<button id="merge-confirm" class="button is-danger">
+				<span class="icon"><i class="ph ph-arrows-merge" aria-hidden="true"></i></span>
 				{# MSG: Button confirming a merge of two singers in the merge dialog. #}
-				{% trans %}Merge{% endtrans %}
+				<span>{% trans %}Merge{% endtrans %}</span>
 			</button>
 		</footer>
 	</div>

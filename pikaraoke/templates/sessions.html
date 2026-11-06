@@ -41,16 +41,28 @@
 		nameToPromote: {{ _('Name to make active') | tojson }},
 		// {# MSG: Menu item which changes the name of a session that already has one. #}
 		renameSession: {{ _('Rename') | tojson }},
+		// {# MSG: Title of the dialog confirming deletion of a session and all its plays. #}
+		deleteSessionTitle: {{ _('Delete session') | tojson }},
 		// {# MSG: Confirmation before deleting a session and every play recorded in it. {session} is replaced with its name. #}
-		confirmDeleteSession: {{ _('Delete {session} and all of its plays? This cannot be undone.') | tojson }},
+		confirmDeleteSession: {{ _('Delete {session} and all of its plays?') | tojson }},
+		// {# MSG: Button label confirming deletion of a session. #}
+		deleteSessionAction: {{ _('Delete') | tojson }},
+		// {# MSG: Title of the dialog confirming deletion of every play in a session. #}
+		clearPlaysTitle: {{ _('Clear plays') | tojson }},
 		// {# MSG: Confirmation before deleting every play in a session while keeping the session. {session} is replaced with its name. #}
-		confirmClearPlays: {{ _('Delete every play recorded in {session}? The session itself is kept. This cannot be undone.') | tojson }},
+		confirmClearPlays: {{ _('Delete every play recorded in {session}? The session itself is kept.') | tojson }},
+		// {# MSG: Button label confirming the clearing of a session's plays. #}
+		clearPlaysAction: {{ _('Clear plays') | tojson }},
 		// {# MSG: Shown when no sessions have been recorded yet. #}
 		noSessions: {{ _('No sessions yet.') | tojson }},
 		// {# MSG: Shown when a session has no plays, so nobody has sung in it. #}
 		noSingers: {{ _('Nobody has sung in this session.') | tojson }},
+		// {# MSG: Title of the dialog confirming that an old session is made the active one. #}
+		activateTitle: {{ _('Activate session') | tojson }},
 		// {# MSG: Confirmation before making an old session the one new songs are recorded against. #}
-		confirmActivate: {{ _('Make {session} the active session? New songs will be recorded against it.') | tojson }}
+		confirmActivate: {{ _('Make {session} the active session? New songs will be recorded against it.') | tojson }},
+		// {# MSG: Button label confirming that an old session is made the active one. #}
+		activateAction: {{ _('Activate') | tojson }}
 	};
 
 	// A host-started session always has a name, so only one that auto-started on
@@ -235,29 +247,27 @@
 		});
 	}
 
-	// A prompt cannot enforce a maxlength the way the name box does, so an
-	// over-long name is cut to the same cap here rather than being refused by the
-	// API after the host has typed it.
-	//
 	// `alsoActivate` promotes a closed auto-started session: naming it and opening
 	// it are one intent. Sequenced rather than sent together, so a rejected name
 	// cannot leave a nameless session active -- the state this scheme avoids.
 	function renameSession(uuid, alsoActivate) {
-		var name = window.prompt(sessionText.promptRename);
-		if (name === null || name.trim() === "") {
-			return;
-		}
-		var trimmed = name.trim().slice(0, sessionNameMaxLength);
-		var renamed = putSession(uuid, { action: "rename", name: trimmed });
-		if (!alsoActivate) {
-			renamed.done(loadSessions);
-			return;
-		}
-		renamed
-			.then(function () {
-				return putSession(uuid, { action: "activate" });
-			})
-			.done(loadSessions);
+		// promptForText trims, refuses a blank and caps the length itself.
+		window.promptForText({
+			title: alsoActivate ? sessionText.nameToPromote : sessionText.renameSession,
+			label: sessionText.promptRename,
+			maxlength: sessionNameMaxLength
+		}).done(function (name) {
+			var renamed = putSession(uuid, { action: "rename", name: name });
+			if (!alsoActivate) {
+				renamed.done(loadSessions);
+				return;
+			}
+			renamed
+				.then(function () {
+					return putSession(uuid, { action: "activate" });
+				})
+				.done(loadSessions);
+		});
 	}
 
 	// Row actions live in one modal rather than a row of icons, matching the
@@ -297,9 +307,14 @@
 		closeSessionOptions();
 
 		if (action === "activate") {
-			if (window.confirm(sessionText.confirmActivate.replace("{session}", label))) {
+			window.confirmAction({
+				title: sessionText.activateTitle,
+				message: sessionText.confirmActivate.replace("{session}", label),
+				confirmLabel: sessionText.activateAction,
+				confirmIcon: "ph-broadcast"
+			}).done(function () {
 				putSession(uuid, { action: "activate" }).done(loadSessions);
-			}
+			});
 		} else if (action === "end") {
 			putSession(uuid, { action: "end" }).done(loadSessions);
 		} else if (action === "rename") {
@@ -307,15 +322,29 @@
 			// click that names it; there is no other way to activate one.
 			renameSession(uuid, $sessionModal.data("unnamed") && !$sessionModal.data("active"));
 		} else if (action === "clear") {
-			if (window.confirm(sessionText.confirmClearPlays.replace("{session}", label))) {
+			window.confirmAction({
+				title: sessionText.clearPlaysTitle,
+				message: sessionText.confirmClearPlays.replace("{session}", label),
+				warning: window.translations.cannotBeUndone,
+				confirmLabel: sessionText.clearPlaysAction,
+				confirmIcon: "ph-trash",
+				danger: true
+			}).done(function () {
 				var params = $.param({ scope: "session", session: uuid });
 				$.ajax({ url: "{{ url_for('sessions_api.reset_history') }}?" + params, type: "DELETE" })
 					.done(loadSessions);
-			}
+			});
 		} else if (action === "delete") {
-			if (window.confirm(sessionText.confirmDeleteSession.replace("{session}", label))) {
+			window.confirmAction({
+				title: sessionText.deleteSessionTitle,
+				message: sessionText.confirmDeleteSession.replace("{session}", label),
+				warning: window.translations.cannotBeUndone,
+				confirmLabel: sessionText.deleteSessionAction,
+				confirmIcon: "ph-trash",
+				danger: true
+			}).done(function () {
 				$.ajax({ url: sessionUrl(uuid), type: "DELETE" }).done(loadSessions);
-			}
+			});
 		}
 	}
 

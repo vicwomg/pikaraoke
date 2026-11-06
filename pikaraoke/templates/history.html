@@ -37,6 +37,8 @@
 	// translation would close the JS string literal and break this whole script.
 	// |tojson emits the literal instead. See tests/unit/test_template_i18n.py.
 	var historyText = {
+		// {# MSG: Title of the dialog confirming deletion of one play-log entry. #}
+		deletePlayTitle: {{ _('Delete entry') | tojson }},
 		// {# MSG: Confirmation before deleting one entry from the play log. #}
 		confirmDeletePlay: {{ _('Delete this entry from the play log?') | tojson }},
 		// {# MSG: Shown when the play log has no entries yet. #}
@@ -221,13 +223,19 @@
 	}
 
 	function deletePlay(id) {
-		if (!window.confirm(historyText.confirmDeletePlay)) {
-			return;
-		}
-		// A play is deleted at its own id under the same collection the log is
-		// read from.
-		var url = "{{ url_for('sessions_api.get_plays') }}/" + id;
-		$.ajax({ url: url, type: "DELETE" }).done(loadPlays);
+		window.confirmAction({
+			title: historyText.deletePlayTitle,
+			message: historyText.confirmDeletePlay,
+			warning: window.translations.cannotBeUndone,
+			confirmLabel: window.translations.deleteAction,
+			confirmIcon: "ph-trash",
+			danger: true
+		}).done(function () {
+			// A play is deleted at its own id under the same collection the log is
+			// read from.
+			var url = "{{ url_for('sessions_api.get_plays') }}/" + id;
+			$.ajax({ url: url, type: "DELETE" }).done(loadPlays);
+		});
 	}
 
 	$(function () {
