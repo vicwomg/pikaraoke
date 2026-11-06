@@ -25,6 +25,7 @@ from pikaraoke.routes.search_api import search_api_bp
 from pikaraoke.routes.sessions import sessions_bp
 from pikaraoke.routes.sessions_api import sessions_api_bp
 from pikaraoke.routes.settings import settings_bp
+from pikaraoke.routes.singers import singers_bp
 from pikaraoke.routes.singers_api import singers_api_bp
 from pikaraoke.routes.splash import splash_bp
 from pikaraoke.routes.stream import stream_bp
@@ -60,6 +61,7 @@ INTERNAL_BLUEPRINTS = [
     background_music_bp,
     info_bp,
     settings_bp,
+    singers_bp,
     splash_bp,
     batch_song_renamer_bp,
 ]

@@ -621,6 +621,37 @@ class Karaoke:
         self.events.emit("play_logged")
         return "renamed"
 
+    def merge_singers(self, loser_name: str, survivor_name: str) -> str:
+        """Fold one singer into another -- the admin's irreversible identity-collapse.
+
+        Beside rename_singer() and under the same lock, reaching the queue, the
+        screen and the stored singer together. Unlike a rename it writes no
+        cookie, which is why it can be the admin's: a device left on the loser's
+        name is caught by the tombstone on its next queue-add. Returns "merged",
+        "reserved" (a placeholder on either side) or "unknown" (not a live singer).
+        """
+        loser_name = normalize_name(loser_name)
+        survivor_name = normalize_name(survivor_name)
+        if (
+            loser_name.lower() in PLACEHOLDER_SINGERS
+            or survivor_name.lower() in PLACEHOLDER_SINGERS
+        ):
+            return "reserved"
+
+        with self._playback_lock:
+            # Validates both names before anything on the queue or screen moves.
+            if not self.singer_manager.merge(loser_name, survivor_name):
+                return "unknown"
+            self.queue_manager.rename_singer(loser_name, survivor_name)
+            if (self.playback_controller.now_playing_user or "").lower() == loser_name.lower():
+                self.playback_controller.now_playing_user = survivor_name
+            self.play_history.rename_current_performer(loser_name, survivor_name)
+
+        self.events.emit("queue_update")
+        self.events.emit("now_playing_update")
+        self.events.emit("play_logged")
+        return "merged"
+
     def _recue_current(self, semitones: int, reason: str) -> bool:
         """Re-enqueue the playing song at the head and end its stream.
 

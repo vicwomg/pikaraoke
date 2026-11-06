@@ -93,17 +93,6 @@
 		);
 	}
 
-	// Mark the sorted column, so it is clear which one the order came from. The
-	// glyph goes in bare, without Bulma's .icon: see .sort-arrow below.
-	function renderSortArrows() {
-		var arrow = historyDirection === "asc" ? "ph-sort-ascending" : "ph-sort-descending";
-		$("#play-log th.sortable").each(function () {
-			var $th = $(this);
-			var active = $th.data("sort") === historySort;
-			$th.find(".sort-arrow").html(active ? '<i class="ph ' + arrow + '"></i>' : "");
-		});
-	}
-
 	// Clicking the sorted column flips direction; a new one starts on its natural
 	// default (dates newest-first, names A-Z).
 	function applySort(sort) {
@@ -158,7 +147,7 @@
 			params.song = historySong;
 			params.youtube_id = historyYoutubeId;
 		}
-		renderSortArrows();
+		renderSortArrows("#play-log", historySort, historyDirection);
 		return $.getJSON("{{ url_for('sessions_api.get_plays') }}", params, function (data) {
 			// Deleting the last row on the last page, or filtering down to a
 			// shorter log, would otherwise strand it on an empty one.
@@ -338,31 +327,6 @@
 
 {% block header %}
 <style>
-	.history-table th.sortable {
-		cursor: pointer;
-		white-space: nowrap;
-	}
-	.history-table th.sortable:hover {
-		color: var(--bulma-text-strong);
-	}
-	/* The arrow is a bare Phosphor glyph, never a Bulma .icon: that is a 1.5rem
-	   inline-flex box which centres its glyph on its own axis instead of the
-	   header's baseline, so the arrow floats above the label and stretches the
-	   row to 1.5rem. Left as inline text it simply sits on the baseline.
-
-	   The width is reserved whether or not this is the sorted column, so
-	   clicking a header does not shuffle its label sideways. */
-	.sort-arrow {
-		display: inline-block;
-		width: 1.3em;
-		font-size: 0.8em;
-	}
-	/* A 0.4em gap sets the arrow off from the header label; width:auto drops the
-	   base .ph 1em glyph box, which would otherwise pad that gap unevenly. */
-	.sort-arrow i:before {
-		width: auto;
-		margin-left: 0.4em;
-	}
 	/* A skipped song stays on the record but was never a performance, so the row
 	   reads in the same grey as the marker saying so. The options trigger is
 	   unaffected -- Bulma's colour helpers are !important -- which is right: the
@@ -484,15 +448,15 @@
 		<tr>
 			{# MSG: Play log column header for when the song was played. #}
 			<th class="sortable" data-sort="played_at">
-				{% trans %}Played{% endtrans %} <span class="sort-arrow"></span>
+				{% trans %}Played{% endtrans %}<span class="sort-arrow"></span>
 			</th>
 			{# MSG: Play log column header for who sang the song. #}
 			<th class="sortable" data-sort="performer">
-				{% trans %}Singer{% endtrans %} <span class="sort-arrow"></span>
+				{% trans %}Singer{% endtrans %}<span class="sort-arrow"></span>
 			</th>
 			{# MSG: Play log column header for the song that was sung. #}
 			<th class="sortable" data-sort="song">
-				{% trans %}Song{% endtrans %} <span class="sort-arrow"></span>
+				{% trans %}Song{% endtrans %}<span class="sort-arrow"></span>
 			</th>
 			{# MSG: Play log column header for whether the song was played through, skipped, or is still playing. #}
 			{# Screen-reader-only, so the glyph alone -- not the word -- sets the column width. #}

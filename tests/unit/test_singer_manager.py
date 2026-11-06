@@ -323,3 +323,128 @@ class TestRename:
         singer_id = singers.get_or_create("Dvae")
         singers.rename("Dvae", "  Dav   ey  ")
         assert _performer(db, singer_id) == "Dav ey"
+
+
+class TestRosterMergeDelete:
+    @pytest.fixture
+    def add_play(self, db, singers):
+        """Record a completed play for a name, creating its singer row."""
+        session_id = db.execute("INSERT INTO sessions (uuid) VALUES ('s1')").lastrowid
+
+        def _add(name, title="A Song"):
+            singer_id = singers.get_or_create(name)
+            db.execute(
+                "INSERT INTO plays (session_id, song_title, performer, singer_id) "
+                "VALUES (?, ?, ?, ?)",
+                (session_id, title, name, singer_id),
+            )
+            return singer_id
+
+        return _add
+
+    @pytest.fixture
+    def library(self, db):
+        db.insert_songs(
+            [
+                {
+                    "file_path": "/s/Halo---dQw4w9WgXcQ.mp4",
+                    "youtube_id": "dQw4w9WgXcQ",
+                    "format": "mp4",
+                },
+                {"file_path": "/s/Local Rip.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        return {"youtube": "/s/Halo---dQw4w9WgXcQ.mp4", "local": "/s/Local Rip.mp4"}
+
+    def test_roster_reports_counts_and_merge_status(self, singers, add_play):
+        add_play("Dvae")
+        singers.get_or_create("Dave")
+        singers.merge("Dvae", "Dave")
+        roster = {r["name"]: r for r in singers.get_roster()}
+        assert roster["Dave"]["play_count"] == 1
+        assert roster["Dave"]["merged_into"] is None
+        assert roster["Dvae"]["play_count"] == 0
+        assert roster["Dvae"]["merged_into_name"] == "Dave"
+
+    def test_roster_never_exposes_the_secret_hash(self, db, singers):
+        singer_id = singers.get_or_create("Dave")
+        db.execute("UPDATE singers SET secret_hash = 'salt:hash' WHERE id = ?", (singer_id,))
+        assert all("secret_hash" not in row for row in singers.get_roster())
+
+    def test_roster_marks_system_singers(self, singers):
+        singers.get_or_create("Randomizer")
+        singers.get_or_create("Dave")
+        roster = {r["name"]: r for r in singers.get_roster()}
+        assert roster["Randomizer"]["is_system"] is True
+        assert roster["Dave"]["is_system"] is False
+
+    def test_merge_repoints_plays_and_tombstones_the_loser(self, db, singers, add_play):
+        loser = add_play("Dvae")
+        survivor = singers.get_or_create("Dave")
+        assert singers.merge("Dvae", "Dave") is True
+        assert db.query("SELECT singer_id FROM plays")[0]["singer_id"] == survivor
+        assert db.query("SELECT merged_into FROM singers WHERE id = ?", (loser,))[0][0] == survivor
+
+    def test_merge_unions_favourites_without_duplicates(self, singers, library):
+        singers.add_favourite("Dvae", library["youtube"])
+        singers.add_favourite("Dave", library["youtube"])
+        singers.add_favourite("Dvae", library["local"])
+        singers.merge("Dvae", "Dave")
+        assert singers.get_favourite_paths("Dave") == {library["youtube"], library["local"]}
+
+    def test_merge_refuses_a_missing_name(self, singers):
+        singers.get_or_create("Dave")
+        assert singers.merge("Ghost", "Dave") is False
+
+    def test_merge_refuses_one_singer_into_itself(self, singers):
+        singers.get_or_create("Dave")
+        assert singers.merge("Dave", "dave") is False
+
+    def test_merge_refuses_a_tombstone_operand(self, singers, add_play):
+        add_play("Dvae")
+        singers.get_or_create("Dave")
+        singers.merge("Dvae", "Dave")
+        assert singers.merge("Dvae", "Dave") is False
+
+    def test_merged_into_name_names_the_survivor(self, singers, add_play):
+        add_play("Dvae")
+        singers.get_or_create("Dave")
+        singers.merge("Dvae", "Dave")
+        assert singers.merged_into_name("Dvae") == "Dave"
+        assert singers.merged_into_name("Dave") is None
+        assert singers.merged_into_name("Ghost") is None
+
+    def test_delete_is_refused_while_the_singer_has_plays(self, singers, add_play):
+        add_play("Dave")
+        assert singers.delete_singer("Dave") is False
+        assert singers.find("Dave") is not None
+
+    def test_delete_removes_a_childless_singer_and_its_favourites(self, db, singers, library):
+        singers.add_favourite("Dave", library["youtube"])
+        assert singers.delete_singer("Dave") is True
+        assert singers.find("Dave") is None
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 0
+
+    def test_a_tombstone_is_deletable(self, singers, add_play):
+        add_play("Dvae")
+        singers.get_or_create("Dave")
+        singers.merge("Dvae", "Dave")
+        assert singers.delete_singer("Dvae") is True
+
+    def test_deleting_a_survivor_sweeps_its_tombstone(self, singers):
+        # Both childless, so the survivor is deletable; the tombstone pointing at
+        # it must cascade away rather than trip the merged_into foreign key.
+        singers.get_or_create("Dvae")
+        singers.get_or_create("Dave")
+        singers.merge("Dvae", "Dave")
+        assert singers.delete_singer("Dave") is True
+        assert singers.find("Dave") is None
+        assert singers.find("Dvae") is None
+
+    def test_delete_refuses_a_system_name(self, singers):
+        singers.get_or_create("Randomizer")
+        assert singers.delete_singer("Randomizer") is False
+        assert singers.find("Randomizer") is not None
+
+    def test_delete_of_an_unknown_name_is_a_no_op(self, singers):
+        assert singers.delete_singer("Ghost") is False

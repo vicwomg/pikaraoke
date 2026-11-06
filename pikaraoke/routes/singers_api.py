@@ -3,7 +3,7 @@
 import flask_babel
 from flask import jsonify
 from flask_smorest import Blueprint
-from marshmallow import Schema, ValidationError, fields, post_load
+from marshmallow import Schema, ValidationError, fields, post_load, validate
 
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.current_app import current_singer_name, get_karaoke_instance
@@ -52,6 +52,12 @@ def set_favourite(form):
     """
     k = get_karaoke_instance()
     name = form["song_added_by"]
+    # A merged name is retired, as at the queue add.
+    survivor = k.singer_manager.merged_into_name(name)
+    if survivor:
+        # MSG: Error when starring under a name the host merged into another. %(name)s is the surviving name.
+        error = _("This name was merged into %(name)s. Set your name to continue.", name=survivor)
+        return jsonify({"success": False, "error": error})
     if form["starred"]:
         k.singer_manager.add_favourite(name, form["song"])
     else:
@@ -116,3 +122,53 @@ def rename_singer(form):
         # MSG: Error when renaming to or from a reserved system name.
         return jsonify({"success": False, "error": _("That name is reserved")}), 409
     return jsonify({"success": True, "name": form["new_name"], "action": outcome})
+
+
+# ----------------------------------------------------------------------
+# The admin Singers page: the roster, and the two acts only an operator performs
+# ----------------------------------------------------------------------
+
+
+class MergeForm(Schema):
+    loser = fields.String(required=True, metadata={"description": "The name being folded away"})
+    survivor = fields.String(required=True, metadata={"description": "The name that is kept"})
+
+
+class DeleteForm(Schema):
+    names = fields.List(
+        fields.String(),
+        required=True,
+        validate=validate.Length(min=1),
+        metadata={"description": "The singers to delete, each with no plays"},
+    )
+
+
+@singers_api_bp.route("/api/singers")
+def get_roster():
+    """The singer roster for the admin page (admin only)."""
+    k = get_karaoke_instance()
+    return jsonify({"singers": k.singer_manager.get_roster()})
+
+
+@singers_api_bp.route("/api/singer/merge", methods=["POST"])
+@singers_api_bp.arguments(MergeForm, location="json")
+def merge_singers(form):
+    """Fold one singer into another, tombstoning the loser (admin only)."""
+    k = get_karaoke_instance()
+    outcome = k.merge_singers(form["loser"], form["survivor"])
+    if outcome == "reserved":
+        # MSG: Error when merging a reserved system name.
+        return jsonify({"success": False, "error": _("That name is reserved")}), 409
+    if outcome != "merged":
+        # MSG: Error when a singer named for a merge or delete no longer exists.
+        return jsonify({"success": False, "error": _("Singer not found")}), 404
+    return jsonify({"success": True})
+
+
+@singers_api_bp.route("/api/singer/delete", methods=["POST"])
+@singers_api_bp.arguments(DeleteForm, location="json")
+def delete_singers(form):
+    """Delete singers that own no plays (admin only); reports how many were removed."""
+    k = get_karaoke_instance()
+    deleted = sum(1 for name in form["names"] if k.singer_manager.delete_singer(name))
+    return jsonify({"success": True, "deleted": deleted, "requested": len(form["names"])})

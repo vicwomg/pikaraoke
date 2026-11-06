@@ -160,6 +160,45 @@
   --bulma-table-striped-row-even-hover-background-color: var(--bulma-table-row-hover-background-color);
 }
 
+/* A clickable sort header, keyed on .sortable not the table's class so it is
+   not tied to one table's name. */
+th.sortable {
+  cursor: pointer;
+  white-space: nowrap;
+}
+th.sortable:hover {
+  color: var(--bulma-text-strong);
+}
+/* A bare Phosphor glyph, not a Bulma .icon whose 1.5rem box would float it off
+   the baseline. */
+.sort-arrow {
+  font-size: 0.8em;
+}
+/* width:auto drops the centred .ph box so margin-left alone sets the gap. */
+.sort-arrow i:before {
+  width: auto;
+  margin-left: 0.35em;
+}
+/* Right-aligned sortable headers carry the arrow ahead of the label (the
+   template puts the span first), so the label right-aligns with the cells below
+   and the arrow sits just to its left. The glyph is sub-em, so the gap is small. */
+th.sortable.has-text-right .sort-arrow {
+  margin-right: 0.05em;
+}
+th.sortable.has-text-right .sort-arrow i:before {
+  margin-left: 0;
+}
+/* The arrow is rendered in every sortable header, not only the sorted one (see
+   renderSortArrows). The sorted header colours it in; the rest hold the same
+   glyph transparently, purely to reserve its width -- so the sort can move from
+   one column to another without any column changing width and reflowing. */
+th.sortable .sort-arrow {
+  color: transparent;
+}
+th.sortable.is-sorted .sort-arrow {
+  color: inherit;
+}
+
 /* Bulma sets a modal's header apart from its body only by the shadow turned off
    above; the page colour does it by fill, as the wells do. */
 .modal {
@@ -183,13 +222,14 @@
   border-end-end-radius: var(--bulma-modal-card-foot-radius);
 }
 
-/* The text-prompt dialog is a form, not the self-padding option list the shared
-   style zeroes body padding for, so its message and input get the head's inset. */
-#text-prompt-modal .modal-card {
+/* A prose or form modal, not the self-padding option list the shared style
+   above zeroes body padding for: its message, fields and buttons take the head's
+   inset, and its foot buttons the gap the foot itself gives none. Opt in with
+   `is-prose` on the modal-card; the option-list modals keep the 0 default. */
+.modal-card.is-prose {
   --bulma-modal-card-body-padding: 1rem;
 }
-/* Space the Save and Cancel buttons apart; the foot gives them none. */
-#text-prompt-modal .modal-card-foot {
+.modal-card.is-prose .modal-card-foot {
   gap: 0.75rem;
 }
 
@@ -421,17 +461,46 @@ a.navbar-item.is-active {
 #current-user .is-truncated {
   max-width: 8rem;
 }
-/* Avatar slot: today just the user-circle glyph, a cropped photo in a later PR.
-   It is its own flex wrapper rather than a Bulma .icon so the circle can fill the
-   slot edge to edge instead of sitting inside a padded box. The glyph is sized to
-   the full .icon box (1.5rem, not the 1.25rem tier) so its thin ring still reads
-   as large as the neighbouring bar icons, and it hugs its label the way they do. */
+/* One avatar slot for the navbar and the roster, a photo later: one footprint.
+   --avatar-size drives both slot and glyph in one place; position:relative
+   anchors a future lock badge. Its own flex wrapper, not a Bulma .icon, so a
+   disc or photo fills the slot rather than a padded box. vertical-align seats it
+   on the text middle inline and in a table cell; ignored where it is a flex
+   item (navbar). */
 .singer-avatar {
+  --avatar-size: 1.5rem;
+  position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
   margin-right: 0.125rem;
+  vertical-align: middle;
 }
-.singer-avatar .ph {
-  font-size: 1.5rem;
+.singer-avatar > .ph {
+  font-size: var(--avatar-size);
+}
+/* A retired (merged) singer: a knocked-out face on a muted disc, meant to read
+   as inactive. */
+.singer-avatar.is-retired {
+  border-radius: 50%;
+  background-color: color-mix(in srgb, var(--bulma-text) 12%, transparent);
+}
+.singer-avatar.is-retired > .ph {
+  font-size: calc(var(--avatar-size) * 0.6);
+  color: var(--bulma-grey-light);
+}
+/* A system performer (Randomizer, Pikaraoke): a solid accent disc, not muted,
+   so it reads as the app's own and active. */
+.singer-avatar.is-system {
+  border-radius: 50%;
+  background-color: var(--bulma-link);
+}
+.singer-avatar.is-system > .ph {
+  font-size: calc(var(--avatar-size) * 0.6);
+  color: var(--bulma-link-invert);
 }
 
 /* The box and the first navbar icon share one left inset, so the bar icons line

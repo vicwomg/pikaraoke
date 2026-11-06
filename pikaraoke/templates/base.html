@@ -50,6 +50,8 @@
       identityRenameNote: {{ _('Editing your name renames you everywhere.') | tojson }},
       // {# MSG: Toast confirming a singer renamed themselves. {name} is the new name. #}
       identityRenamed: {{ _('You are now {name}') | tojson }},
+      // {# MSG: Quiet button in the profile dialog that clears the name on this device. #}
+      identityLogout: {{ _('Log out') | tojson }},
       // {# MSG: Label on the name field in the identity dialog. #}
       usernameLabel: {{ _('Name') | tojson }},
       // {# MSG: Hint under the name field noting the name is public. #}
@@ -113,6 +115,28 @@
       };
     }
 
+    // One singer avatar for the navbar and the roster, loaded on every page so
+    // the two cannot drift. Retired face, system robot, else a person glyph for
+    // a singer named or not. A plain icon for now: the named singer's coloured
+    // identity and photo avatars are deferred to their own feature.
+    window.renderSingerAvatar = function (opts) {
+      opts = opts || {};
+      var title = opts.title ? ' title="' + escapeHtml(opts.title) + '"' : "";
+      if (opts.retired) {
+        return '<span class="singer-avatar is-retired"' + title +
+          '><i class="ph ph-smiley-x-eyes"></i></span>';
+      }
+      if (opts.system) {
+        // Randomizer and Pikaraoke are the system's own performers, not people:
+        // a robot on a muted disc.
+        return '<span class="singer-avatar is-system"' + title +
+          '><i class="ph ph-robot"></i></span>';
+      }
+      // A named singer is where the monogram or photo will slot in later; a
+      // plain person glyph until then, as for an unnamed device.
+      return '<span class="singer-avatar"' + title + '><i class="ph ph-user-circle"></i></span>';
+    };
+
     function connectSocket() {
       // io() once per tab: the SPA re-runs this script, and a second socket
       // leaks the first (still connected, still firing its listeners).
@@ -167,11 +191,21 @@
     // Shows the device's name in the navbar item, clearing the "Join in" state.
     window.setCurrentUser = function (name) {
       $("#current-user .is-truncated").text(name);
+      $("#current-user .singer-avatar").replaceWith(window.renderSingerAvatar({ name: name }));
       $("#current-user").attr({ title: name, "aria-label": name }).removeClass("has-text-success");
       // The one place a name is set. Pages that change when a device joins register
       // this hook so they update live, without waiting for a server event (the Home
       // welcome retires its Join button and switches its heading this way).
       if (typeof window.onIdentitySet === "function") window.onIdentitySet();
+    };
+
+    // Reverts the navbar item to the unnamed "Join in" state, the inverse of
+    // setCurrentUser. The caller clears the cookie and re-renders the page.
+    window.clearCurrentUser = function () {
+      var joinIn = window.translations.identityJoinTitle;
+      $("#current-user .singer-avatar").replaceWith(window.renderSingerAvatar({}));
+      $("#current-user .is-truncated").text(joinIn);
+      $("#current-user").attr({ title: joinIn, "aria-label": joinIn }).addClass("has-text-success");
     };
 
     // Persist this device's name and show it in the navbar. Returns whether the
@@ -369,6 +403,12 @@
           "&starred=" + (makeStarred ? "true" : "false") +
           "&song_added_by=" + encodeURIComponent(name);
         $.post(window.pikaraokeConfig.favouriteUrl, body, function (data) {
+          if (data.error) {
+            // A name merged into another is retired: the server refuses and says
+            // which name to take, as the queue add does.
+            showNotification(data.error, "is-danger");
+            return;
+          }
           if (data.success) {
             var template = data.starred
               ? window.translations.favouriteAdded
@@ -695,6 +735,11 @@
             {# MSG: Menu link to the karaoke session management page, only shown to the host. #}
             <span>{% trans %}Sessions{% endtrans %}</span>
           </a>
+          <a id="singers" class="navbar-item" href="{{ url_for('singers.singers') }}">
+            <span class="icon"><i class="ph ph-microphone-stage"></i></span>
+            {# MSG: Menu link to the admin page listing singers, where they are merged and deleted. #}
+            <span>{% trans %}Singers{% endtrans %}</span>
+          </a>
           {% endif %}
           <a id="settings" class="navbar-item" href="{{ url_for('settings.settings') }}">
             <span class="icon"><i class="ph ph-gear"></i></span>
@@ -752,7 +797,7 @@
        swaps only .box) cannot destroy it. Driven by promptForText(). #}
     <div class="modal" id="text-prompt-modal">
       <div class="modal-background"></div>
-      <div class="modal-card">
+      <div class="modal-card is-prose">
         <header class="modal-card-head">
           <p class="modal-card-title is-size-5 mb-0" id="text-prompt-title"></p>
           <button class="delete text-prompt-cancel" aria-label="close"></button>
@@ -768,11 +813,31 @@
           </div>
         </section>
         <footer class="modal-card-foot is-justify-content-flex-end">
-          {# Quiet, left-pushed by mr-auto: hands the device to a different singer.
-             Shown only when the dialog carries a secondary action (profile mode). #}
-          <button class="button is-ghost is-hidden mr-auto" id="text-prompt-secondary"></button>
+          {# Left-pushed by mr-auto. A default (dark) button with green text and icon
+             -- the same success green as the "Join in" state logout returns you to --
+             so it reads as a button, distinct from the plain Cancel. Profile mode only. #}
+          <button class="button has-text-success is-hidden mr-auto" id="text-prompt-secondary"></button>
           <button class="button text-prompt-cancel">{% trans %}Cancel{% endtrans %}</button>
           <button class="button is-primary" id="text-prompt-ok">{% trans %}Save{% endtrans %}</button>
+        </footer>
+      </div>
+    </div>
+
+    {# Reusable confirm dialog, the yes/no companion to the text prompt and kept
+       outside .box for the same reason. Driven by confirmAction(). #}
+    <div class="modal" id="confirm-modal">
+      <div class="modal-background"></div>
+      <div class="modal-card is-prose">
+        <header class="modal-card-head">
+          <p class="modal-card-title is-size-5 mb-0" id="confirm-title"></p>
+          <button class="delete confirm-cancel" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p id="confirm-message" class="is-hidden"></p>
+        </section>
+        <footer class="modal-card-foot is-justify-content-flex-end">
+          <button class="button confirm-cancel">{% trans %}Cancel{% endtrans %}</button>
+          <button class="button" id="confirm-ok"></button>
         </footer>
       </div>
     </div>

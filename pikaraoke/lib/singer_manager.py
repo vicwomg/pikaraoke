@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.queue_manager import PLACEHOLDER_SINGERS
 
 # The name is the singer's identity -- plays, favourites and the coming
 # name-lock all key on it -- so it is canonicalised to one shape before storage
@@ -241,3 +242,108 @@ class SingerManager:
             (singer["id"],),
         )
         return {row["file_path"] for row in rows}
+
+    # ------------------------------------------------------------------
+    # The roster, merge and delete (the admin Singers page)
+    # ------------------------------------------------------------------
+
+    def get_roster(self) -> list[dict]:
+        """Every singer with play count, added date and merge status, for the admin page.
+
+        Named columns, never SELECT *, so secret_hash never leaves the database.
+        A tombstone carries the surviving name to show "merged into Dave".
+        """
+        rows = self.db.query("""
+            SELECT s.id,
+                   s.name,
+                   s.merged_into,
+                   surv.name AS merged_into_name,
+                   COUNT(p.id) AS play_count,
+                   -- Stored UTC, shown wall-clock, converted here in SQL.
+                   datetime(s.created_at, 'localtime') AS added
+            FROM singers s
+            LEFT JOIN plays p ON p.singer_id = s.id
+            LEFT JOIN singers surv ON surv.id = s.merged_into
+            GROUP BY s.id
+            ORDER BY s.name COLLATE NOCASE
+            """)
+        roster = []
+        for row in rows:
+            singer = dict(row)
+            # Randomizer and Pikaraoke are the system's own names, not people: the
+            # page excludes them from merge and delete, as rename already does.
+            singer["is_system"] = singer["name"].lower() in PLACEHOLDER_SINGERS
+            roster.append(singer)
+        return roster
+
+    def merged_into_name(self, name: str) -> str | None:
+        """The surviving name when `name` is a merge tombstone, else None.
+
+        The enqueue and favourite paths read this to turn a stranded device away
+        rather than let it re-fork a fresh row under the retired name.
+        """
+        name = normalize_name(name)
+        rows = self.db.query(
+            "SELECT surv.name AS survivor FROM singers loser "
+            "JOIN singers surv ON surv.id = loser.merged_into "
+            "WHERE loser.name = ? COLLATE NOCASE",
+            (name,),
+        )
+        return rows[0]["survivor"] if rows else None
+
+    def _active_row(self, name: str) -> dict | None:
+        """A live singer row (id) by name, or None when absent or a tombstone."""
+        name = normalize_name(name)
+        rows = self.db.query(
+            "SELECT id FROM singers WHERE name = ? COLLATE NOCASE AND merged_into IS NULL",
+            (name,),
+        )
+        return dict(rows[0]) if rows else None
+
+    def merge(self, loser_name: str, survivor_name: str) -> bool:
+        """Repoint the loser's data onto the survivor and tombstone the loser row.
+
+        UPDATE OR IGNORE so a favourite or preference the survivor already holds
+        wins the clash; the loser's duplicate is left orphaned until its delete
+        cascades it away. The loser is tombstoned, not deleted, so a device still
+        on the old name is caught rather than re-forking it. Returns False unless
+        both names are live, distinct singers.
+        """
+        loser = self._active_row(loser_name)
+        survivor = self._active_row(survivor_name)
+        if loser is None or survivor is None or loser["id"] == survivor["id"]:
+            return False
+        loser_id, survivor_id = loser["id"], survivor["id"]
+        self.db.execute(
+            "UPDATE plays SET singer_id = ? WHERE singer_id = ?", (survivor_id, loser_id)
+        )
+        self.db.execute(
+            "UPDATE OR IGNORE singer_songs SET singer_id = ? WHERE singer_id = ?",
+            (survivor_id, loser_id),
+        )
+        self.db.execute(
+            "UPDATE OR IGNORE singer_preferences SET singer_id = ? WHERE singer_id = ?",
+            (survivor_id, loser_id),
+        )
+        self.db.execute("UPDATE singers SET merged_into = ? WHERE id = ?", (survivor_id, loser_id))
+        return True
+
+    def delete_singer(self, name: str) -> bool:
+        """Remove a singer, cascading its favourites, preferences and tombstones.
+
+        Refused while the singer has plays -- those are the play history's to
+        clear first -- and for a system name, which is not a person's to remove,
+        as merge already refuses. A tombstone always deletes, its plays having
+        moved away; deleting a survivor sweeps the tombstones that point at it.
+        """
+        name = normalize_name(name)
+        if name.lower() in PLACEHOLDER_SINGERS:
+            return False
+        rows = self.db.query("SELECT id FROM singers WHERE name = ? COLLATE NOCASE", (name,))
+        if not rows:
+            return False
+        singer_id = rows[0]["id"]
+        if self.db.query("SELECT 1 FROM plays WHERE singer_id = ? LIMIT 1", (singer_id,)):
+            return False
+        self.db.execute("DELETE FROM singers WHERE id = ?", (singer_id,))
+        return True
