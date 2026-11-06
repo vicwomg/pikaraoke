@@ -124,21 +124,21 @@ class TestMergeSingers:
 
 class TestDeleteSingers:
     def test_deletes_each_named_singer(self, client, karaoke):
-        karaoke.singer_manager.delete_singer.return_value = True
+        karaoke.delete_singer.return_value = True
         resp = client.post("/api/singer/delete", json={"names": ["Dvae", "Old"]})
         assert resp.status_code == 200
         assert resp.get_json() == {"success": True, "deleted": 2, "requested": 2}
-        assert karaoke.singer_manager.delete_singer.call_count == 2
+        assert karaoke.delete_singer.call_count == 2
 
     def test_reports_how_many_were_kept_back(self, client, karaoke):
-        karaoke.singer_manager.delete_singer.side_effect = [True, False]
-        resp = client.post("/api/singer/delete", json={"names": ["Dvae", "HasPlays"]})
+        karaoke.delete_singer.side_effect = [True, False]
+        resp = client.post("/api/singer/delete", json={"names": ["Dvae", "Gone"]})
         assert resp.get_json() == {"success": True, "deleted": 1, "requested": 2}
 
     def test_an_empty_list_is_refused(self, client, karaoke):
         resp = client.post("/api/singer/delete", json={"names": []})
         assert resp.status_code == 422
-        karaoke.singer_manager.delete_singer.assert_not_called()
+        karaoke.delete_singer.assert_not_called()
 
 
 class TestRoster:

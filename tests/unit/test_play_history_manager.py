@@ -1277,6 +1277,41 @@ class TestClearHistory:
     def test_clearing_an_unknown_session(self, history):
         assert history.clear_session_plays("no-such-uuid") is False
 
+    def test_clearing_a_singer_takes_only_their_plays(self, history, song_id):
+        history.start_session("Tonight")
+        history.record_play(song_id, None, "Alice", "A Song")
+        history.record_play(song_id, None, "Bob", "A Song")
+        alice = history.singers.find("Alice")["id"]
+
+        history.clear_singer_plays(alice)
+
+        # Bob's play, and the session, both stand.
+        assert [p["performer"] for p in history.get_plays()] == ["Bob"]
+        assert history.get_current_session()["name"] == "Tonight"
+
+    def test_clearing_a_singer_unblocks_deleting_them(self, history, song_id):
+        """The point of the method: a play blocks the row delete until it is gone.
+        The two real managers together are what Karaoke.delete_singer orders."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        alice = history.singers.find("Alice")["id"]
+
+        history.clear_singer_plays(alice)
+
+        assert history.singers.delete_singer("Alice") is True
+        assert history.singers.find("Alice") is None
+
+    def test_clearing_a_singer_forgets_their_in_flight_play(self, history, events, song_id):
+        """As a reset does: with the open row gone, a transpose restart has
+        nothing to reuse, so the song on screen must still record a play."""
+        history.record_play(song_id, None, "Alice", "A Song")
+        alice = history.singers.find("Alice")["id"]
+        history.clear_singer_plays(alice)
+        events.emit("song_ended", "transpose")
+
+        history.record_play(song_id, None, "Alice", "A Song")
+
+        assert [p["performer"] for p in history.get_plays()] == ["Alice"]
+
     def test_reset_removes_every_session_and_play(self, history, song_id):
         history.start_session("One")
         history.record_play(song_id, None, "Alice", "A Song")

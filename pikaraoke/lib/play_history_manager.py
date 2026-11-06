@@ -727,6 +727,19 @@ class PlayHistoryManager:
         self._forget_deleted_play()
         return True
 
+    def clear_singer_plays(self, singer_id: int) -> None:
+        """Delete every play by one singer, leaving the sessions standing.
+
+        The counterpart to clear_session_plays on the other axis, and for the
+        same reasons: a singer's history is erased so the admin can then remove
+        their row, which the plays' foreign key otherwise forbids. A session
+        left empty of its only singer stays, as clearing a session's plays
+        leaves the session. Forgets the in-flight play when it was theirs, so a
+        transpose restart does not try to reuse a row that is now gone.
+        """
+        self.db.execute("DELETE FROM plays WHERE singer_id = ?", (singer_id,))
+        self._forget_deleted_play()
+
     def clear_all_history(self) -> None:
         """Delete every session and every play.
 

@@ -834,6 +834,14 @@
         </header>
         <section class="modal-card-body">
           <p id="confirm-message" class="is-hidden"></p>
+          {# Set apart from the question by a gap, an icon and the danger colour,
+             so an action with no going back reads as one before the button is
+             pressed. The text sits in its own span so the helper can rewrite it
+             without dropping the icon. #}
+          <p id="confirm-warning" class="is-hidden has-text-danger has-text-weight-medium mt-4 is-flex is-align-items-center is-gap-2">
+            <span class="icon"><i class="ph ph-warning" aria-hidden="true"></i></span>
+            <span id="confirm-warning-text"></span>
+          </p>
         </section>
         <footer class="modal-card-foot is-justify-content-flex-end">
           <button class="button confirm-cancel">{% trans %}Cancel{% endtrans %}</button>

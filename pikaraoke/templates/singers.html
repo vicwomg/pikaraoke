@@ -43,14 +43,18 @@
 		playsMeta: {{ _('{count} plays') | tojson }},
 		// {# MSG: Title of the dialog confirming a delete of singers. #}
 		deleteTitle: {{ _('Delete singers') | tojson }},
-		// {# MSG: Confirmation before deleting singers. {count} is replaced with a number. #}
-		confirmDelete: {{ _('Delete {count} singer(s)? This cannot be undone.') | tojson }},
+		// {# MSG: Confirmation before deleting singers who have no plays. {count} is replaced with a number. #}
+		confirmDelete: {{ _('Delete {count} singer(s)?') | tojson }},
+		// {# MSG: Confirmation before deleting singers, naming the plays destroyed with them. {count} and {plays} are numbers. #}
+		confirmDeleteWithPlays: {{ _('Delete {count} singer(s) and their {plays} play(s)?') | tojson }},
+		// {# MSG: Irreversibility line shown on its own beneath a destructive confirmation. #}
+		cannotBeUndone: {{ _('This cannot be undone.') | tojson }},
 		// {# MSG: Button confirming the delete in the delete dialog. #}
 		deleteAction: {{ _('Delete') | tojson }},
-		// {# MSG: Shown after a delete when none could be removed because they still have plays. #}
-		deleteNone: {{ _('Nothing deleted: those singers still have plays. Clear their history first.') | tojson }},
-		// {# MSG: Shown after a delete that removed some but kept others with plays. {deleted} and {requested} are numbers. #}
-		deletePartial: {{ _('Deleted {deleted} of {requested}. The rest still have plays -- clear their history first.') | tojson }},
+		// {# MSG: Shown after a delete when none of the selected singers could be found (already removed elsewhere). #}
+		deleteNone: {{ _('Nothing deleted: those singers were no longer there.') | tojson }},
+		// {# MSG: Shown after a delete that removed some; the rest were already gone. {deleted} and {requested} are numbers. #}
+		deletePartial: {{ _('Deleted {deleted} of {requested}; the rest were no longer there.') | tojson }},
 		// {# MSG: Summary in the merge dialog of which name is folded into which. {loser} and {survivor} are names. #}
 		mergeSummary: {{ _('{loser} will be merged into {survivor}') | tojson }}
 	};
@@ -265,9 +269,18 @@
 	function confirmDelete() {
 		var names = selectedNames();
 		if (!names.length) { return; }
+		// Delete now erases the singer's history with them, so the confirmation
+		// names the plays at stake; a selection with none keeps the plainer line.
+		var plays = names.reduce(function (sum, n) {
+			return sum + (rosterByName[n] ? rosterByName[n].play_count : 0);
+		}, 0);
+		var message = plays
+			? singerText.confirmDeleteWithPlays.replace("{count}", names.length).replace("{plays}", plays)
+			: singerText.confirmDelete.replace("{count}", names.length);
 		window.confirmAction({
 			title: singerText.deleteTitle,
-			message: singerText.confirmDelete.replace("{count}", names.length),
+			message: message,
+			warning: singerText.cannotBeUndone,
 			confirmLabel: singerText.deleteAction,
 			danger: true
 		}).done(function () {
@@ -279,8 +292,9 @@
 			}).done(function (data) {
 				selected = {};
 				loadRoster();
-				// A singer with plays is kept back by the server; the row vanishing is
-				// feedback enough when all go, so only a shortfall needs saying.
+				// A shortfall now means a name was already gone (merged or deleted
+				// from another device since the tick); the row vanishing is feedback
+				// enough when all go, so only that shortfall needs saying.
 				if (data.deleted === 0) {
 					showNotification(singerText.deleteNone, "is-warning");
 				} else if (data.deleted < data.requested) {
@@ -503,9 +517,15 @@
 			<button class="delete modal-close-btn" aria-label="close"></button>
 		</header>
 		<section class="modal-card-body">
-			<p class="mb-4">{% trans %}Everything moves onto the name you keep. This cannot be undone.{% endtrans %}</p>
+			<p class="mb-4">{% trans %}Everything moves onto the name you keep.{% endtrans %}</p>
 			<div id="merge-choices"></div>
 			<p id="merge-summary" class="mt-4"></p>
+			{# The same spaced, iconed irreversibility line the delete confirmation
+			   shows through confirmAction, here in the bespoke merge modal. #}
+			<p class="has-text-danger has-text-weight-medium mt-4 is-flex is-align-items-center is-gap-2">
+				<span class="icon"><i class="ph ph-warning" aria-hidden="true"></i></span>
+				<span>{% trans %}This cannot be undone.{% endtrans %}</span>
+			</p>
 		</section>
 		<footer class="modal-card-foot is-justify-content-flex-end">
 			<button id="merge-confirm" class="button is-danger">

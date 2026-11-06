@@ -139,7 +139,7 @@ class DeleteForm(Schema):
         fields.String(),
         required=True,
         validate=validate.Length(min=1),
-        metadata={"description": "The singers to delete, each with no plays"},
+        metadata={"description": "The singers to delete, each with all their plays"},
     )
 
 
@@ -168,7 +168,7 @@ def merge_singers(form):
 @singers_api_bp.route("/api/singer/delete", methods=["POST"])
 @singers_api_bp.arguments(DeleteForm, location="json")
 def delete_singers(form):
-    """Delete singers that own no plays (admin only); reports how many were removed."""
+    """Delete singers and all their plays (admin only); reports how many were removed."""
     k = get_karaoke_instance()
-    deleted = sum(1 for name in form["names"] if k.singer_manager.delete_singer(name))
+    deleted = sum(1 for name in form["names"] if k.delete_singer(name))
     return jsonify({"success": True, "deleted": deleted, "requested": len(form["names"])})

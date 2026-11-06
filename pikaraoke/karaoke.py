@@ -652,6 +652,30 @@ class Karaoke:
         self.events.emit("play_logged")
         return "merged"
 
+    def delete_singer(self, name: str) -> bool:
+        """Erase a singer and all their plays -- the admin's irreversible removal.
+
+        Beside merge_singers(), but with no survivor to carry anything onto: the
+        singer's plays are destroyed outright, along with the favourites,
+        preferences and tombstones their row cascades away. Plays go first --
+        the row cannot be removed while one still points at it, plays.singer_id
+        having no delete-cascade -- so the system-name refusal has to come
+        before that, or a placeholder like Randomizer would have its plays wiped
+        before the row delete declined. Returns True when the singer was removed.
+        """
+        name = normalize_name(name)
+        if name.lower() in PLACEHOLDER_SINGERS:
+            return False
+        singer = self.singer_manager.find(name)
+        if singer is None:
+            return False
+        self.play_history.clear_singer_plays(singer["id"])
+        self.singer_manager.delete_singer(name)
+        # Open report pages re-read their counts; the in-flight play, if it was
+        # theirs, was forgotten as the plays were cleared.
+        self.events.emit("play_logged")
+        return True
+
     def _recue_current(self, semitones: int, reason: str) -> bool:
         """Re-enqueue the playing song at the head and end its stream.
 
