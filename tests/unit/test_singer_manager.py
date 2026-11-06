@@ -431,5 +431,20 @@ class TestRosterMergeDelete:
         singers.merge("Dvae", "Dave")
         assert singers.delete_singer("Dvae") is True
 
+    def test_deleting_a_survivor_sweeps_its_tombstone(self, singers):
+        # Both childless, so the survivor is deletable; the tombstone pointing at
+        # it must cascade away rather than trip the merged_into foreign key.
+        singers.get_or_create("Dvae")
+        singers.get_or_create("Dave")
+        singers.merge("Dvae", "Dave")
+        assert singers.delete_singer("Dave") is True
+        assert singers.find("Dave") is None
+        assert singers.find("Dvae") is None
+
+    def test_delete_refuses_a_system_name(self, singers):
+        singers.get_or_create("Randomizer")
+        assert singers.delete_singer("Randomizer") is False
+        assert singers.find("Randomizer") is not None
+
     def test_delete_of_an_unknown_name_is_a_no_op(self, singers):
         assert singers.delete_singer("Ghost") is False

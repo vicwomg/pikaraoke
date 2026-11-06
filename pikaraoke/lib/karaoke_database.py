@@ -79,7 +79,9 @@ CREATE TABLE IF NOT EXISTS singers (
     -- A tombstone: the surviving singer's id once an admin merges this name
     -- away, NULL on a live singer. Kept rather than deleted so a device still on
     -- the old name is told to re-name rather than silently re-forking a row.
-    merged_into INTEGER REFERENCES singers(id),
+    -- ON DELETE CASCADE: deleting the survivor sweeps its redirect tombstones,
+    -- which point nowhere once it is gone (a device on the old name re-forks).
+    merged_into INTEGER REFERENCES singers(id) ON DELETE CASCADE,
     -- Relative path to an uploaded avatar; NULL until set. Reserved here, written
     -- only once avatars land behind the name lock (never on an unprotected name).
     avatar_path TEXT
@@ -257,7 +259,8 @@ class KaraokeDatabase:
                 # only a v2 upgrade alters.
                 if self._table_exists("singers"):
                     self._conn.execute(
-                        "ALTER TABLE singers ADD COLUMN merged_into INTEGER REFERENCES singers(id)"
+                        "ALTER TABLE singers ADD COLUMN merged_into INTEGER "
+                        "REFERENCES singers(id) ON DELETE CASCADE"
                     )
                     self._conn.execute("ALTER TABLE singers ADD COLUMN avatar_path TEXT")
 
