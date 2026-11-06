@@ -168,7 +168,8 @@
 					'" data-name="' + name + '">' +
 					'<td class="col-select">' + check + "</td>" +
 					'<td class="col-avatar">' + badge + "</td>" +
-					'<td class="col-name"><span class="singer-name">' + name + "</span>" + mergedNote + "</td>" +
+					'<td class="col-name"><span class="singer-name' + (isTomb ? " is-italic" : "") +
+						'">' + name + "</span>" + mergedNote + "</td>" +
 					'<td class="col-plays has-text-right">' + s.play_count + "</td>" +
 					added +
 				"</tr>"
@@ -223,14 +224,14 @@
 		var $choices = $("#merge-choices").empty();
 		names.forEach(function (n) {
 			var row = rosterByName[n];
-			var $label = $('<label class="merge-choice">');
+			var $label = $('<label class="merge-choice is-flex is-align-items-center is-gap-3 py-3 px-4 mb-2">');
 			$('<input type="radio" name="survivor">')
 				.attr("value", n)
 				.prop("checked", n === keep)
 				.appendTo($label);
-			var $detail = $('<span class="merge-choice-detail">');
-			$('<span class="merge-choice-name">').text(n).appendTo($detail);
-			$('<span class="merge-choice-meta">').text(playsMeta(row.play_count)).appendTo($detail);
+			var $detail = $('<span class="merge-choice-detail is-flex is-flex-direction-column">');
+			$('<span class="has-text-weight-semibold">').text(n).appendTo($detail);
+			$('<span class="is-size-7 has-text-grey">').text(playsMeta(row.play_count)).appendTo($detail);
 			$detail.appendTo($label);
 			$choices.append($label);
 		});
@@ -344,14 +345,10 @@
 {% block header %}
 <style>
 	/* A standing toolbar above the table rather than one that appears on the
-	   first tick, which read as a jump. Its buttons enable with the selection. */
+	   first tick, which read as a jump. Its buttons enable with the selection.
+	   Layout and spacing ride Bulma helpers in the markup; only the divider,
+	   which has no helper, stays here. */
 	#singer-action-bar {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		align-items: center;
-		padding-bottom: 12px;
-		margin-bottom: 16px;
 		border-bottom: 1px solid var(--bulma-border);
 	}
 	/* On a phone the action buttons collapse to their icons, freeing the row for
@@ -416,9 +413,6 @@
 	.is-tombstone td {
 		color: var(--bulma-grey-light);
 	}
-	.is-tombstone .singer-name {
-		font-style: italic;
-	}
 	/* The confirmation line, readable rather than a dim grey on the dark card. */
 	#merge-summary {
 		color: var(--bulma-text);
@@ -426,11 +420,6 @@
 	/* The merge survivor is picked from two cards rather than a bare radio list,
 	   so which name is kept reads at a glance. */
 	.merge-choice {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		margin-bottom: 0.5rem;
 		border: 2px solid var(--bulma-border);
 		border-radius: var(--bulma-radius);
 		cursor: pointer;
@@ -444,23 +433,14 @@
 		background-color: color-mix(in srgb, var(--bulma-success) 8%, transparent);
 	}
 	.merge-choice-detail {
-		display: flex;
-		flex-direction: column;
 		line-height: 1.3;
-	}
-	.merge-choice-name {
-		font-weight: 600;
-	}
-	.merge-choice-meta {
-		font-size: 0.85em;
-		color: var(--bulma-grey);
 	}
 </style>
 {% endblock %}
 
 {% block content %}
 
-<div id="singer-action-bar">
+<div id="singer-action-bar" class="is-flex is-flex-wrap-wrap is-align-items-center is-gap-2 pb-3 mb-4">
 	{# Off by default, like Hide skipped on the play log: tombstones show, muted,
 	   until the operator clears them out and hides the rest. #}
 	<label class="checkbox is-size-7 is-inline-flex is-align-items-center is-gap-0.5 has-text-grey-light">
