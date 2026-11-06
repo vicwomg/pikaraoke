@@ -132,6 +132,7 @@
 		savedHint: {{ _('Saved - no password needed') | tojson }},
 		switching: {{ _('Switching network. Watch the TV to see what happens.') | tojson }},
 		needName: {{ _('Enter or choose a network name first.') | tojson }},
+		needPassword: {{ _('This network is secured. Type its password to join.') | tojson }},
 		failed: {{ _('Could not reach PiKaraoke to switch networks.') | tojson }},
 	};
 
@@ -141,6 +142,12 @@
 		const $list = $("#wifi-networks");
 		const $name = $("#wifi-name");
 		const $password = $("#wifi-password");
+
+		// Names from the last scan that need a password, and names we already
+		// have a profile for (which rejoin without one). Kept so the Connect
+		// button can refuse a secured network with no password typed.
+		const securedNames = new Set();
+		const savedNames = new Set();
 
 		function row(contents) {
 			return $('<div class="panel-block px-5 py-3 has-text-grey-light">').text(contents);
@@ -189,12 +196,14 @@
 
 		function renderNetworks(networks) {
 			$list.empty();
+			securedNames.clear();
 			if (!networks.length) {
 				$list.append(row(WIFI_MSG.none));
 				return;
 			}
 			networks.forEach(function (network) {
 				const secured = network.security && network.security.trim() !== "";
+				if (secured) securedNames.add(network.name);
 				const $meta = $('<span class="is-flex is-gap-1 has-text-grey-light">');
 				if (secured) $meta.append(icon("ph-lock-simple", WIFI_MSG.secured));
 				$meta.append(icon(signalGlyph(network.signal), network.signal + "%"));
@@ -221,6 +230,8 @@
 
 		function renderSaved(names) {
 			const $saved = $("#wifi-saved").empty();
+			savedNames.clear();
+			names.forEach(function (name) { savedNames.add(name); });
 			if (!names.length) {
 				$("#wifi-saved-card").addClass("is-hidden");
 				return;
@@ -269,7 +280,14 @@
 				showNotification(WIFI_MSG.needName, "is-warning");
 				return;
 			}
-			connectTo(name, $password.val() || "");
+			const password = $password.val() || "";
+			// A secured network we have no profile for cannot be joined blind.
+			if (!password && securedNames.has(name) && !savedNames.has(name)) {
+				showNotification(WIFI_MSG.needPassword, "is-warning");
+				$password.focus();
+				return;
+			}
+			connectTo(name, password);
 		});
 
 		// Still useful while the admin is on the page and has not pressed Connect:
