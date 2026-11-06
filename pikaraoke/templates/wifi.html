@@ -133,6 +133,9 @@
 		switching: {{ _('Switching network. Watch the TV to see what happens.') | tojson }},
 		needName: {{ _('Enter or choose a network name first.') | tojson }},
 		needPassword: {{ _('This network is secured. Type its password to join.') | tojson }},
+		confirmTitle: {{ _('Switch network?') | tojson }},
+		confirmSwitch: {{ _('PiKaraoke will join "{network}". Every phone on the hotspot, including this one, will disconnect. Watch the TV to see what happens.') | tojson }},
+		confirmAction: {{ _('Switch') | tojson }},
 		failed: {{ _('Could not reach PiKaraoke to switch networks.') | tojson }},
 	};
 
@@ -239,9 +242,16 @@
 			names.forEach(function (name) {
 				const $row = $('<a class="panel-block px-5 py-3 is-justify-content-space-between">');
 				$row.append($("<span>").text(name)).append(icon("ph-key", WIFI_MSG.savedHint));
-				// Remembered: no password needed, so join straight away.
+				// Remembered: no password needed. Confirm first, since joining
+				// drops every phone on the hotspot.
 				$row.on("click", function () {
-					connectTo(name, "");
+					window.confirmAction({
+						title: WIFI_MSG.confirmTitle,
+						message: WIFI_MSG.confirmSwitch.replace("{network}", name),
+						confirmLabel: WIFI_MSG.confirmAction,
+					}).done(function () {
+						connectTo(name, "");
+					});
 				});
 				$saved.append($row);
 			});
