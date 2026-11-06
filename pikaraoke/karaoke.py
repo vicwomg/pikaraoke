@@ -211,18 +211,7 @@ class Karaoke:
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
         self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
-        if os.environ.get("PIKARAOKE_FAKE_WIFI"):
-            # Dev-only in-memory simulator, for working on the feature off a Pi.
-            from pikaraoke.lib.wifi_simulator import FakeWifiManager
-
-            logging.warning("PIKARAOKE_FAKE_WIFI set: using the in-memory Wi-Fi simulator.")
-            self.wifi_manager = FakeWifiManager(
-                self.preferences, self.is_raspberry_pi, events=self.events
-            )
-        else:
-            self.wifi_manager = WifiManager(
-                self.preferences, self.is_raspberry_pi, events=self.events
-            )
+        self.wifi_manager = WifiManager(self.preferences, self.is_raspberry_pi, events=self.events)
         self._refresh_network_info()
 
         logging.info("PiKaraoke version: " + VERSION)
