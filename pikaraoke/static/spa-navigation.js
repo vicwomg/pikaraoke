@@ -159,6 +159,7 @@
     // promptForText. Resolves on confirm, rejects on cancel/Escape/background, so
     // callers attach .done() and leave .fail() off. danger reddens the confirm
     // and focuses cancel, so a stray Enter cannot fire a destructive action.
+    // confirmIcon names a Phosphor glyph shown on the confirm button.
     window.confirmAction = function (opts) {
         opts = opts || {};
         const d = $.Deferred();
@@ -176,7 +177,13 @@
         // the icon beside it survives the rewrite.
         $('#confirm-warning-text').text(opts.warning || '');
         $('#confirm-warning').toggleClass('is-hidden', !opts.warning);
-        $ok.text(opts.confirmLabel || '').toggleClass('is-danger', !!opts.danger);
+        $('#confirm-ok-text').text(opts.confirmLabel || '');
+        // Whole-class rewrite so no earlier glyph lingers.
+        const $okIcon = $('#confirm-ok-icon');
+        $okIcon.find('i').attr('class', opts.confirmIcon ? 'ph ' + opts.confirmIcon : 'ph');
+        $okIcon.toggleClass('is-hidden', !opts.confirmIcon);
+        // Primary when not danger, so it never reads as the plain Cancel.
+        $ok.toggleClass('is-danger', !!opts.danger).toggleClass('is-primary', !opts.danger);
 
         function teardown() {
             $modal.removeClass('is-active');
@@ -380,25 +387,35 @@
         // Clear queue confirmation
         $(document).on('click', '.confirm-clear', function(e) {
             e.preventDefault();
-            var promptMsg = (window.translations && window.translations.promptClearQueue)
-                ? window.translations.promptClearQueue
-                : "Are you sure you want to clear the ENTIRE queue? Type 'ok' to continue";
-            let userInput = window.prompt(promptMsg);
-            // Only clear if user typed 'ok' exactly (case insensitive)
-            if (userInput !== null && userInput.toLowerCase() === "ok") {
-                $.post(this.href);
-            }
+            var href = this.href;
+            var t = window.translations || {};
+            window.confirmAction({
+                title: t.clearQueueTitle,
+                message: t.confirmClearQueue,
+                warning: t.cannotBeUndone,
+                confirmLabel: t.clearQueueAction,
+                confirmIcon: 'ph-trash',
+                danger: true
+            }).done(function () {
+                $.post(href);
+            });
         });
 
         // Delete song file from library confirmation (full page navigation)
         $(document).on('click', '.confirm-delete-file', function(e) {
             e.preventDefault();
-            var msg = (window.translations && window.translations.confirmDeleteFromLibrary)
-                ? window.translations.confirmDeleteFromLibrary
-                : 'Are you sure you want to delete this song from the library?';
-            if (window.confirm(msg)) {
-                window.postNavigate(this.href);
-            }
+            var href = this.href;
+            var t = window.translations || {};
+            window.confirmAction({
+                title: t.deleteSongTitle,
+                message: t.confirmDeleteFromLibrary,
+                warning: t.cannotBeUndone,
+                confirmLabel: t.deleteAction,
+                confirmIcon: 'ph-trash',
+                danger: true
+            }).done(function () {
+                window.postNavigate(href);
+            });
         });
 
         // Add random songs to queue
