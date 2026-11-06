@@ -669,10 +669,15 @@ const applyPreferencesReset = (defaults) => {
 // at whatever network is now current. The QR src is cache-busted since assigning
 // an <img> the src it already has would not reload it.
 const applyNetworkUpdate = (data) => {
-  $("#hotspot-info").toggle(!!data.hotspot);
+  // Toggle between Bulma's is-flex and is-hidden rather than an inline display,
+  // which is-flex's `!important` would override, leaving the panel always shown.
+  const info = $("#hotspot-info");
   if (data.hotspot) {
+    info.removeClass("is-hidden").addClass("is-flex");
     $("#hotspot-ssid").text(data.hotspot_name || "");
     $("#hotspot-pass").text(data.hotspot_password || "");
+  } else {
+    info.removeClass("is-flex").addClass("is-hidden");
   }
   if (data.url) $(".address-value").text(data.url);
   $('img[src*="qrcode"]').each(function () {

@@ -71,7 +71,7 @@
     {# The hotspot's details, shown while the Pi broadcasts its own network so
        the room can join. Always visible then, even with the QR or URL hidden:
        a hidden random password would lock everyone out. #}
-    <div id="hotspot-info" class="is-size-6 stroke is-flex is-align-items-flex-start is-gap-1"{% if not hotspot %} style="display: none"{% endif %}>
+    <div id="hotspot-info" class="is-size-6 stroke is-align-items-flex-start is-gap-1 {% if hotspot %}is-flex{% else %}is-hidden{% endif %}">
       <span class="icon"><i class="ph ph-broadcast"></i></span>
       <div>
         {# MSG: Short label before the hotspot's network name (SSID). #}
