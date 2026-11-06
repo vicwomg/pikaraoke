@@ -228,11 +228,9 @@
 			names.forEach(function (name) {
 				const $row = $('<a class="panel-block px-5 py-3 is-justify-content-space-between">');
 				$row.append($("<span>").text(name)).append(icon("ph-key", WIFI_MSG.savedHint));
+				// Remembered: no password needed, so join straight away.
 				$row.on("click", function () {
-					// Remembered: no password needed, so clear it and go to Connect.
-					$name.val(name);
-					$password.val("");
-					$("#wifi-connect").focus();
+					connectTo(name, "");
 				});
 				$saved.append($row);
 			});
@@ -255,19 +253,23 @@
 				});
 		});
 
-		$("#wifi-connect").on("click", function () {
-			const name = ($name.val() || "").trim();
-			if (!name) {
-				showNotification(WIFI_MSG.needName, "is-warning");
-				return;
-			}
-			$.post(WIFI_API.connect, { name: name, password: $password.val() || "" })
+		function connectTo(name, password) {
+			$.post(WIFI_API.connect, { name: name, password: password })
 				.done(function () {
 					showNotification(WIFI_MSG.switching, "is-info", 10000);
 				})
 				.fail(function () {
 					showNotification(WIFI_MSG.failed, "is-danger");
 				});
+		}
+
+		$("#wifi-connect").on("click", function () {
+			const name = ($name.val() || "").trim();
+			if (!name) {
+				showNotification(WIFI_MSG.needName, "is-warning");
+				return;
+			}
+			connectTo(name, $password.val() || "");
 		});
 
 		// Still useful while the admin is on the page and has not pressed Connect:
