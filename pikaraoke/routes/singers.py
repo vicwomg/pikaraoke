@@ -10,6 +10,12 @@ _ = flask_babel.gettext
 
 singers_bp = Blueprint("singers", __name__)
 
+# The whole roster loads in one request and is sorted and paged in the browser,
+# so this is a client-side slice size, not an API limit. Singers total in the
+# tens to low hundreds -- a name per line, so a larger page than the sessions
+# list, which gains an expanding row per night.
+SINGERS_PAGE_SIZE = 50
+
 
 @singers_bp.route("/singers")
 def singers():
@@ -22,4 +28,5 @@ def singers():
         site_title=get_site_name(),
         # MSG: Title of the admin page listing every singer, where they are merged and deleted.
         title=_("Singers"),
+        page_size=SINGERS_PAGE_SIZE,
     )

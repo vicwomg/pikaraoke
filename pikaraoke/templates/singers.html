@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 {% import 'partials/history_tables.html' as tables with context %}
+{% import 'partials/pager.html' as pager %}
 
 {% block scripts %}
-{{ tables.table_scripts(50) }}
+{{ pager.pager_scripts() }}
+{{ tables.table_scripts(page_size) }}
 <script>
 	var rosterUrl = "{{ url_for('singers_api.get_roster') }}";
 	var mergeUrl = "{{ url_for('singers_api.merge_singers') }}";
@@ -22,6 +24,9 @@
 	// A-Z to start, the order the roster reads in without being asked.
 	var singerSort = "name";
 	var singerDirection = "asc";
+	// The roster is paged in the browser too: the whole list is already here, so
+	// a page is a slice of the sorted, filtered array rather than a re-fetch.
+	var singersPage = { offset: 0, limit: HISTORY_PAGE_SIZE };
 
 	// Gettext output is Markup, so |tojson emits a literal an apostrophe cannot
 	// break out of. See tests/unit/test_template_i18n.py.
@@ -106,6 +111,9 @@
 			singerSort = sort;
 			singerDirection = sort === "name" ? "asc" : "desc";
 		}
+		// Re-ordering the whole list makes the current page meaningless, so start
+		// again at the top of the new order.
+		singersPage.offset = 0;
 		render();
 	}
 
@@ -113,7 +121,16 @@
 		var shown = hideMerged
 			? lastRoster.filter(function (s) { return s.merged_into === null; })
 			: lastRoster;
-		renderRoster(shown.slice().sort(compareSingers));
+		var sorted = shown.slice().sort(compareSingers);
+		// Deleting or merging the last rows can leave the offset past the end of a
+		// shorter list; drop back to the last page that still has rows rather than
+		// stranding the table on an empty one.
+		if (singersPage.offset >= sorted.length) {
+			var lastPage = sorted.length ? Math.floor((sorted.length - 1) / singersPage.limit) : 0;
+			singersPage.offset = lastPage * singersPage.limit;
+		}
+		renderPager("singers", singersPage, sorted.length);
+		renderRoster(sorted.slice(singersPage.offset, singersPage.offset + singersPage.limit));
 		renderSortArrows("#singer-list", singerSort, singerDirection);
 	}
 
@@ -300,6 +317,9 @@
 					if (rosterByName[n] && rosterByName[n].merged_into !== null) { delete selected[n]; }
 				});
 			}
+			// Hiding rows changes how many there are, so the old offset would index a
+			// different list.
+			singersPage.offset = 0;
 			render();
 			updateActionBar();
 		});
@@ -313,6 +333,10 @@
 		$("#merge-choices").on("change", "input", updateMergeSummary);
 		$mergeModal.on("click", ".modal-background, .modal-close-btn", closeMergeChooser);
 		$("#merge-confirm").on("click", confirmMerge);
+
+		// The whole roster is already loaded, so a page turn is a re-render of the
+		// next slice rather than a re-fetch.
+		wirePager("singers", singersPage, render);
 	});
 </script>
 {% endblock %}
@@ -488,6 +512,8 @@
 	</thead>
 	<tbody id="singers-body"></tbody>
 </table>
+
+{{ pager.pager_controls("singers") }}
 
 <div class="modal" id="merge-modal">
 	<div class="modal-background"></div>
