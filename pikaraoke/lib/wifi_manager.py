@@ -287,11 +287,16 @@ class WifiManager:
             self._announce_change()
         return ok
 
-    def connect(self, name: str, password: str = "") -> ConnectResult:
+    def connect(
+        self, name: str, password: str = "", forget_on_wrong_password: bool = True
+    ) -> ConnectResult:
         """Join a network, restarting the hotspot on failure.
 
-        A wrong password deletes the half-made profile (retrying it can never
-        work); a not-found keeps it, so a later scan joins it when it appears.
+        A manual attempt with a wrong password deletes the half-made profile
+        (retrying the typed key can never work); a not-found keeps it, so a later
+        scan joins it when it appears. The background reconcile joins an existing
+        saved profile instead and passes ``forget_on_wrong_password=False``, so a
+        profile is never dropped just because its secrets were briefly out of reach.
         """
         args = [
             "-w",
@@ -316,7 +321,8 @@ class WifiManager:
             return ConnectResult.CONNECTED
 
         if _has_marker(result.stderr, _WRONG_PASSWORD_MARKERS):
-            self._run_privileged(["connection", "delete", name])
+            if forget_on_wrong_password:
+                self._run_privileged(["connection", "delete", name])
             outcome = ConnectResult.WRONG_PASSWORD
         else:
             outcome = ConnectResult.NOT_FOUND
@@ -351,7 +357,7 @@ class WifiManager:
         candidate = next((name for name in in_range if name in saved), None)
         if candidate is None:
             return False
-        return self.connect(candidate) == ConnectResult.CONNECTED
+        return self.connect(candidate, forget_on_wrong_password=False) == ConnectResult.CONNECTED
 
     def _detect_supported(self) -> bool:
         if not self._is_raspberry_pi:

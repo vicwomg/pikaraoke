@@ -357,6 +357,26 @@ class TestReconcile:
             assert manager.reconcile() is False
         assert not any("device wifi connect" in c for c in _commands(run))
 
+    def test_does_not_forget_a_saved_network_whose_secrets_fail(self, manager):
+        # A saved network whose secrets are briefly out of reach returns a
+        # wrong-password error on the unattended sweep. The profile must survive:
+        # the admin never asked to forget it, unlike a manual wrong-password typo.
+        router = self._router(
+            joined="",  # nobody on the hotspot
+            saved="HomeNet:802-11-wireless\n",
+            scan=":HomeNet:70:WPA2\n",
+            connect_rc=1,
+        )
+
+        def fake_run(cmd, **kwargs):
+            if "device wifi connect" in " ".join(cmd):
+                return _done(returncode=1, stderr="Error: Secrets were required, but not provided.")
+            return router(cmd, **kwargs)
+
+        with patch(RUN, side_effect=fake_run) as run:
+            assert manager.reconcile() is False
+        assert not any("connection delete" in c for c in _commands(run))
+
     def test_drops_the_hotspot_when_ethernet_appears(self, manager):
         def fake_run(cmd, **kwargs):
             joined = " ".join(cmd)
