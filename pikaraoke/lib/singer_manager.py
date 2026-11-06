@@ -329,21 +329,17 @@ class SingerManager:
         return True
 
     def delete_singer(self, name: str) -> bool:
-        """Remove a singer, cascading its favourites, preferences and tombstones.
+        """Remove a singer row, cascading its favourites, preferences and tombstones.
 
-        Refused while the singer has plays -- those are the play history's to
-        clear first -- and for a system name, which is not a person's to remove,
-        as merge already refuses. A tombstone always deletes, its plays having
-        moved away; deleting a survivor sweeps the tombstones that point at it.
+        The caller clears the singer's plays first (Karaoke.delete_singer): a
+        play still pointing here blocks the delete, plays.singer_id having no
+        delete-cascade, so a singer's history is destroyed only by that
+        deliberate act rather than swept up here. A system name is refused, as
+        merge refuses it. Deleting a survivor sweeps the tombstones that point
+        at it. Returns True when a row was removed.
         """
         name = normalize_name(name)
         if name.lower() in PLACEHOLDER_SINGERS:
             return False
-        rows = self.db.query("SELECT id FROM singers WHERE name = ? COLLATE NOCASE", (name,))
-        if not rows:
-            return False
-        singer_id = rows[0]["id"]
-        if self.db.query("SELECT 1 FROM plays WHERE singer_id = ? LIMIT 1", (singer_id,)):
-            return False
-        self.db.execute("DELETE FROM singers WHERE id = ?", (singer_id,))
-        return True
+        cursor = self.db.execute("DELETE FROM singers WHERE name = ? COLLATE NOCASE", (name,))
+        return cursor.rowcount > 0

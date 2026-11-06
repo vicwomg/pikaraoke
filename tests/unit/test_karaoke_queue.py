@@ -562,3 +562,31 @@ class TestMergeSingers:
         assert mock_karaoke.merge_singers("Dvae", "Pikaraoke") == "reserved"
         assert mock_karaoke.merge_singers("Randomizer", "Dave") == "reserved"
         mock_karaoke.singer_manager.merge.assert_not_called()
+
+
+class TestDeleteSinger:
+    """The admin delete, erasing a singer and their plays in one act."""
+
+    def test_a_delete_clears_the_plays_then_removes_the_row(self, mock_karaoke):
+        mock_karaoke.singer_manager.find.return_value = {"id": 7, "name": "Dave"}
+        mock_karaoke.singer_manager.delete_singer.return_value = True
+
+        assert mock_karaoke.delete_singer("Dave") is True
+        # The plays go first, then the row -- the foreign key forbids the reverse.
+        assert mock_karaoke.play_history.cleared_singer_plays == 7
+        mock_karaoke.singer_manager.delete_singer.assert_called_once_with("Dave")
+
+    def test_an_unknown_singer_touches_nothing(self, mock_karaoke):
+        mock_karaoke.singer_manager.find.return_value = None
+        assert mock_karaoke.delete_singer("Ghost") is False
+        assert mock_karaoke.play_history.cleared_singer_plays is None
+        mock_karaoke.singer_manager.delete_singer.assert_not_called()
+
+    def test_a_placeholder_is_refused_before_its_plays_are_cleared(self, mock_karaoke):
+        # Randomizer and Pikaraoke have plays of their own; the refusal has to come
+        # before clear_singer_plays, or their history would be wiped regardless.
+        assert mock_karaoke.delete_singer("Randomizer") is False
+        assert mock_karaoke.delete_singer("Pikaraoke") is False
+        assert mock_karaoke.play_history.cleared_singer_plays is None
+        mock_karaoke.singer_manager.find.assert_not_called()
+        mock_karaoke.singer_manager.delete_singer.assert_not_called()

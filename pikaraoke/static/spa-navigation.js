@@ -171,6 +171,11 @@
 
         $('#confirm-title').text(opts.title || '');
         $('#confirm-message').text(opts.message || '').toggleClass('is-hidden', !opts.message);
+        // An irreversibility line, set apart from the question so it is read on
+        // its own rather than tailing the sentence. The text has its own span so
+        // the icon beside it survives the rewrite.
+        $('#confirm-warning-text').text(opts.warning || '');
+        $('#confirm-warning').toggleClass('is-hidden', !opts.warning);
         $ok.text(opts.confirmLabel || '').toggleClass('is-danger', !!opts.danger);
 
         function teardown() {

@@ -1,6 +1,7 @@
 """Unit tests for SingerManager."""
 
 import os
+import sqlite3
 
 import pytest
 
@@ -414,9 +415,12 @@ class TestRosterMergeDelete:
         assert singers.merged_into_name("Dave") is None
         assert singers.merged_into_name("Ghost") is None
 
-    def test_delete_is_refused_while_the_singer_has_plays(self, singers, add_play):
+    def test_delete_raises_while_a_play_still_points_at_the_singer(self, singers, add_play):
+        # The row delete is blocked by the foreign key until the caller clears the
+        # plays first (Karaoke.delete_singer does); the manager does not itself.
         add_play("Dave")
-        assert singers.delete_singer("Dave") is False
+        with pytest.raises(sqlite3.IntegrityError):
+            singers.delete_singer("Dave")
         assert singers.find("Dave") is not None
 
     def test_delete_removes_a_childless_singer_and_its_favourites(self, db, singers, library):

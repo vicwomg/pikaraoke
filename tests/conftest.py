@@ -236,10 +236,17 @@ class MockPlayHistory:
         self.turns_taken = turns_taken or {}
         # The performer of the play on screen, which a rename has to move.
         self._current_performer = None
+        # The singer id passed to the last clear_singer_plays, for delete tests.
+        self.cleared_singer_plays = None
 
     def rename_current_performer(self, old_name, new_name):
         if self._current_performer and self._current_performer.lower() == old_name.lower():
             self._current_performer = new_name
+
+    def clear_singer_plays(self, singer_id):
+        # The real manager wipes the plays and forgets any in-flight row; the
+        # delete orchestration only needs to see it was called here.
+        self.cleared_singer_plays = singer_id
 
     def get_current_session(self) -> dict | None:
         return self.session
@@ -335,6 +342,7 @@ class MockKaraoke:
     rename_song = Karaoke.rename_song
     rename_singer = Karaoke.rename_singer
     merge_singers = Karaoke.merge_singers
+    delete_singer = Karaoke.delete_singer
     reset_now_playing = Karaoke.reset_now_playing
     _recue_current = Karaoke._recue_current
     transpose_current = Karaoke.transpose_current
