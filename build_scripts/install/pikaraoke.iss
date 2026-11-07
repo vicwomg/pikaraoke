@@ -74,7 +74,21 @@ begin
     'Secure PiKaraoke (recommended)',
     'Set a password to restrict admin control. Leave blank to allow control ' +
     'to everyone.');
-  PasswordPage.Add('Admin password:', True);
+  PasswordPage.Add('Password:', True);
+  PasswordPage.Add('Confirm password:', True);
+end;
+
+{ Block the Next button when the two password fields disagree. Both blank is
+  allowed - that is the skip-and-stay-open path. }
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (PasswordPage <> nil) and (CurPageID = PasswordPage.ID) then
+    if PasswordPage.Values[0] <> PasswordPage.Values[1] then
+    begin
+      MsgBox('The passwords do not match. Please re-enter them.', mbError, MB_OK);
+      Result := False;
+    end;
 end;
 
 function HaveExe: Boolean;
