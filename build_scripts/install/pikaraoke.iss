@@ -64,6 +64,18 @@ Filename: "{win}\explorer.exe"; Parameters: """{code:GetExePath}"""; Description
 
 var
   PikaraokeExe: String;
+  PasswordPage: TInputQueryWizardPage;
+
+{ Optional page: a blank field keeps PiKaraoke open to everyone (the default). }
+procedure InitializeWizard;
+begin
+  PasswordPage := CreateInputQueryPage(wpSelectTasks,
+    'Admin password',
+    'Secure PiKaraoke (recommended)',
+    'Set a password to restrict admin control. Leave blank to allow control ' +
+    'to everyone.');
+  PasswordPage.Add('Admin password:', True);
+end;
 
 function HaveExe: Boolean;
 begin
@@ -119,10 +131,38 @@ begin
     PikaraokeExe := Trim(String(RawPath));
 end;
 
+{ Feed the password over stdin via a temp file piped with cmd's "<", so it never
+  reaches a command line. The subcommand no-ops if a password is already set. }
+procedure SetAdminPassword;
+var
+  Password, PwFile: String;
+  ResultCode: Integer;
+begin
+  if PikaraokeExe = '' then
+    Exit;
+  Password := PasswordPage.Values[0];
+  if Trim(Password) = '' then
+    Exit;
+
+  PwFile := ExpandConstant('{tmp}\pk_pw.txt');
+  if not SaveStringToFile(PwFile, Password, False) then
+    Exit;
+  try
+    Exec(ExpandConstant('{cmd}'),
+         '/c ""' + PikaraokeExe + '" set-admin-password < "' + PwFile + '""',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  finally
+    DeleteFile(PwFile);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
+  begin
     RunInstallScript;
+    SetAdminPassword;
+  end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

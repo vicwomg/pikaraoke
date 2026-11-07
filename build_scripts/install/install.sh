@@ -161,6 +161,7 @@ fi
 echo "Installing pikaraoke via uv..."
 
 if uv tool list | grep -q "pikaraoke"; then
+    WAS_INSTALLED=1
     echo "PiKaraoke is already installed. Upgrading..."
     if [ "$LOCAL" == "y" ]; then
         uv tool install --force .
@@ -168,6 +169,7 @@ if uv tool list | grep -q "pikaraoke"; then
         uv tool upgrade pikaraoke
     fi
 else
+    WAS_INSTALLED=0
     if [ "$LOCAL" == "y" ]; then
         uv tool install .
     else
@@ -260,3 +262,29 @@ if [ $INSTALL_SHORTCUTS -eq 1 ]; then
     echo "Or use the shortcuts created on the Desktop."
 fi
 echo "--------------------------------------------------------"
+
+# Offer to set an admin password while the box is still open to everyone.
+# Skipped for -y/--yes and for a non-interactive shell (curl | bash), both of
+# which leave the open-by-default state untouched.
+PIKARAOKE_BIN=$(command -v pikaraoke || echo "$HOME/.local/bin/pikaraoke")
+DEFAULT_CONFIG="$HOME/.pikaraoke/config.ini"
+OFFER_PASSWORD=1
+if [ "$WAS_INSTALLED" -eq 1 ]; then
+    if [ ! -f "$DEFAULT_CONFIG" ]; then
+        # An existing install keeping its config elsewhere, or never run: a
+        # default-path password would orphan a file the server never reads.
+        OFFER_PASSWORD=0
+    elif "$PIKARAOKE_BIN" set-admin-password --status >/dev/null 2>&1; then
+        OFFER_PASSWORD=0
+    fi
+fi
+if [ "$OFFER_PASSWORD" -eq 1 ] && [ "$CONFIRM" == "y" ] && [ -t 0 ]; then
+    echo ""
+    echo "Setting an admin password is recommended to secure PiKaraoke. Without one,"
+    echo "anyone on your network can control playback, edit songs and shut the system down."
+    read -r -p "Set an admin password? [Y/n]: " REPLY_PW
+    case "$REPLY_PW" in
+        [Nn]*) echo "Skipped. PiKaraoke stays open to everyone on the network." ;;
+        *) "$PIKARAOKE_BIN" set-admin-password || true ;;
+    esac
+fi

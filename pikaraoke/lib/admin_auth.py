@@ -19,13 +19,16 @@ class AdminAuth:
 
     def __init__(self, preferences: PreferenceManager) -> None:
         self._preferences = preferences
-        if not self._get("secret_key"):
-            self._set("secret_key", secrets.token_hex(32))
 
     @property
     def secret_key(self) -> str:
         """Flask's session-signing key, generated once and reused across restarts."""
-        return self._get("secret_key")
+        # Lazy so merely reading is_password_set() never writes config.ini.
+        key = self._get("secret_key")
+        if not key:
+            key = secrets.token_hex(32)
+            self._set("secret_key", key)
+        return key
 
     @property
     def session_token(self) -> str:
