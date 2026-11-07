@@ -848,7 +848,7 @@ class Karaoke:
         Registration happens first so the queue link the search page swaps in on
         this event resolves against a song the library already knows about.
         """
-        self.song_manager.register_download(song_path)
+        self.song_manager.register_song(song_path)
         if self.socketio:
             self.socketio.emit(
                 "song_downloaded",
