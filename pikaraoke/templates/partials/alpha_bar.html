@@ -1,5 +1,5 @@
 {# The A-Z strip's slots, shared by the live bar and the Favourites refresh carrier. #}
-<a href="{{ url_for('files.browse', view=view or None, folder=folder or None) }}" title="Show all"
+<a href="{{ url_for('files.browse', view=view or None, folder=folder or None) }}" title="{{ _('All songs') }}"
 	><span class="icon"><i class="ph ph-list-bullets"></i></span
 ></a>
 {% if 'numeric' in letters %}
