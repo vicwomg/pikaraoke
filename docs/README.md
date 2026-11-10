@@ -1,6 +1,6 @@
 # PiKaraoke
 
-<img width="588" height="339" alt="Image" src="https://i.ibb.co/Z6MTM4wt/pikaraoke-readme.png" />
+<img width="588" alt="pikaraoke-banner" src="https://raw.githubusercontent.com/vicwomg/pikaraoke/master/docs/images/banner.png" />
 
 PiKaraoke is a cross-platform karaoke server that brings the professional "KTV" experience to your home. It transforms your computer or Raspberry Pi into a dedicated karaoke station with a full-screen player and an instant web interface. Guests can join by simply scanning a QR code—no app downloads required—to browse your local library, manage the queue, and access countless karaoke hits from YouTube.
 
@@ -131,7 +131,7 @@ To run under a path prefix (e.g., `/karaoke`), add `--base-path /your-path` and 
 <img width="250" alt="pikaraoke-search" src="https://raw.githubusercontent.com/vicwomg/pikaraoke/master/docs/images/screenshot-songs-search.png">
 <img width="250" alt="pikaraoke-add-new" src="https://raw.githubusercontent.com/vicwomg/pikaraoke/master/docs/images/screenshot-add-new.png">
 <img width="250" alt="pikaraoke-play-history" src="https://raw.githubusercontent.com/vicwomg/pikaraoke/master/docs/images/screenshot-play-history.png">
-<img width="400" height="300" alt="pikaraoke-tv2" src="https://user-images.githubusercontent.com/4107190/95813564-019fa200-0ccd-11eb-95e1-57a002c357a3.png">
+<img width="400" alt="pikaraoke-tv2" src="https://raw.githubusercontent.com/vicwomg/pikaraoke/master/docs/images/tv.png">
 </div>
 
 ## Contributing
