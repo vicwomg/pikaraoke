@@ -311,6 +311,11 @@ class QueueManager:
         logging.info(f"Popped song from queue: {song['title']}")
         return song
 
+    def get_song_user(self, song_path: str) -> str | None:
+        """The singer a queued song belongs to, or None when it is not queued."""
+        index = self._find_song_index(song_path)
+        return self.queue[index]["user"] if index != -1 else None
+
     def set_song_semitones(self, song_path: str, semitones: int) -> bool:
         """Set the key a queued song will transcode in when it starts.
 

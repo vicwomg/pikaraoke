@@ -134,11 +134,20 @@ def queue_edit(query):
 def queue_pitch(query):
     """Pre-set the key a queued song transcodes in when it starts (admin only).
 
+    The choice is saved against whoever queued the song, so their next add of it
+    opens in this key.
+
     QueueManager emits now_playing_update itself, which Karaoke bridges to the
     socket, so this path adds no broadcast_event.
     """
     k = get_karaoke_instance()
-    success = k.queue_manager.set_song_semitones(unquote(query["song"]), query["semitones"])
+    song = unquote(query["song"])
+    semitones = query["semitones"]
+    # The queue item names the singer, so read it before the write.
+    user = k.queue_manager.get_song_user(song)
+    success = k.queue_manager.set_song_semitones(song, semitones)
+    if success:
+        k.singer_manager.save_key(user, song, semitones)
     return jsonify({"success": success})
 
 
@@ -162,7 +171,8 @@ def _do_enqueue(song: str, user: str) -> Response | tuple[Response, int]:
         # MSG: Error when queueing under a name the host merged into another. %(name)s is the surviving name.
         message = _("This name was merged into %(name)s. Set your name to continue.", name=survivor)
         return jsonify({"song": user, "success": [False, message]})
-    rc = k.queue_manager.enqueue(song, user)
+    semitones = k.singer_manager.get_saved_key(user, song)
+    rc = k.queue_manager.enqueue(song, user, semitones=semitones)
     broadcast_event("queue_update")
     song_title = k.song_manager.display_name_from_path(song)
     return jsonify({"song": song_title, "success": rc})

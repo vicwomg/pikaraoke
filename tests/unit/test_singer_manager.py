@@ -289,6 +289,129 @@ class TestFavourites:
         assert singers.get_favourite_paths("Alice") == {library["local"], "/s/Other.mp4"}
 
 
+class TestSavedKey:
+    """The per-singer, per-song key the add path pre-applies."""
+
+    @pytest.fixture
+    def library(self, db):
+        """A YouTube song (durable id) and a local rip (no id), both in library."""
+        db.insert_songs(
+            [
+                {
+                    "file_path": "/s/Halo---dQw4w9WgXcQ.mp4",
+                    "youtube_id": "dQw4w9WgXcQ",
+                    "format": "mp4",
+                },
+                {"file_path": "/s/Local Rip.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        return {"youtube": "/s/Halo---dQw4w9WgXcQ.mp4", "local": "/s/Local Rip.mp4"}
+
+    def test_a_saved_key_comes_back(self, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        assert singers.get_saved_key("Alice", library["youtube"]) == 3
+
+    def test_a_negative_key_is_saved_as_itself(self, singers, library):
+        singers.save_key("Alice", library["youtube"], -2)
+        assert singers.get_saved_key("Alice", library["youtube"]) == -2
+
+    def test_an_unknown_singer_is_key_zero(self, singers, library):
+        assert singers.get_saved_key("Nobody", library["youtube"]) == 0
+
+    def test_a_starred_song_with_no_key_is_key_zero(self, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        assert singers.get_saved_key("Alice", library["youtube"]) == 0
+
+    def test_a_later_key_overwrites_the_earlier(self, db, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        singers.save_key("Alice", library["youtube"], -1)
+        assert singers.get_saved_key("Alice", library["youtube"]) == -1
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 1
+
+    def test_keys_are_per_singer(self, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        assert singers.get_saved_key("Bob", library["youtube"]) == 0
+
+    def test_keys_are_per_song(self, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        assert singers.get_saved_key("Alice", library["local"]) == 0
+
+    def test_key_zero_clears_the_row(self, db, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        singers.save_key("Alice", library["youtube"], 0)
+        assert singers.get_saved_key("Alice", library["youtube"]) == 0
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 0
+
+    def test_key_zero_keeps_a_starred_row(self, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        singers.save_key("Alice", library["youtube"], 3)
+        singers.save_key("Alice", library["youtube"], 0)
+        assert singers.get_saved_key("Alice", library["youtube"]) == 0
+        assert singers.get_favourite_paths("Alice") == {library["youtube"]}
+
+    def test_a_star_and_a_key_share_one_row(self, db, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        singers.save_key("Alice", library["youtube"], 3)
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 1
+
+    def test_unstarring_keeps_a_saved_key(self, singers, library):
+        singers.add_favourite("Alice", library["youtube"])
+        singers.save_key("Alice", library["youtube"], 3)
+        singers.remove_favourite("Alice", library["youtube"])
+        assert singers.get_saved_key("Alice", library["youtube"]) == 3
+
+    def test_a_key_for_a_new_name_creates_the_singer(self, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        assert singers.find("Alice") is not None
+
+    def test_clearing_for_an_unknown_name_creates_nothing(self, db, singers, library):
+        singers.save_key("Alice", library["youtube"], 0)
+        assert singers.find("Alice") is None
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 0
+
+    def test_a_key_does_not_restyle_an_existing_singers_casing(self, db, singers, library):
+        singer_id = singers.get_or_create("Mike")
+        singers.save_key("mike", library["youtube"], 3)
+        assert _performer(db, singer_id) == "Mike"
+
+    def test_the_randomizer_saves_nothing(self, db, singers, library):
+        singers.save_key("Randomizer", library["youtube"], 3)
+        assert singers.find("Randomizer") is None
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 0
+
+    def test_a_song_outside_the_library_saves_nothing(self, db, singers):
+        singers.save_key("Alice", "/s/Not In Library.mp4", 3)
+        assert db.query("SELECT COUNT(*) FROM singer_songs")[0][0] == 0
+
+    def test_a_key_survives_a_redownload(self, db, singers, library):
+        singers.save_key("Alice", library["youtube"], 3)
+        db.delete_by_path(library["youtube"])
+        db.insert_songs(
+            [
+                {
+                    "file_path": "/s/Halo again---dQw4w9WgXcQ.mp4",
+                    "youtube_id": "dQw4w9WgXcQ",
+                    "format": "mp4",
+                }
+            ]
+        )
+        assert singers.get_saved_key("Alice", "/s/Halo again---dQw4w9WgXcQ.mp4") == 3
+
+    def test_a_local_rips_key_follows_a_rename(self, db, singers, events, library):
+        singers.save_key("Alice", library["local"], 3)
+        song_id = db.get_song_identity(library["local"])[0]
+        new_path = "/s/Local Rip Renamed.mp4"
+        db.update_path(library["local"], new_path)
+        events.emit("song_renamed", song_id, _display_name(new_path))
+        assert singers.get_saved_key("Alice", new_path) == 3
+
+    def test_a_merge_carries_the_losers_key(self, singers, library):
+        singers.save_key("Mikey", library["youtube"], 3)
+        singers.get_or_create("Mike")
+        assert singers.merge("Mikey", "Mike") is True
+        assert singers.get_saved_key("Mike", library["youtube"]) == 3
+
+
 class TestRename:
     def test_moves_the_row_keeping_its_id(self, singers):
         singer_id = singers.get_or_create("Dvae")
