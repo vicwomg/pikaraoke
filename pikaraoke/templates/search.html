@@ -486,6 +486,12 @@
 		}
 	}
 </script>
+{% endblock %} {% block heading_action %}
+{% if is_admin() %}
+<a class="heading-action is-size-7" href="{{ url_for('upload.upload_page') }}" title="{{ _('Upload files') }}"
+	><span class="icon"><i class="ph ph-upload-simple"></i></span>{# MSG: Link to the page for uploading karaoke files from this device. #} {% trans %}Upload files{% endtrans %}</a
+>
+{% endif %}
 {% endblock %} {% block header %}
 {# MSG: Subtitle under the Add New heading, explaining that this page gets songs the machine does not have. #}
 <p class="subtitle is-6">{% trans %}Add new songs from YouTube{% endtrans %}</p>

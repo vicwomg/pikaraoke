@@ -362,11 +362,11 @@ class SongManager:
             self._events.emit("song_renamed", song_id, self.display_name_from_path(new_path))
         return new_path
 
-    def register_download(self, song_path: str) -> None:
-        """Register a newly downloaded song in SongList and DB.
+    def register_song(self, song_path: str) -> None:
+        """Register a newly acquired song (downloaded or uploaded) in SongList and DB.
 
         The duration is filled as the row is born -- one probe of a file just
-        written and warm in cache -- so a downloaded song never needs the sweep.
+        written and warm in cache -- so a newly acquired song never needs the sweep.
         """
         self.songs.add_if_valid(song_path)
         self._db.insert_songs([build_song_record(song_path)])

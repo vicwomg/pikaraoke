@@ -508,7 +508,7 @@ class TestRegisterDownloadedSong:
 
         k = MagicMock()
         order = MagicMock()
-        k.song_manager.register_download = order.register
+        k.song_manager.register_song = order.register
         k.socketio.emit = order.emit
 
         self._call(k)
