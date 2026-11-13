@@ -668,13 +668,13 @@
     <nav class="navbar is-primary" role="navigation" aria-label="main navigation">
       <div class="navbar-brand ml-0" id="brand">
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
-          <span class="icon"><i class="ph ph-house" title="Home"></i></span>
+          <span class="icon"><i class="ph ph-house" title="{{ _('Home') }}"></i></span>
           {# MSG: Navigation link for the home page. #}
           <span>{% trans %}Home{% endtrans %}</span>
         </a>
 
         <a id="queue" class="navbar-item" href="{{ url_for('queue.queue') }}">
-          <span class="icon"><i class="ph ph-queue" title="Queue"></i></span>
+          <span class="icon"><i class="ph ph-queue" title="{{ _('Queue') }}"></i></span>
           {# MSG: Navigation link for the queue page. #}
           <span>{% trans %}Queue{% endtrans %}</span>
         </a>

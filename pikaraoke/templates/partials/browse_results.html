@@ -24,7 +24,7 @@
 		<td id="{{display_name[0].lower()}}" class="action-cell">
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
-				title="Add '{{display_name}}' to queue"
+				title="{{ _('Add to queue') | forceescape }}"
 				href="#"
 				data-song="{{encoded}}"
 				><span class="icon"><i class="ph ph-plus-circle"></i></span>
