@@ -48,7 +48,7 @@ translations = [
 ]
 
 [project.scripts]
-pikaraoke = "pikaraoke.app:main"
+pikaraoke = "pikaraoke.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/vicwomg/pikaraoke"

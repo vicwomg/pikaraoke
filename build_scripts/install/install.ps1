@@ -99,7 +99,8 @@ $uvPackages = ""
 $uvPackages = uv tool list | Out-String
 
 # 6. install pikaraoke with uv
-if ($uvPackages -match "pikaraoke") {
+$wasInstalled = $uvPackages -match "pikaraoke"
+if ($wasInstalled) {
     Write-Host "Upgrading pikaraoke via uv..." -ForegroundColor Yellow
     if ($Local) {
         uv tool install --force .
@@ -184,3 +185,32 @@ Write-Host "Please restart your terminal (PowerShell) to ensure all PATH changes
 Write-Host "Then, simply run: `pikaraoke` or launch PiKaraoke from the desktop shortcuts."
 Write-Host "`nTIP: Put your karaoke files in: $(Join-Path $HOME 'pikaraoke-songs')" -ForegroundColor Cyan
 Write-Host "--------------------------------------------------------"
+
+# Offer to set an admin password while the box is still open to everyone.
+# -NoConfirm (used by the Inno bootstrapper and the CI smoketest) skips it,
+# leaving the open-by-default state untouched.
+if (!$NoConfirm -and $pikaraokeExe) {
+    $appData = if ($env:APPDATA) { $env:APPDATA } else { $HOME }
+    $defaultConfig = Join-Path $appData "pikaraoke\config.ini"
+    $offerPassword = $true
+    if ($wasInstalled) {
+        if (!(Test-Path $defaultConfig)) {
+            # Existing install keeping its config elsewhere, or never run: a
+            # default-path password would orphan a file the server never reads.
+            $offerPassword = $false
+        } else {
+            & $pikaraokeExe set-admin-password --status 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $offerPassword = $false }
+        }
+    }
+    if ($offerPassword) {
+        Write-Host "`nSetting an admin password is recommended to secure PiKaraoke. Without one," -ForegroundColor Yellow
+        Write-Host "anyone on your network can control playback, edit songs and shut the system down."
+        $reply = Read-Host "Set an admin password? [Y/n]"
+        if ($reply -match '^(n|no)$') {
+            Write-Host "Skipped. PiKaraoke stays open to everyone on the network."
+        } else {
+            & $pikaraokeExe set-admin-password
+        }
+    }
+}
