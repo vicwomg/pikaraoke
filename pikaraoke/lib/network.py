@@ -5,6 +5,21 @@ import socket
 import subprocess
 
 
+def is_youtube_reachable(timeout: float = 3.0) -> bool:
+    """True if a TCP connection to YouTube opens within timeout.
+
+    Tells a broken yt-dlp (YouTube reachable, extraction failed) from an offline
+    box (unreachable), so the ytdl.broken alert never fires on a box with no
+    internet. A DNS failure counts as unreachable. gevent patches socket, so the
+    connect never blocks the hub.
+    """
+    try:
+        with socket.create_connection(("www.youtube.com", 443), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def get_ip(platform: str) -> str:
     """Get the local IP address of this machine.
 
