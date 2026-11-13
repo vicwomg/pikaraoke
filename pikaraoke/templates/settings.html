@@ -68,25 +68,49 @@
 
 			$("#quit-link").click(function (e) {
 				e.preventDefault();
-				// {# MSG: Confirmation text whe the user selects quit. #}
-				if (window.confirm({{ _('Are you sure you want to quit?') | tojson }})) {
-					window.postNavigate(this.href);
-				}
+				var href = this.href;
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming the user wants to quit Pikaraoke. #}
+					title: {{ _('Quit PiKaraoke') | tojson }},
+					// {# MSG: Confirmation text whe the user selects quit. #}
+					message: {{ _('Are you sure you want to quit?') | tojson }},
+					// {# MSG: Button label confirming quit. #}
+					confirmLabel: {{ _('Quit') | tojson }},
+					confirmIcon: "ph-sign-out",
+					danger: true
+				}).done(function () { window.postNavigate(href); });
 			});
 
 			$("#shutdown-link").click(function (e) {
 				e.preventDefault();
-				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
-				if (window.confirm({{ _('Are you sure you want to shut down?') | tojson }})) {
-					window.postNavigate(this.href);
-				}
+				var href = this.href;
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming the user wants to shut the machine down. #}
+					title: {{ _('Shut down') | tojson }},
+					// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
+					message: {{ _('Are you sure you want to shut down?') | tojson }},
+					// {# MSG: Button label confirming shutdown. #}
+					confirmLabel: {{ _('Shut down') | tojson }},
+					confirmIcon: "ph-power",
+					danger: true
+				}).done(function () { window.postNavigate(href); });
 			});
 
 			$("#clear-preferences-link").click(function (e) {
 				e.preventDefault();
-				// {# MSG: Confirmation text when the user resets all settings to their defaults. #}
-				if (window.confirm({{ _('Are you sure you want to reset all settings to their defaults?') | tojson }})) {
-					$.post(this.href).done(function (data) {
+				var href = this.href;
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming a reset of all settings to their defaults. #}
+					title: {{ _('Reset settings') | tojson }},
+					// {# MSG: Confirmation text when the user resets all settings to their defaults. #}
+					message: {{ _('Are you sure you want to reset all settings to their defaults?') | tojson }},
+					warning: window.translations.cannotBeUndone,
+					// {# MSG: Button label confirming the reset of all settings. #}
+					confirmLabel: {{ _('Reset') | tojson }},
+					confirmIcon: "ph-arrow-counter-clockwise",
+					danger: true
+				}).done(function () {
+					$.post(href).done(function (data) {
 						// The controls here are server-rendered and listen for nothing, so
 						// they show the old values until the page comes back. Notify after:
 						// the re-render replays base.html's script, which hides the bar.
@@ -94,35 +118,65 @@
 							showNotification(data[1], data[0] ? "is-success" : "is-danger");
 						});
 					});
-				}
+				});
 			});
 
 			$("#restart-link").click(function (e) {
 				e.preventDefault();
-				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
-				if (window.confirm({{ _('Are you sure you want to reboot?') | tojson }})) {
-					window.postNavigate(this.href);
-				}
+				var href = this.href;
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming a reboot of the machine running Pikaraoke. #}
+					title: {{ _('Reboot') | tojson }},
+					// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
+					message: {{ _('Are you sure you want to reboot?') | tojson }},
+					// {# MSG: Button label confirming the reboot. #}
+					confirmLabel: {{ _('Reboot') | tojson }},
+					confirmIcon: "ph-arrow-clockwise",
+					danger: true
+				}).done(function () { window.postNavigate(href); });
 			});
 
 			$("#update-ytdl-link").click(function (e) {
 				e.preventDefault();
-				if (
-					window.confirm(
-						// {# MSG: Confirmation text whe the user asks to update yt-dlp. #}
-						{{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') | tojson }}
-					)
-				) {
-					window.postNavigate(this.href);
-				}
+				var href = this.href;
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming an immediate update of yt-dlp. #}
+					title: {{ _('Update yt-dlp') | tojson }},
+					// {# MSG: Confirmation text whe the user asks to update yt-dlp. #}
+					message: {{ _('Are you sure you want to update yt-dlp right now? Current and pending downloads may fail.') | tojson }},
+					// {# MSG: Button label confirming the yt-dlp update. #}
+					confirmLabel: {{ _('Update') | tojson }},
+					confirmIcon: "ph-download-simple"
+				}).done(function () { window.postNavigate(href); });
+			});
+
+			$("#clear-password-btn").click(function (e) {
+				e.preventDefault();
+				var form = this.form;
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming removal of the administrator password. #}
+					title: {{ _('Clear password') | tojson }},
+					// {# MSG: Body of the dialog confirming removal of the administrator password. #}
+					message: {{ _('Remove the administrator password?') | tojson }},
+					// {# MSG: Warning shown set apart in the dialog, explaining that clearing the password opens admin features to everyone on the network. #}
+					warning: {{ _('Everyone on the network becomes an admin, with full access to player controls, song editing and shutdown.') | tojson }},
+					// {# MSG: Button label confirming removal of the administrator password. #}
+					confirmLabel: {{ _('Clear password') | tojson }},
+					confirmIcon: "ph-lock-open",
+					danger: true
+				}).done(function () { form.submit(); });
 			});
 
 		$("#expand-link").click(function (e) {
 			e.preventDefault();
-			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
-			if (window.confirm(window.translations.confirmExpandFilesystem)) {
-				window.postNavigate(this.href);
-			}
+			var href = this.href;
+			window.confirmAction({
+				title: window.translations.expandFilesystemTitle,
+				message: window.translations.confirmExpandFilesystem,
+				confirmLabel: window.translations.expandFilesystemAction,
+				confirmIcon: "ph-arrows-out-simple",
+				danger: true
+			}).done(function () { window.postNavigate(href); });
 		});
 
 		// Collapsible card sections
@@ -275,19 +329,26 @@
 				});
 			});
 
-			// Wiping every session and play asks for a typed confirmation rather
-			// than a click, matching the clear-queue control: the friction is
-			// proportional to what cannot be undone.
+			// The most destructive control here, so danger styling and the warning.
 			$("#reset-history-btn").click(function() {
-				// {# MSG: Confirmation before deleting the entire play history. The host must type ok to proceed. #}
-				var typed = window.prompt({{ _('Delete ALL play history - every session and every play, for good? Type "ok" to continue.') | tojson }});
-				if (typed === null || typed.trim().toLowerCase() !== "ok") return;
-				$.ajax({
-					url: "{{ url_for('sessions_api.reset_history') }}?scope=all",
-					type: "DELETE"
+				window.confirmAction({
+					// {# MSG: Title of the dialog confirming deletion of the entire play history. #}
+					title: {{ _('Delete all history') | tojson }},
+					// {# MSG: Body of the dialog confirming deletion of the entire play history. #}
+					message: {{ _('Delete ALL play history - every session and every play, for good?') | tojson }},
+					warning: window.translations.cannotBeUndone,
+					// {# MSG: Button label confirming deletion of the entire play history. #}
+					confirmLabel: {{ _('Delete all') | tojson }},
+					confirmIcon: "ph-trash",
+					danger: true
 				}).done(function() {
-					// {# MSG: Notification shown once the play history has been erased. #}
-					showNotification({{ _('Play history erased') | tojson }}, "is-success");
+					$.ajax({
+						url: "{{ url_for('sessions_api.reset_history') }}?scope=all",
+						type: "DELETE"
+					}).done(function() {
+						// {# MSG: Notification shown once the play history has been erased. #}
+						showNotification({{ _('Play history erased') | tojson }}, "is-success");
+					});
 				});
 			});
 
@@ -789,7 +850,7 @@
 							<form action="{{ url_for('admin.set_admin_password') }}" method="post">
 								<input type="hidden" name="admin_password" value="" />
 								{# MSG: Button which removes the administrator password, making everyone an admin. #}
-								<button class="button is-danger is-outlined">{% trans %}Clear password{% endtrans %}</button>
+								<button id="clear-password-btn" class="button is-danger is-outlined">{% trans %}Clear password{% endtrans %}</button>
 							</form>
 							<form action="{{ url_for('admin.logout') }}" method="post">
 								{# MSG: Button which logs the user out of admin mode. #}

@@ -885,3 +885,14 @@ td {
   font-variant-numeric: tabular-nums;
   gap: 12px;
 }
+
+/* ===================================
+   HELPERS
+   =================================== */
+
+/* Re-assert .is-hidden after Bulma so it wins the !important tie against the
+   display helpers (.is-flex, .is-block), which Bulma prints later; without this
+   an is-hidden + is-flex element never hides. Load-bearing, keep. */
+.is-hidden {
+  display: none !important;
+}

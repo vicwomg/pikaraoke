@@ -240,11 +240,18 @@
 		// Playing: transpose the current song, with a confirm because it restarts it.
 		$("#submit-transpose").click(function () {
 			var value = $("#transpose").val();
-			if (confirm(window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)))) {
+			window.confirmAction({
+				title: window.translations.transposeTitle,
+				message: window.translations.confirmTranspose.replace("{label}", getSemitonesLabel(value)),
+				confirmLabel: window.translations.transposeAction,
+				confirmIcon: "ph-music-notes"
+			}).done(function () {
 				$.post(window.pikaraokeConfig.basePath + "/api/transpose/" + value)
 					.done(function () { notifyKeyChanged(value); });
-			}
-			setTranspose("#transpose", "#semitones-label", 0);
+			}).always(function () {
+				// Slider springs back whether or not the change was made.
+				setTranspose("#transpose", "#semitones-label", 0);
+			});
 		});
 
 		// Pending: pre-set the cued song's key. Nothing is playing to restart, so
@@ -282,17 +289,26 @@
 		});
 
 		$("#restart").click(function () {
-			if (confirm(window.translations.confirmRestartTrack)) {
+			window.confirmAction({
+				title: window.translations.restartTitle,
+				message: window.translations.confirmRestartTrack,
+				confirmLabel: window.translations.restartAction,
+				confirmIcon: "ph-arrow-counter-clockwise"
+			}).done(function () {
 				$.post(window.pikaraokeConfig.basePath + "/api/restart");
-			}
+			});
 		});
 
 		// Playing: skipping stops a song mid-play, so it confirms first.
 		$("#skip").click(function () {
-			// {# MSG: Confirmation message when clicking a button to skip a track. #}
-			if (confirm({{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }})) {
+			window.confirmAction({
+				title: window.translations.skipTitle,
+				message: window.translations.confirmSkipTrack,
+				confirmLabel: window.translations.skipAction,
+				confirmIcon: "ph-skip-forward"
+			}).done(function () {
 				$.post(window.pikaraokeConfig.basePath + "/api/skip");
-			}
+			});
 		});
 
 		// Pending: the cued song has not played, so skipping just drops it from the

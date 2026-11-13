@@ -58,22 +58,50 @@
       usernameHelp: {{ _('This name is visible to everyone.') | tojson }},
       // {# MSG: Placeholder shown in the empty name field of the identity dialog. #}
       usernamePlaceholder: {{ _('Your name') | tojson }},
-      // {# MSG: Confirmation prompt to clear entire queue. User must type ok to confirm #}
-      promptClearQueue: {{ _('Are you sure you want to clear the ENTIRE queue? Type ok to continue') | tojson }},
-      // {# MSG: Confirmation dialog when permanently deleting a song file from the library #}
-      confirmDeleteFromLibrary: {{ _("Are you sure you want to delete this song from the library?") | tojson }},
+      // {# MSG: Irreversibility line shown set apart in a confirmation dialog, warning the action cannot be reversed. #}
+      cannotBeUndone: {{ _('This cannot be undone.') | tojson }},
+      // {# MSG: Button label confirming a deletion in a confirmation dialog. #}
+      deleteAction: {{ _('Delete') | tojson }},
+      // {# MSG: Title of the dialog confirming a clear of the whole song queue. #}
+      clearQueueTitle: {{ _('Clear queue') | tojson }},
+      // {# MSG: Body of the dialog confirming a clear of the whole song queue. #}
+      confirmClearQueue: {{ _('Remove every song from the queue?') | tojson }},
+      // {# MSG: Button label confirming a clear of the whole song queue. #}
+      clearQueueAction: {{ _('Clear queue') | tojson }},
+      // {# MSG: Title of the dialog confirming deletion of a song file from the library. #}
+      deleteSongTitle: {{ _('Delete song') | tojson }},
+      // {# MSG: Body of the dialog confirming deletion of a song file from the library. #}
+      confirmDeleteFromLibrary: {{ _("Delete this song from the library?") | tojson }},
       // {# MSG: Label showing the number of semitones for pitch shift. {value} is replaced with a number like +3 or -2. #}
       semitonesLabel: {{ _("{value} semitones") | tojson }},
       // {# MSG: Confirmation dialog when changing the key/pitch of a song. {label} is replaced with a label like "+3 semitones". #}
       confirmTranspose: {{ _("Transpose this song: {label}?") | tojson }},
+      // {# MSG: Title of the dialog confirming a change to the playing song's key, which restarts it. #}
+      transposeTitle: {{ _("Transpose song") | tojson }},
+      // {# MSG: Button label confirming a change to the playing song's key. #}
+      transposeAction: {{ _("Transpose") | tojson }},
       // {# MSG: Toast confirming the key/pitch change was applied. {label} is replaced with a label like "+3 semitones". #}
       keyChanged: {{ _("Key changed: {label}") | tojson }},
       // {# MSG: Confirmation dialog when restarting the currently playing track. #}
       confirmRestartTrack: {{ _("Are you sure you want to restart this track?") | tojson }},
+      // {# MSG: Title of the dialog confirming a restart of the playing track. #}
+      restartTitle: {{ _("Restart track") | tojson }},
+      // {# MSG: Button label confirming a restart of the playing track. #}
+      restartAction: {{ _("Restart") | tojson }},
+      // {# MSG: Title of the dialog confirming a skip of the playing track. #}
+      skipTitle: {{ _("Skip track") | tojson }},
+      // {# MSG: Body of the dialog confirming a skip of the playing track. #}
+      confirmSkipTrack: {{ _("Skip this track? If you didn't add this song, ask permission first.") | tojson }},
+      // {# MSG: Button label confirming a skip of the playing track. #}
+      skipAction: {{ _("Skip") | tojson }},
       // {# MSG: Informational tooltip explaining what a semitone is. #}
       semitonesInfo: {{ _("A semitone is also known as a half-step. It is the smallest interval used in classical Western music, equal to a twelfth of an octave or half a tone.") | tojson }},
       // {# MSG: Confirmation dialog when expanding the filesystem on Raspberry Pi, which triggers a reboot. #}
       confirmExpandFilesystem: {{ _("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.") | tojson }},
+      // {# MSG: Title of the dialog confirming a filesystem expansion on Raspberry Pi. #}
+      expandFilesystemTitle: {{ _("Expand filesystem") | tojson }},
+      // {# MSG: Button label confirming a filesystem expansion on Raspberry Pi. #}
+      expandFilesystemAction: {{ _("Expand") | tojson }},
       // {# MSG: Generic error prefix shown before an error message. #}
       errorLabel: {{ _("Error") | tojson }},
       // {# MSG: Row-options menu item which marks a song as one of the singer's favourites. #}
@@ -834,10 +862,9 @@
         </header>
         <section class="modal-card-body">
           <p id="confirm-message" class="is-hidden"></p>
-          {# Set apart from the question by a gap, an icon and the danger colour,
-             so an action with no going back reads as one before the button is
-             pressed. The text sits in its own span so the helper can rewrite it
-             without dropping the icon. #}
+          {# Set apart from the question so an action with no going back reads as
+             one before the button is pressed. Text in its own span so the helper
+             rewrites it without dropping the icon. #}
           <p id="confirm-warning" class="is-hidden has-text-danger has-text-weight-medium mt-4 is-flex is-align-items-center is-gap-2">
             <span class="icon"><i class="ph ph-warning" aria-hidden="true"></i></span>
             <span id="confirm-warning-text"></span>
@@ -845,7 +872,11 @@
         </section>
         <footer class="modal-card-foot is-justify-content-flex-end">
           <button class="button confirm-cancel">{% trans %}Cancel{% endtrans %}</button>
-          <button class="button" id="confirm-ok"></button>
+          {# Icon and label set by confirmAction(). #}
+          <button class="button" id="confirm-ok">
+            <span class="icon is-hidden" id="confirm-ok-icon"><i class="ph" aria-hidden="true"></i></span>
+            <span id="confirm-ok-text"></span>
+          </button>
         </footer>
       </div>
     </div>
