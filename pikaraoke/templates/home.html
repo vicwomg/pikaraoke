@@ -4,6 +4,8 @@
 
 	// The song the pending-state controls act on (the queue head, not yet playing).
 	var focusPendingFile = null;
+	// The cued song the key reveal has judged, so it fires once per song.
+	var keyRevealedFor = null;
 	// Duration of the song the bar is tracking, held between position ticks; null
 	// when nothing is playing or the duration is unknown (the bar then hides).
 	var npDuration = null;
@@ -81,6 +83,15 @@
 		var manualWait = pending && !np.autoplay;
 
 		focusPendingFile = np.up_next_file;
+
+		// A cued song already in a key got it from the singer's saved one, so the
+		// panel opens to show it. Once per song, so a collapse is not undone.
+		if (np.up_next_file !== keyRevealedFor) {
+			keyRevealedFor = np.up_next_file;
+			if (manualWait && np.up_next_transpose && !isAdvancedOpen()) {
+				setAdvancedOpen(true, true);
+			}
+		}
 
 		// The playback state in two registers: Title Case for when it is the main
 		// heading (a song is up and this device has joined), and a sentence for the
@@ -171,6 +182,20 @@
 		}
 	}
 
+	function isAdvancedOpen() {
+		return sessionStorage.getItem("homeAdvancedOpen") === "1";
+	}
+
+	function setAdvancedOpen(open, animate) {
+		sessionStorage.setItem("homeAdvancedOpen", open ? "1" : "0");
+		$(".js-show-advanced").attr("aria-expanded", open);
+		if (animate) {
+			$(".js-advanced-panel")[open ? "slideDown" : "slideUp"](120);
+		} else {
+			$(".js-advanced-panel").toggle(open);
+		}
+	}
+
 	function setTranspose(sliderSel, labelSel, semitones) {
 		$(sliderSel).val(semitones);
 		$(labelSel).html(getSemitonesLabel(semitones));
@@ -204,15 +229,10 @@
 		// The faders toggle reveals the less-used controls. Its open state is
 		// remembered across SPA page swaps (which rebuild this content), and both
 		// states' toggles and panels move together off the one flag.
-		var advancedOpen = sessionStorage.getItem("homeAdvancedOpen") === "1";
-		$(".js-advanced-panel").toggle(advancedOpen);
-		$(".js-show-advanced").attr("aria-expanded", advancedOpen);
+		setAdvancedOpen(isAdvancedOpen(), false);
 		$(".js-show-advanced").on("click", function (e) {
 			e.preventDefault();
-			var open = sessionStorage.getItem("homeAdvancedOpen") !== "1";
-			sessionStorage.setItem("homeAdvancedOpen", open ? "1" : "0");
-			$(".js-show-advanced").attr("aria-expanded", open);
-			$(".js-advanced-panel")[open ? "slideDown" : "slideUp"](120);
+			setAdvancedOpen(!isAdvancedOpen(), true);
 		});
 
 		$("#transpose").on("input", function () {

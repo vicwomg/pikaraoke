@@ -214,7 +214,26 @@ class TestEnqueueRequiresSongInLibrary:
         assert response.get_json()["success"][0] is True
         assert qm.queue[0]["file"] == song_path
         assert qm.queue[0]["user"] == "guest"
+        assert qm.queue[0]["semitones"] == 0
         mock_broadcast.assert_called_once_with("queue_update")
+
+    @patch("pikaraoke.routes.queue_api.broadcast_event")
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_a_saved_key_is_pre_applied(self, mock_get_instance, mock_broadcast, client, queue_env):
+        song_path = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+        qm, mock_karaoke, _queue_updates, _now_playing_updates = queue_env
+        mock_karaoke.song_manager.songs = {song_path}
+        mock_karaoke.singer_manager.merged_into_name.return_value = None
+        mock_karaoke.singer_manager.get_saved_key.return_value = -2
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.post(
+            "/api/enqueue", data={"song_to_add": song_path, "song_added_by": "Alice"}
+        )
+
+        assert response.status_code == 200
+        assert qm.queue[0]["semitones"] == -2
+        mock_karaoke.singer_manager.get_saved_key.assert_called_once_with("Alice", song_path)
 
 
 class TestQueueApiContract:
@@ -294,6 +313,7 @@ def queue_env(tmp_path):
     mock_karaoke = MagicMock()
     mock_karaoke.queue_manager = qm
     mock_karaoke.song_manager.display_name_from_path.return_value = "song"
+    mock_karaoke.singer_manager.get_saved_key.return_value = 0
 
     return qm, mock_karaoke, queue_updates, now_playing_updates
 
@@ -415,3 +435,28 @@ class TestQueueEditSocketUpdates:
         assert response.get_json()["success"] is True
         assert qm.queue[0]["semitones"] == 4
         assert len(now_playing_updates) == 1, "now_playing_update event should be emitted once"
+
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_queue_pitch_saves_the_key_for_the_singer(
+        self, mock_get_instance, client_with_session, queue_env
+    ):
+        """The key is remembered against whoever queued the song, not the slot."""
+        qm, mock_karaoke, _queue_updates, _now_playing_updates = queue_env
+        qm.queue = [_make_queue_item(1)]
+        mock_get_instance.return_value = mock_karaoke
+
+        client_with_session.post("/api/queue/pitch?song=/songs/song1.mp4&semitones=4")
+
+        mock_karaoke.singer_manager.save_key.assert_called_once_with("User1", "/songs/song1.mp4", 4)
+
+    @patch("pikaraoke.routes.queue_api.get_karaoke_instance")
+    def test_queue_pitch_on_an_unqueued_song_saves_nothing(
+        self, mock_get_instance, client_with_session, queue_env
+    ):
+        qm, mock_karaoke, _queue_updates, _now_playing_updates = queue_env
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client_with_session.post("/api/queue/pitch?song=/songs/gone.mp4&semitones=4")
+
+        assert response.get_json()["success"] is False
+        mock_karaoke.singer_manager.save_key.assert_not_called()

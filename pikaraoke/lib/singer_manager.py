@@ -36,9 +36,9 @@ class SingerManager:
     than carrying its own copy. The name is NOCASE-unique, so "Mike" and "mike"
     are one singer. A row is created the first time a name sings or stars a song.
 
-    It also owns `singer_songs`, where a singer's favourites live (the saved key
-    shares the row but has no UI yet), keyed on the song's durable identity so a
-    star outlives a rename and a re-download.
+    It also owns `singer_songs`, where a singer's favourites and saved keys live,
+    keyed on the song's durable identity so both outlive a rename and a
+    re-download.
     """
 
     def __init__(
@@ -145,7 +145,7 @@ class SingerManager:
             )
 
     # ------------------------------------------------------------------
-    # Favourites
+    # Favourites and saved keys
     # ------------------------------------------------------------------
 
     def _find_song_row(
@@ -159,12 +159,13 @@ class SingerManager:
         """
         if youtube_id:
             rows = self.db.query(
-                "SELECT id, semitones FROM singer_songs WHERE singer_id = ? AND youtube_id = ?",
+                "SELECT id, starred, semitones FROM singer_songs "
+                "WHERE singer_id = ? AND youtube_id = ?",
                 (singer_id, youtube_id),
             )
         else:
             rows = self.db.query(
-                "SELECT id, semitones FROM singer_songs "
+                "SELECT id, starred, semitones FROM singer_songs "
                 "WHERE singer_id = ? AND youtube_id IS NULL "
                 "AND (song_id = ? OR song_title = ? COLLATE NOCASE) "
                 "ORDER BY (song_id = ?) DESC LIMIT 1",
@@ -203,9 +204,8 @@ class SingerManager:
     def remove_favourite(self, name: str, song_path: str) -> None:
         """Clear a singer's star on a song.
 
-        The row is deleted when nothing else is saved on it, which in this scope
-        is always -- the saved key has no UI yet. A name or song that was never
-        starred is a no-op.
+        The row survives when a saved key is still on it, and is deleted
+        otherwise. A name or song that was never starred is a no-op.
         """
         singer = self.find(name)
         if singer is None:
@@ -242,6 +242,57 @@ class SingerManager:
             (singer["id"],),
         )
         return {row["file_path"] for row in rows}
+
+    def get_saved_key(self, name: str, song_path: str) -> int:
+        """The key this singer last chose for this song; 0 when none is saved.
+
+        A name with no singer row -- never sung, never starred -- has nothing
+        saved, as does a song out of the library.
+        """
+        singer = self.find(name)
+        if singer is None:
+            return 0
+        song_id, youtube_id = self.db.get_song_identity(song_path)
+        if song_id is None:
+            return 0
+        title = self.song_display_name(song_path)
+        row = self._find_song_row(singer["id"], song_id, youtube_id, title)
+        if row is None or row["semitones"] is None:
+            return 0
+        return row["semitones"]
+
+    def save_key(self, name: str, song_path: str, semitones: int) -> None:
+        """Remember the key this singer wants this song in, overwriting any saved one.
+
+        Key 0 is no memory rather than a stored zero, so clearing a key deletes
+        the row unless it is also starred -- the rule remove_favourite applies
+        from the other side. The randomizer's name is the system's, not a
+        performer's, so it saves nothing.
+        """
+        if normalize_name(name).lower() in PLACEHOLDER_SINGERS:
+            return
+        song_id, youtube_id = self.db.get_song_identity(song_path)
+        if song_id is None:
+            return
+        title = self.song_display_name(song_path)
+        singer = self.find(name)
+        existing = self._find_song_row(singer["id"], song_id, youtube_id, title) if singer else None
+        if existing is None:
+            if semitones == 0:
+                return
+            singer_id = singer["id"] if singer else self.get_or_create(name, refresh_casing=False)
+            self.db.execute(
+                "INSERT INTO singer_songs (singer_id, song_id, youtube_id, song_title, semitones) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (singer_id, song_id, youtube_id, title, semitones),
+            )
+        elif semitones == 0 and not existing["starred"]:
+            self.db.execute("DELETE FROM singer_songs WHERE id = ?", (existing["id"],))
+        else:
+            self.db.execute(
+                "UPDATE singer_songs SET semitones = ?, song_id = ?, song_title = ? WHERE id = ?",
+                (semitones or None, song_id, title, existing["id"]),
+            )
 
     # ------------------------------------------------------------------
     # The roster, merge and delete (the admin Singers page)
