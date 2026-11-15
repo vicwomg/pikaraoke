@@ -472,6 +472,25 @@ class TestTransposeCurrent:
         assert k.queue_manager.queue[0]["semitones"] == 2
         assert k.playback_controller.skipped_reasons == ["transpose"]
 
+    def test_transpose_saves_the_key_against_the_singer(self, mock_karaoke_with_songs):
+        """A key set after the song starts is remembered, like the pending slider's."""
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k)
+
+        k.transpose_current(2)
+
+        k.singer_manager.save_key.assert_called_once_with("Alice", path, 2)
+
+    def test_transpose_does_not_save_when_the_requeue_is_refused(self, mock_karaoke_with_songs):
+        """A key the singer never got to sing in is not worth remembering."""
+        k = mock_karaoke_with_songs
+        path = self._start_playing(k)
+        k.queue_manager.enqueue(path, "Bob")
+
+        k.transpose_current(2)
+
+        k.singer_manager.save_key.assert_not_called()
+
     def test_transpose_keeps_playing_when_the_requeue_is_refused(self, mock_karaoke_with_songs):
         """A refused requeue must not skip: the singer would lose their turn.
 

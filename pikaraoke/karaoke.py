@@ -695,7 +695,7 @@ class Karaoke:
         return True
 
     def transpose_current(self, semitones: int) -> None:
-        """Restart the current song with a new transpose value.
+        """Restart the current song in a new key and remember it for the singer.
 
         Args:
             semitones: Number of semitones to transpose.
@@ -704,7 +704,11 @@ class Karaoke:
         if now_playing is None:
             logging.warning("Cannot transpose: no song currently playing")
             return
+        # _recue_current clears now-playing state, so read it first.
+        filename = self.playback_controller.now_playing_filename
+        user = self.playback_controller.now_playing_user
         if self._recue_current(semitones, "transpose"):
+            self.singer_manager.save_key(user, filename, semitones)
             # MSG: Message shown after the song is transposed, first is the semitones and then the song name
             self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
 
