@@ -45,8 +45,7 @@
       <span id="now-playing-singer"></span>
       <br />
       <span class="timestamp is-size-6">
-        <span id="current">00:00</span>
-        <span id="duration">/00:00</span>
+        <span id="current">00:00</span><span id="duration"> / 00:00</span>
       </span>
     </div>
   </div>
@@ -327,8 +326,7 @@
   }
   #clock {
     text-align: left;
-    font-family: monospace;
-    font-weight: bold;
+    font-variant-numeric: tabular-nums;
     line-height: 1;
     margin-bottom: 10px;
   }
@@ -363,10 +361,12 @@
     z-index: 3 !important;
   }
   .stroke {
-    text-shadow: 2px 0.75px black;
+    paint-order: stroke;
+    -webkit-text-stroke: 0.12em black;
   }
   .timestamp {
-    font-family: monospace;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
   }
   /* A toast stack anchored top-left over the video. */
   #splash-notification {

@@ -447,7 +447,7 @@ const handleNowPlayingUpdate = (np) => {
 
     const duration = $("#duration");
     if (np.now_playing_duration) {
-      duration.text(`/${formatTime(np.now_playing_duration)}`);
+      duration.text(` / ${formatTime(np.now_playing_duration)}`);
       duration.show();
     } else {
       duration.hide();
