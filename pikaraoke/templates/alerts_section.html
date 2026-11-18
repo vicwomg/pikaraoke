@@ -1,0 +1,29 @@
+{# The Settings "Alerts" card. Rendered inline at page load and re-fetched by the
+   settings page on the alerts socket event, so one markup source stays live. #}
+{% if admin_alerts %}
+<div class="card mt-5">
+	<header class="card-header py-3 px-5">
+		{# MSG: Header of the section listing conditions that need the host's attention. #}
+		<h3 class="m-0">{% trans %}Alerts{% endtrans %}</h3>
+	</header>
+	<div class="card-content">
+		{% for alert in admin_alerts %}
+		<div class="notification is-{{ alert.severity }} is-flex is-align-items-center is-justify-content-space-between is-gap-2 py-2 px-4{% if not loop.last %} mb-2{% endif %}">
+			<span>{{ alert.message }}</span>
+			{% if alert.action_label %}
+				{% if alert.action_url and alert.action_url.startswith('http') %}
+					<a class="button is-small is-flex-shrink-0" href="{{ alert.action_url }}" target="_blank" rel="noopener">{{ alert.action_label }}</a>
+				{% elif alert.action_url and alert.action_url.startswith('#') %}
+					{# Same-page jump: expanded and scrolled to by the settings script. #}
+					<a class="button is-small is-flex-shrink-0 alert-jump" href="{{ alert.action_url }}">{{ alert.action_label }}</a>
+				{% elif alert.action_url %}
+					<a class="button is-small is-flex-shrink-0" href="{{ base_path }}{{ alert.action_url }}">{{ alert.action_label }}</a>
+				{% else %}
+					<code class="is-flex-shrink-0">{{ alert.action_label }}</code>
+				{% endif %}
+			{% endif %}
+		</div>
+		{% endfor %}
+	</div>
+</div>
+{% endif %}

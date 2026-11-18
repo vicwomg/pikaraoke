@@ -94,7 +94,12 @@
 					{# MSG: The version of the program "ffmpeg". #}
 					<li><u>{% trans %}FFmpeg version:{% endtrans %}</u> {{ ffmpeg_version }} {% if not is_transpose_enabled %} (missing lib-rubberband, pitch shift is not supported) {% endif %}</li>
 					{# MSG: The version of Pikaraoke running right now. #}
-					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}</li>
+					<li><u>{% trans %}Pikaraoke version:{% endtrans %}</u> {{ pikaraoke_version }}
+						{# From the same version.available alert as the bell: one source. #}
+						{% for alert in admin_alerts | default([]) if alert.key == 'version.available' %}
+						<span class="tag is-warning ml-2">{% trans %}New version available{% endtrans %}</span>
+						{% endfor %}
+					</li>
 					</ul>
 					{# MSG: Button that copies the system info above it, for pasting into a bug report. #}
 					<button id="copy-system-info" class="button is-small is-primary">{% trans %}Copy{% endtrans %}</button>

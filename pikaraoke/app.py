@@ -34,6 +34,7 @@ from pikaraoke.lib.login_throttle import LoginThrottle
 from pikaraoke.lib.singer_manager import SINGER_NAME_MAX_LENGTH
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
+from pikaraoke.lib.version_check import run_update_checks
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
 from pikaraoke.routes import API_BLUEPRINTS, INTERNAL_BLUEPRINTS
 from pikaraoke.routes.socket_events import setup_socket_events
@@ -158,6 +159,20 @@ def inject_path_config() -> dict[str, object]:
         "cookie_path": app.config["SESSION_COOKIE_PATH"],
         "singer_name_max_length": SINGER_NAME_MAX_LENGTH,
     }
+
+
+@app.context_processor
+def inject_admin_alerts() -> dict:
+    """Expose active admin alerts to every template.
+
+    UI gating (whether the bell renders), not authorization: empty for
+    non-admins, and on a passwordless install is_admin() is true for everyone.
+    """
+    try:
+        k = get_karaoke_instance()
+    except (RuntimeError, KeyError):
+        return {"admin_alerts": []}
+    return {"admin_alerts": k.alerts.active() if is_admin() else []}
 
 
 babel.init_app(app, locale_selector=get_locale)
@@ -334,6 +349,9 @@ def main() -> None:
         spawn(upgrade_youtubedl)
     else:
         logging.info("Skipping yt-dlp upgrade on startup")
+
+    # Off the request path: raises version.available when a newer release exists.
+    spawn(run_update_checks, k.events)
 
     # Pre-populate SERVER_NAME so gevent's pywsgi skips the reverse-DNS (getfqdn)
     # lookup it otherwise runs at startup, which can hang for a long time on hosts
