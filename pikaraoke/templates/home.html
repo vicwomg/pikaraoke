@@ -2,6 +2,12 @@
 <script>
 	var volume = {{ volume|default(0.85) }};
 
+	// Whether the host lets phones mirror the playing video. Live-toggled below.
+	var enablePhoneVideo = {{ enable_phone_video | tojson }};
+	// The last now_playing payload, so a toggle or preference change can re-run
+	// the watch-along decision without waiting for the next server event.
+	var lastNp = null;
+
 	// The song the pending-state controls act on (the queue head, not yet playing).
 	var focusPendingFile = null;
 	// The cued song the key reveal has judged, so it fires once per song.
@@ -74,6 +80,7 @@
 	// The focus slot is one song at one point in its life. Three states, each a
 	// test on the payload: a song playing, a song cued but not started, or nothing.
 	function handleNowPlaying(np) {
+		lastNp = np;
 		var playing = !!np.now_playing;
 		var pending = !playing && !!np.up_next;
 		var idle = !playing && !np.up_next;
@@ -179,6 +186,181 @@
 			$("#pause-resume").removeClass("ph-play").addClass("ph-pause");
 		} else {
 			$("#pause-resume").removeClass("ph-pause").addClass("ph-play");
+		}
+
+		renderWatchAlong(np);
+	}
+
+	// ---- Watch-along: the playing video on this device, synced to the TV ----
+	// A pure listener on the room clock. It mirrors the splash's slave behaviour
+	// (seek to the live position, drift-correct, follow pause and skip) but NEVER
+	// emits register_splash, start_song or playback_position, so it cannot join
+	// the master election and become the clock for the room when the TV drops.
+	var watchHls = null;
+	var watchAttachedUrl = null;
+	var watchHlsPromise = null;
+	// Open state for the current song only, in memory not a cookie, so the
+	// stream is never inherited by the next singer or across a reload.
+	var watchOpen = false;
+	var watchSongUrl = null;
+	// Whether this phone currently holds a watch slot on the server, so teardown
+	// frees exactly one and a re-render never re-asks for a slot it already has.
+	var watchRegistered = false;
+
+	var waUA = navigator.userAgent;
+	var waIsSafari = /^((?!chrome|android).)*safari/i.test(waUA);
+	var waIsMobileSafari = waIsSafari && (/iPhone|iPad|iPod/i.test(waUA) || navigator.maxTouchPoints > 1);
+	var waIsChrome = /chrome/i.test(waUA) && !/edg/i.test(waUA);
+	var waIsEdge = /edg/i.test(waUA);
+
+	function watchVideo() { return document.getElementById("watch-video"); }
+
+	// Inject hls.js on first use, and only off iOS, which plays HLS natively.
+	function ensureHls() {
+		if (window.Hls) return Promise.resolve();
+		if (!watchHlsPromise) {
+			watchHlsPromise = new Promise(function (resolve, reject) {
+				var s = document.createElement("script");
+				s.src = "{{ url_for('static', filename='hls-1.6.15.min.js') }}";
+				s.onload = resolve;
+				s.onerror = reject;
+				document.head.appendChild(s);
+			});
+		}
+		return watchHlsPromise;
+	}
+
+	// Stop and detach the stream. Visibility of the panel is the caller's job -
+	// this only tears the video down so hls.js stops pulling segments.
+	function teardownWatch() {
+		watchAttachedUrl = null;
+		if (watchHls) { watchHls.destroy(); watchHls = null; }
+		var v = watchVideo();
+		if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
+		if (watchRegistered) {
+			watchRegistered = false;
+			if (window.socket) window.socket.emit("unregister_watcher");
+		}
+	}
+
+	// Attach the song's stream, muted, at the live position. ?passive=1 so the
+	// fetch is not taken as the song starting - which would skew the authoritative
+	// position and the master election just because the phone loaded first.
+	function attachWatch(np) {
+		if (!np || !np.now_playing_url) return;
+		var base = np.now_playing_url;
+		var streamUrl = base + (base.indexOf("?") >= 0 ? "&" : "?") + "passive=1";
+		if (streamUrl === watchAttachedUrl) return;
+		watchAttachedUrl = streamUrl;
+		var video = watchVideo();
+		var resumeAt = np.now_playing_position || 0;
+		if (watchHls) { watchHls.destroy(); watchHls = null; }
+		video.muted = true;
+		// Joining a paused song, seek to the live frame but do not play on: the
+		// paused master emits no position beacons, so nothing would re-sync a
+		// phone that ran ahead. The seek renders that frame on the paused element.
+		var startPaused = !!np.is_paused;
+		// iOS Safari plays HLS natively; everyone else needs hls.js.
+		var useNativeHLS = video.canPlayType("application/vnd.apple.mpegurl") && !waIsChrome && !waIsEdge && !waIsMobileSafari;
+		if (useNativeHLS) {
+			video.src = streamUrl;
+			if (resumeAt) {
+				video.addEventListener("loadedmetadata", function onMeta() {
+					video.currentTime = resumeAt;
+					video.removeEventListener("loadedmetadata", onMeta);
+				});
+			}
+			if (!startPaused) video.play().catch(function () {});
+		} else {
+			ensureHls().then(function () {
+				// A newer song may have swapped the target while hls.js loaded.
+				if (watchAttachedUrl !== streamUrl) return;
+				watchHls = new Hls({ startPosition: resumeAt });
+				watchHls.loadSource(streamUrl);
+				watchHls.attachMedia(video);
+				if (!startPaused) video.play().catch(function () {});
+			}).catch(function () {});
+		}
+	}
+
+	// Show the open button and hide the panel, or the reverse. Teardown stops the
+	// stream whenever the panel is not showing, so hls.js never pulls in the
+	// background. Visibility is is-hidden throughout: its !important beats the
+	// Bulma display classes on these elements, which jQuery .show() would not.
+	function setWatchOpen(open) {
+		$("#watch-open").toggleClass("is-hidden", open);
+		$("#watch-along-panel").toggleClass("is-hidden", !open);
+		if (open) attachWatch(lastNp); else teardownWatch();
+	}
+
+	// Ask the room for a slot before showing the video. The grant/deny reply
+	// drives the panel, so a phone past the host's cap gets a note, not a stream.
+	function requestWatch() {
+		if (window.socket) window.socket.emit("register_watcher");
+	}
+
+	// Drives the block whenever the host has enabled phone video and a song is
+	// playing. A playing song whose lyrics are in the picture (HLS, no sidecar
+	// subtitle) gets the Watch button; a sidecar .ass or mp4 stream gets the note
+	// instead, until the burn-in stage lands. Anything but a playing song hides
+	// the whole block, so the button never offers a stream that is not there yet.
+	function renderWatchAlong(np) {
+		var playing = !!(np && np.now_playing && np.now_playing_url);
+		// The open flag belongs to the song playing when it was opened; drop it
+		// when a different song takes over so the next singer must tap for it.
+		var songUrl = playing ? np.now_playing_url : null;
+		if (watchSongUrl !== null && songUrl !== watchSongUrl) {
+			watchOpen = false;
+			$("#watch-busy-note").addClass("is-hidden");
+		}
+		watchSongUrl = songUrl;
+		if (!enablePhoneVideo || !playing) {
+			$("#watch-along").addClass("is-hidden");
+			$("#watch-along-panel").addClass("is-hidden");
+			teardownWatch();
+			return;
+		}
+		$("#watch-along").removeClass("is-hidden");
+		if (!np.now_playing_url.endsWith(".m3u8") || np.now_playing_subtitle_url) {
+			$("#watch-open").addClass("is-hidden");
+			$("#watch-along-note").removeClass("is-hidden");
+			$("#watch-along-panel").addClass("is-hidden");
+			teardownWatch();
+			return;
+		}
+		$("#watch-along-note").addClass("is-hidden");
+		setWatchOpen(watchOpen);
+	}
+
+	// Drift-correct the watch video against the room clock, exactly as a slave
+	// splash does: a gap over 2s seeks, a smaller one nudges the rate up to 10%.
+	function syncWatch(position) {
+		var v = watchVideo();
+		if (!v || !watchAttachedUrl) return;
+		if (!(v.currentTime > 0 && !v.paused && !v.ended && v.readyState > 2)) return;
+		var drift = position - v.currentTime;
+		if (Math.abs(drift) > 2) {
+			v.currentTime = position;
+		} else {
+			v.playbackRate = Math.abs(drift) < 0.05 ? 1 : 1 + Math.max(-0.1, Math.min(0.1, drift / 2));
+		}
+	}
+
+	function enterWatchFullscreen() {
+		var video = watchVideo();
+		if (!video) return;
+		if (video.requestFullscreen) {
+			video.requestFullscreen().catch(function () {});
+		} else if (video.webkitEnterFullscreen) {
+			// iPhone: the <video> opens in the system player, which the page cannot
+			// restyle - the volumechange guard below is what keeps it muted there.
+			video.webkitEnterFullscreen();
+		} else if (video.webkitRequestFullscreen) {
+			video.webkitRequestFullscreen();
+		}
+		// Best-effort: browsers without the lock reject, and the singer rotates.
+		if (screen.orientation && screen.orientation.lock) {
+			try { screen.orientation.lock("landscape").catch(function () {}); } catch (e) {}
 		}
 	}
 
@@ -351,14 +533,81 @@
 
 		applyHeading();
 
+		// Watch-along wiring. The video is permanently muted: the TV carries the
+		// audio, and a phone a second or two off it would sound awful. The guard
+		// re-asserts mute whenever anything clears it - including the iPhone system
+		// player's own control, which the page cannot remove.
+		var wv = watchVideo();
+		if (wv) {
+			wv.addEventListener("volumechange", function () { if (!wv.muted) wv.muted = true; });
+		}
+		$("#watch-open").on("click", requestWatch);
+		$("#watch-hide").on("click", function () {
+			watchOpen = false;
+			setWatchOpen(false);
+		});
+		$("#watch-fullscreen").on("click", enterWatchFullscreen);
+
+		// Tear the stream down when this page is navigated away from. The SPA
+		// replaces the .box content with jQuery .html(), and this special-event
+		// remove hook fires as jQuery cleans up the node - without it, hls.js keeps
+		// pulling segments against a detached <video>, the very bandwidth this
+		// feature is careful with.
+		$.event.special.watchAlongTeardown = { remove: function () { teardownWatch(); } };
+		$("#watch-along").on("watchAlongTeardown", $.noop);
+
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
 		window.onPageSocket("now_playing", (np) => handleNowPlaying(np));
 		// The splash's video beacons its position to the room once a second; drive
-		// the bar from it between the coarser now_playing seeds.
+		// the bar from it between the coarser now_playing seeds, and keep the
+		// watch-along video in sync off the same beacon.
 		window.onPageSocket("playback_position", function (position) {
 			if (npPlaying && npDuration) renderBar(position, npDuration, false);
+			syncWatch(position);
+		});
+
+		// Mirror the TV's transport onto the watch-along video. Muted, so no fades.
+		window.onPageSocket("pause", function () {
+			var v = watchVideo();
+			if (v && watchAttachedUrl && !v.paused) v.pause();
+		});
+		window.onPageSocket("play", function () {
+			var v = watchVideo();
+			if (v && watchAttachedUrl && v.paused) v.play().catch(function () {});
+		});
+		window.onPageSocket("restart", function () {
+			var v = watchVideo();
+			if (v && watchAttachedUrl) { v.currentTime = 0; if (v.paused) v.play().catch(function () {}); }
+		});
+		window.onPageSocket("skip", function () { teardownWatch(); });
+
+		// The server's reply to requestWatch: a slot, or the room is at its cap.
+		window.onPageSocket("watch_granted", function () {
+			watchRegistered = true;
+			watchOpen = true;
+			$("#watch-busy-note").addClass("is-hidden");
+			setWatchOpen(true);
+		});
+		window.onPageSocket("watch_denied", function () {
+			watchOpen = false;
+			$("#watch-busy-note").removeClass("is-hidden");
+		});
+
+		// Enabling or disabling phone video from Settings takes effect here without
+		// a reload, the same way the splash toggles live-update.
+		window.onPageSocket("preferences_update", function (data) {
+			if (data.key !== "enable_phone_video") return;
+			enablePhoneVideo = data.value === true || data.value === "True" || data.value === "true";
+			if (lastNp) renderWatchAlong(lastNp);
+		});
+		// A reset-all broadcasts every default at once, not a single key; pick ours
+		// out so the panel cannot outlive the preference, the way a single toggle
+		// already cannot.
+		window.onPageSocket("preferences_reset", function (defaults) {
+			enablePhoneVideo = defaults.enable_phone_video === true;
+			if (lastNp) renderWatchAlong(lastNp);
 		});
 
 		document.addEventListener("visibilitychange", function () {
@@ -511,6 +760,45 @@
 		<div class="np-times is-size-7 has-text-grey-light">
 			<span class="np-elapsed">0:00</span>
 			<span class="np-remaining">-0:00</span>
+		</div>
+	</div>
+
+	{# Watch-along: the playing video mirrored to this device, muted and synced to
+	   the TV, for anyone who cannot see the main screen. Not admin-gated - the
+	   singer at the mic needs it most. Shown only while a song whose lyrics are in
+	   the picture is playing and the host has enabled phone video; a sidecar-
+	   subtitle or non-HLS song shows a note instead (see renderWatchAlong). #}
+	<div id="watch-along" class="mt-3 is-hidden">
+		<button id="watch-open" class="button is-small is-hidden">
+			<span class="icon"><i class="ph ph-play"></i></span>
+			{# MSG: Button on the home screen that plays the current song's video on this device, synced to the TV. #}
+			<span>{% trans %}Watch the video{% endtrans %}</span>
+		</button>
+		<p id="watch-along-note" class="is-flex is-align-items-center is-size-7 has-text-grey-light is-hidden">
+			<span class="icon is-text-size mr-1"><i class="ph ph-eye"></i></span>
+			{# MSG: Note on the home screen when the playing song can only be watched on the main TV screen, not mirrored to this device. #}
+			<span>{% trans %}This song can only be watched on the main screen.{% endtrans %}</span>
+		</p>
+		<p id="watch-busy-note" class="is-flex is-align-items-center is-size-7 has-text-grey-light is-hidden mt-1">
+			<span class="icon is-text-size mr-1"><i class="ph ph-users"></i></span>
+			{# MSG: Note on the home screen when too many phones are already watching the video, so this one must use the main screen. #}
+			<span>{% trans %}Too many phones are watching - use the main screen.{% endtrans %}</span>
+		</p>
+		<div id="watch-along-panel" class="is-hidden">
+			<video id="watch-video" muted playsinline webkit-playsinline disableRemotePlayback
+				style="width: 100%; display: block; background: var(--bulma-black); border-radius: var(--bulma-radius)"></video>
+			<div class="buttons mt-2">
+				<button id="watch-fullscreen" class="button is-small">
+					<span class="icon"><i class="ph ph-arrows-out"></i></span>
+					{# MSG: Button that expands the watch-along video to fullscreen on this device. #}
+					<span>{% trans %}Fullscreen{% endtrans %}</span>
+				</button>
+				<button id="watch-hide" class="button is-small">
+					<span class="icon"><i class="ph ph-x"></i></span>
+					{# MSG: Button that puts the watch-along video away again. #}
+					<span>{% trans %}Hide{% endtrans %}</span>
+				</button>
+			</div>
 		</div>
 	</div>
 

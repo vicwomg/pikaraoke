@@ -29,6 +29,8 @@ def home():
         is_transpose_enabled=k.is_transpose_enabled,
         volume=k.volume,
         mic_available=k.sound_manager.available,
+        # Gates the "Watch here" phone-video panel; off by default for bandwidth.
+        enable_phone_video=k.enable_phone_video,
         # Invites browsing on the idle screen: "Choose from N songs to sing".
         song_count=len(k.song_manager.songs),
     )

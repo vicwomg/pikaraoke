@@ -16,6 +16,11 @@ master_splash_id: str | None = None
 splash_liveness: dict[str, float] = {}
 splash_last_playback: dict[str, str | None] = {}
 
+# Phones mirroring the playing video on their home screen. Capped so a shared
+# Wi-Fi link is not swamped by duplicate video streams; the set is the live
+# count, self-cleaned by disconnect below.
+watch_connections: set[str] = set()
+
 # How long a splash may go quiet before it is no longer counted alive for master
 # election. The live kiosk tab beacons once a second while it plays, so a few
 # missed beacons (a greenlet stall, a heavy transcode) must not dislodge a
@@ -235,11 +240,31 @@ def setup_socket_events(socketio):
             k.playback_controller.now_playing_position = position
             socketio.emit("playback_position", position, include_self=False)
 
+    @open_to_room("register_watcher")
+    def register_watcher() -> None:
+        """A phone asks to mirror the playing video. Granted while the room is
+        under the host's cap; a phone already counted is always re-granted. This
+        is a plain listener, never a splash, so it stays out of master election.
+        """
+        sid = request.sid
+        cap = get_karaoke_instance().max_phone_watchers
+        if sid in watch_connections or len(watch_connections) < cap:
+            watch_connections.add(sid)
+            socketio.emit("watch_granted", room=sid)
+        else:
+            socketio.emit("watch_denied", room=sid)
+
+    @open_to_room("unregister_watcher")
+    def unregister_watcher() -> None:
+        """A phone stopped watching; free its slot without waiting for a close."""
+        watch_connections.discard(request.sid)
+
     @open_to_room("disconnect")
     def handle_disconnect() -> None:
         """Handle Socket.IO client disconnection and clear the client's liveness."""
         global master_splash_id
         sid = request.sid
+        watch_connections.discard(sid)
         if sid in splash_connections:
             splash_connections.remove(sid)
             splash_liveness.pop(sid, None)

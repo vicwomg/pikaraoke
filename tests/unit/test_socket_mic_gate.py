@@ -34,6 +34,8 @@ PUBLIC_EVENTS = [
     ("start_song", ()),
     ("register_splash", ()),
     ("playback_position", (12.5,)),
+    ("register_watcher", ()),
+    ("unregister_watcher", ()),
     ("disconnect", ()),
 ]
 
@@ -46,6 +48,7 @@ def reset_splash_state():
     socket_events.master_splash_id = None
     socket_events.splash_liveness.clear()
     socket_events.splash_last_playback.clear()
+    socket_events.watch_connections.clear()
 
 
 def elect_master(socketio, app, karaoke):
@@ -75,6 +78,8 @@ def make_socket_app(admin: bool):
 
     karaoke = MagicMock()
     karaoke.sound_manager = sound_manager
+    # A real int: register_watcher compares the live count against it.
+    karaoke.max_phone_watchers = 3
     app.config["KARAOKE_INSTANCE"] = karaoke
 
     socketio = SocketIO(app, async_mode="threading")

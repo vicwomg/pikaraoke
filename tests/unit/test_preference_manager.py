@@ -276,6 +276,8 @@ def test_preference_manager_defaults_exist():
         "disable_bg_music",
         "bg_music_volume",
         "disable_bg_video",
+        "enable_phone_video",
+        "max_phone_watchers",
         "disable_score",
         "autoplay",
         "limit_user_songs_by",

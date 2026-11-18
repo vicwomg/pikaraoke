@@ -685,22 +685,15 @@ const setupSocketEvents = () => {
   });
   socket.on('pause', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
-    if (!video.paused) {
-      $(video).animate({ volume: 0 }, 1000, () => {
-        video.pause();
-        video.volume = currVolume;
-      });
-    }
+    // Pause on the frame, so every screen in the room - the TV and any phone
+    // mirroring it - freezes together. A fade-out would keep the video playing
+    // for the length of the fade and leave the phones a second behind.
+    if (!video.paused) video.pause();
   });
   socket.on('play', () => {
     const video = getVideoPlayer();
-    const currVolume = video.volume;
-    if (video.paused) {
-      video.play();
-      video.volume = 0;
-      $(video).animate({ volume: currVolume }, 1000);
-    }
+    // Resume on the frame at full volume, the mirror of the instant pause above.
+    if (video.paused) video.play();
   });
   socket.on('skip', (reason) => {
     const video = getVideoPlayer();

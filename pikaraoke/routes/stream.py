@@ -24,6 +24,16 @@ from pikaraoke.lib.file_resolver import FileResolver, get_tmp_dir
 stream_bp = Blueprint("stream", __name__)
 
 
+def _is_passive() -> bool:
+    """Whether this stream fetch must not count as the song starting.
+
+    A phone watching along fetches the same stream as the TV. Without this it
+    would trip start_song() - skewing position tracking and the master election -
+    just by loading faster than the splash. A passive fetch serves bytes only.
+    """
+    return bool(request.args.get("passive"))
+
+
 # Serves HLS playlist file - explicit .m3u8 extension
 @stream_bp.route("/stream/<id>.m3u8")
 @public
@@ -32,7 +42,8 @@ def stream_playlist(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.m3u8")
     k = get_karaoke_instance()
 
-    k.playback_controller.start_song(id)
+    if not _is_passive():
+        k.playback_controller.start_song(id)
 
     # Wait for playlist file to exist
     max_wait = 50  # 5 seconds max
@@ -131,7 +142,8 @@ def stream_progressive_mp4(id):
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     k = get_karaoke_instance()
 
-    k.playback_controller.start_song(id)
+    if not _is_passive():
+        k.playback_controller.start_song(id)
 
     # Wait for output file to exist
     max_wait = 50  # 5 seconds max
@@ -229,7 +241,8 @@ def stream_full(id):
     """Stream video with range headers (Safari compatible)."""
     k = get_karaoke_instance()
 
-    k.playback_controller.start_song(id)
+    if not _is_passive():
+        k.playback_controller.start_song(id)
 
     file_path = os.path.join(get_tmp_dir(), f"{id}.mp4")
     return stream_file_path_full(file_path)

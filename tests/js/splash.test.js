@@ -657,7 +657,7 @@ describe("volume and transport controls", () => {
     expect(video.volume).toBe(0.3);
   });
 
-  it("pauses a playing song with the fade-out, restoring the volume", () => {
+  it("pauses a playing song on the frame, leaving the volume untouched", () => {
     setPlaying(true);
     video.volume = 0.7;
     socketStub.fire("pause");

@@ -539,6 +539,22 @@
 					</span>
 					<input id="pref-cdg-scaling" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="cdg_pixel_scaling" {% if cdg_pixel_scaling == True %}checked{% endif %}>
 				</label>
+				<label class="panel-block px-5 py-3 is-justify-content-space-between">
+					<span>
+						{# MSG: Checkbox label for letting singers watch the playing song on their phone, synced to the TV. #} {% trans %}Let singers watch on their phones{% endtrans %}
+						{# MSG: Help under the phone-video setting: what it does and its bandwidth cost. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Shows the playing video on the home screen, synced to the TV. Each phone adds to Wi-Fi use.{% endtrans %}</span>
+					</span>
+					<input id="pref-phone-video" type="checkbox" class="user-preference-checkbox switch ml-4 mr-0" data-pref="enable_phone_video" {% if enable_phone_video == True %}checked{% endif %}>
+				</label>
+				<div class="panel-block px-5 py-3 is-justify-content-space-between">
+					<label for="pref-max-phone-watchers">
+						{# MSG: Numberbox label capping how many phones can watch the video at once. #} {% trans %}Phones watching at once{% endtrans %}
+						{# MSG: Help under the phone-watchers cap: why it is limited. #}
+						<span class="is-block is-size-7 has-text-grey-light">{% trans %}Each phone adds to Wi-Fi use, so keep this low.{% endtrans %}</span>
+					</label>
+					<input id="pref-max-phone-watchers" class="user-preference-input input is-flex-shrink-0 ml-4" type="number" min="1" max="9" data-pref="max_phone_watchers" data-start-value="{{ max_phone_watchers }}" value="{{ max_phone_watchers }}" />
+				</div>
 				{% if mic_passthrough_enabled %}
 				<div class="panel-block is-block p-5">
 					{% if mic_available %}
