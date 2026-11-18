@@ -461,11 +461,13 @@ const handleNowPlayingUpdate = (np) => {
       duration.hide();
     }
 
-    $("#video-container").show();
-
     const startSong = () => {
       // A skip or a newer song during the fade supersedes this start.
       if (currentVideoUrl !== streamUrl) return;
+      // Reveal the player only now: its container is opaque black at a higher
+      // layer than the background, so showing it before the fade clears would
+      // hide the background fading out beneath it.
+      $("#video-container").show();
       video.play().catch(err => {
         console.error('Play failed:', err);
         // Retry once if it was an autoplay block

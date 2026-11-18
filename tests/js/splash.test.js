@@ -342,7 +342,9 @@ describe("handleNowPlayingUpdate", () => {
     expect(window.__hlsInstances[0].config.startPosition).toBe(15);
   });
 
-  it("holds the song's video until a playing background has faded", () => {
+  it("holds the song's video, and its container, until a playing background has faded", () => {
+    const container = document.getElementById("video-container");
+    container.style.display = "none";
     const music = getBgMusicFake();
     Object.assign(music, { paused: false, currentTime: 5, readyState: 4 });
 
@@ -353,18 +355,26 @@ describe("handleNowPlayingUpdate", () => {
       playback_id: "PB1",
     });
 
+    // The container is opaque black above the background, so it must stay
+    // hidden through the fade or it would mask the background fading out.
+    expect(container.style.display).toBe("none");
     expect(getVideoFake().playCalls).toBe(0);
     vi.advanceTimersByTime(1000);
+    expect(container.style.display).not.toBe("none");
     expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
   });
 
-  it("starts the song at once when no background is playing", () => {
+  it("starts the song, and shows its container, at once when no background is playing", () => {
+    const container = document.getElementById("video-container");
+    container.style.display = "none";
+
     splash.handleNowPlayingUpdate({
       ...base,
       now_playing: "Song One",
       now_playing_url: "http://stream/one",
       playback_id: "PB1",
     });
+    expect(container.style.display).not.toBe("none");
     expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
   });
 
