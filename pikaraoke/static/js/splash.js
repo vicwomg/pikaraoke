@@ -9,6 +9,9 @@ let menuButtonVisible = false;
 let autoplayConfirmed = false;
 let volume = 0.85;
 const bgMediaResumeDelay = 2000;
+// Shared duration for fading the background in and out. A song start holds for
+// this long while the background fades, so keep it short.
+const bgFadeMs = 1000;
 const bgVideoChoices = PikaraokeConfig.bgVideoChoices;
 let currentVideoUrl = null;
 let currentSubtitleUrl = null;
@@ -189,10 +192,10 @@ const playBGMusic = async (play) => {
       if (audio.readyState <= 2) await audio.load();
       await audio.play().catch(e => console.log("Autoplay blocked (music)"));
     }
-    $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, 2000);
+    $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, bgFadeMs);
   } else {
     if (audio) {
-      $(audio).animate({ volume: 0 }, 2000, () => audio.pause());
+      $(audio).animate({ volume: 0 }, bgFadeMs, () => audio.pause());
     }
   }
 }
@@ -213,11 +216,12 @@ const playBGVideo = async (play) => {
     bgVideo.setAttribute("src", getRandomBgVideo());
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
-    bgVideoContainer.fadeIn(2000);
+    bgVideoContainer.fadeIn(bgFadeMs);
   } else {
     if (bgVideo && isMediaPlaying(bgVideo)) {
-      bgVideo.pause();
-      bgVideoContainer.fadeOut(2000);
+      // Keep playing while the opacity fades, then pause, so it dims with motion
+      // alongside the music rather than freezing on its last frame.
+      bgVideoContainer.fadeOut(bgFadeMs, () => bgVideo.pause());
     }
   }
 }
@@ -399,6 +403,10 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing || np.up_next) {
     idleTime = 0;
   }
+  // Capture this before the state update retires the background: a song that
+  // interrupts a playing background waits for its fade, a mid-song join does not.
+  const backgroundWasPlaying =
+    isMediaPlaying(getBackgroundMusicPlayer()) || isMediaPlaying(getBackgroundVideoPlayer());
   updateBackgroundMediaState();
 
   const video = getVideoPlayer();
@@ -455,11 +463,20 @@ const handleNowPlayingUpdate = (np) => {
 
     $("#video-container").show();
 
-    video.play().catch(err => {
-      console.error('Play failed:', err);
-      // Retry once if it was an autoplay block
-      setTimeout(() => video.play(), 1000);
-    });
+    const startSong = () => {
+      // A skip or a newer song during the fade supersedes this start.
+      if (currentVideoUrl !== streamUrl) return;
+      video.play().catch(err => {
+        console.error('Play failed:', err);
+        // Retry once if it was an autoplay block
+        setTimeout(() => video.play(), 1000);
+      });
+    };
+
+    // Let the background fade clear first, so music and video cross over the
+    // song's start rather than bleeding into its opening.
+    if (backgroundWasPlaying) setTimeout(startSong, bgFadeMs);
+    else startSong();
 
     // Start-failure detection is server-side and progress-aware (the server ends
     // a song that never confirms a start while the transcode has stalled). A

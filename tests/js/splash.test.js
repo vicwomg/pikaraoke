@@ -342,6 +342,32 @@ describe("handleNowPlayingUpdate", () => {
     expect(window.__hlsInstances[0].config.startPosition).toBe(15);
   });
 
+  it("holds the song's video until a playing background has faded", () => {
+    const music = getBgMusicFake();
+    Object.assign(music, { paused: false, currentTime: 5, readyState: 4 });
+
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing: "Song One",
+      now_playing_url: "http://stream/one",
+      playback_id: "PB1",
+    });
+
+    expect(getVideoFake().playCalls).toBe(0);
+    vi.advanceTimersByTime(1000);
+    expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
+  });
+
+  it("starts the song at once when no background is playing", () => {
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing: "Song One",
+      now_playing_url: "http://stream/one",
+      playback_id: "PB1",
+    });
+    expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
+  });
+
   it("stops the video when the server ended the song", () => {
     state().currentVideoUrl = "http://stream/old";
     state().currentPlaybackId = "PB1";
@@ -719,5 +745,19 @@ describe("background media state", () => {
     state().autoplayConfirmed = false;
     state().bgPlaylist = ["a.mp3"];
     expect(getBgMusicFake().playCalls).toBe(0);
+  });
+
+  it("fades background music out on an idle toggle, not a hard pause", () => {
+    state().autoplayConfirmed = true;
+    state().nowPlaying = { now_playing: null, up_next: null };
+    const music = getBgMusicFake();
+    music.paused = false;
+    music.volume = 0.85;
+
+    splash.applyPreferenceUpdate({ key: "disable_bg_music", value: "True" });
+
+    // Ramped to zero (the standalone fade), not stopped at full volume.
+    expect(music.volume).toBe(0);
+    expect(music.paused).toBe(true);
   });
 });
