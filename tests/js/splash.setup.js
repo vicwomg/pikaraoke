@@ -144,6 +144,7 @@ const TEMPLATE = `
 
 let currentVideoFake = null;
 let currentAudioFake = null;
+let currentBgVideoFake = null;
 
 beforeAll(async () => {
   vi.useFakeTimers();
@@ -351,6 +352,8 @@ beforeEach(() => {
     document.getElementById("background-music"),
     currentAudioFake,
   );
+  currentBgVideoFake = makeMediaFake();
+  bindMediaFake(document.getElementById("bg-video"), currentBgVideoFake);
 
   // A clean notification per test: the fade timers from a previous test
   // may otherwise leave it populated, and a populated notification makes
@@ -403,4 +406,8 @@ export function getVideoFake() {
 
 export function getBgMusicFake() {
   return currentAudioFake;
+}
+
+export function getBgVideoFake() {
+  return currentBgVideoFake;
 }
