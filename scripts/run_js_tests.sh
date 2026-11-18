@@ -9,6 +9,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Git Bash reports the cwd with a lower-case drive letter, which collides with
+# Node's upper-case file URLs and makes Vitest load two copies of its runner
+# ("failed to find the runner"). Re-enter through the upper-case drive path.
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]] && [[ "$(pwd)" =~ ^/([a-z])(/.*)?$ ]]; then
+    cd "/${BASH_REMATCH[1]^^}${BASH_REMATCH[2]:-}"
+fi
+
 if ! command -v npm >/dev/null 2>&1; then
     echo "js-tests: npm is required to install the pinned toolchain; install node and npm, or run 'npm ci' first" >&2
     exit 1
