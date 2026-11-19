@@ -366,7 +366,7 @@ describe("handleNowPlayingUpdate", () => {
     expect(song.innerHTML).toContain("Song One");
     expect(song.innerHTML).toContain("+2");
     const duration = document.getElementById("duration");
-    expect(duration.textContent).toBe("/01:30");
+    expect(duration.textContent).toBe(" / 01:30");
     expect(duration.style.display).not.toBe("none");
   });
 
