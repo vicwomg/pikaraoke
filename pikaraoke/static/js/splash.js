@@ -9,6 +9,9 @@ let menuButtonVisible = false;
 let autoplayConfirmed = false;
 let volume = 0.85;
 const bgMediaResumeDelay = 2000;
+// Shared duration for fading the background in and out. A song start holds for
+// this long while the background fades, so keep it short.
+const bgFadeMs = 1000;
 const bgVideoChoices = PikaraokeConfig.bgVideoChoices;
 let currentVideoUrl = null;
 let currentSubtitleUrl = null;
@@ -17,6 +20,9 @@ let hlsInstance = null;
 let idleTime = 0;
 let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 let bg_playlist = [];
+// The track a teardown dropped the src for, so the playlist resumes its rotation
+// rather than restarting at the first track each time a song retires it.
+let lastBgMusicSong = null;
 let bgMediaResumeTimeout = null;
 let scoreReviews = {
   low: ["Better luck next time!"],
@@ -160,7 +166,8 @@ const getRandomBgVideo = () =>
 const getVideoPlayer = () => $("#video")[0]
 
 const getNextBgMusicSong = () => {
-  let currentSong = getBackgroundMusicPlayer().getAttribute('src');
+  // Fall back to the remembered track once a teardown has dropped the live src.
+  let currentSong = getBackgroundMusicPlayer().getAttribute('src') || lastBgMusicSong;
   let nextSong = bg_playlist[0];
   if (currentSong) {
     let currentIndex = bg_playlist.indexOf(currentSong);
@@ -189,12 +196,23 @@ const playBGMusic = async (play) => {
       if (audio.readyState <= 2) await audio.load();
       await audio.play().catch(e => console.log("Autoplay blocked (music)"));
     }
-    $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, 2000);
+    $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, bgFadeMs);
   } else {
     if (audio) {
-      $(audio).animate({ volume: 0 }, 2000, () => audio.pause());
+      $(audio).animate({ volume: 0 }, bgFadeMs, releaseBackgroundMusic);
     }
   }
+}
+
+// Drop the source, not just pause: a single-pipeline cast receiver releases its audio
+// output to the song only on a full teardown. The idle resume path re-selects a source.
+const releaseBackgroundMusic = () => {
+  const audio = getBackgroundMusicPlayer();
+  if (!audio) return;
+  lastBgMusicSong = audio.getAttribute('src') || lastBgMusicSong;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
 }
 
 const playBGVideo = async (play) => {
@@ -213,11 +231,12 @@ const playBGVideo = async (play) => {
     bgVideo.setAttribute("src", getRandomBgVideo());
     if (bgVideo.readyState <= 2) await bgVideo.load();
     bgVideo.play().catch(() => console.log("Autoplay blocked (video)"));
-    bgVideoContainer.fadeIn(2000);
+    bgVideoContainer.fadeIn(bgFadeMs);
   } else {
     if (bgVideo && isMediaPlaying(bgVideo)) {
-      bgVideo.pause();
-      bgVideoContainer.fadeOut(2000);
+      // Keep playing while the opacity fades, then pause, so it dims with motion
+      // alongside the music rather than freezing on its last frame.
+      bgVideoContainer.fadeOut(bgFadeMs, () => bgVideo.pause());
     }
   }
 }
@@ -399,6 +418,10 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing || np.up_next) {
     idleTime = 0;
   }
+  // Capture this before the state update retires the background: a song that
+  // interrupts a playing background waits for its fade, a mid-song join does not.
+  const backgroundWasPlaying =
+    isMediaPlaying(getBackgroundMusicPlayer()) || isMediaPlaying(getBackgroundVideoPlayer());
   updateBackgroundMediaState();
 
   const video = getVideoPlayer();
@@ -453,13 +476,24 @@ const handleNowPlayingUpdate = (np) => {
       duration.hide();
     }
 
-    $("#video-container").show();
+    const startSong = () => {
+      // A skip or a newer song during the fade supersedes this start.
+      if (currentVideoUrl !== streamUrl) return;
+      // Reveal the player only now: its container is opaque black at a higher
+      // layer than the background, so showing it before the fade clears would
+      // hide the background fading out beneath it.
+      $("#video-container").show();
+      video.play().catch(err => {
+        console.error('Play failed:', err);
+        // Retry once if it was an autoplay block
+        setTimeout(() => video.play(), 1000);
+      });
+    };
 
-    video.play().catch(err => {
-      console.error('Play failed:', err);
-      // Retry once if it was an autoplay block
-      setTimeout(() => video.play(), 1000);
-    });
+    // Start the song once the background fade and its release have completed, so
+    // the teardown frees a single-pipeline cast receiver's audio before play().
+    if (backgroundWasPlaying) $(getBackgroundMusicPlayer()).promise().done(startSong);
+    else startSong();
 
     // Start-failure detection is server-side and progress-aware (the server ends
     // a song that never confirms a start while the transcode has stalled). A

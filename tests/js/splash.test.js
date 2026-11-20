@@ -342,6 +342,42 @@ describe("handleNowPlayingUpdate", () => {
     expect(window.__hlsInstances[0].config.startPosition).toBe(15);
   });
 
+  it("releases the background music, then starts the song, when a song interrupts a playing background", () => {
+    const container = document.getElementById("video-container");
+    container.style.display = "none";
+    const music = getBgMusicFake();
+    Object.assign(music, { paused: false, currentTime: 5, readyState: 4 });
+
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing: "Song One",
+      now_playing_url: "http://stream/one",
+      playback_id: "PB1",
+    });
+
+    // The music is torn down, not just paused (load after a source drop), so a
+    // single-pipeline cast receiver frees the audio pipeline for the song.
+    expect(music.paused).toBe(true);
+    expect(music.loadCalls).toBeGreaterThanOrEqual(1);
+    // The song plays and its container is revealed once the fade completes.
+    expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
+    expect(container.style.display).not.toBe("none");
+  });
+
+  it("starts the song, and shows its container, at once when no background is playing", () => {
+    const container = document.getElementById("video-container");
+    container.style.display = "none";
+
+    splash.handleNowPlayingUpdate({
+      ...base,
+      now_playing: "Song One",
+      now_playing_url: "http://stream/one",
+      playback_id: "PB1",
+    });
+    expect(container.style.display).not.toBe("none");
+    expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
+  });
+
   it("stops the video when the server ended the song", () => {
     state().currentVideoUrl = "http://stream/old";
     state().currentPlaybackId = "PB1";
@@ -715,9 +751,43 @@ describe("background media state", () => {
     expect(splash.getNextBgMusicSong()).toBe("a.mp3");
   });
 
+  it("resumes the playlist at the next track after a teardown drops the src", () => {
+    state().autoplayConfirmed = true;
+    state().nowPlaying = { now_playing: null, up_next: null };
+    state().bgPlaylist = ["a.mp3", "b.mp3", "c.mp3"];
+    const audio = document.getElementById("background-music");
+    audio.setAttribute("src", "b.mp3");
+    const music = getBgMusicFake();
+    music.paused = false;
+    music.volume = 0.85;
+
+    // Disabling background music tears the element down, dropping its live src.
+    splash.applyPreferenceUpdate({ key: "disable_bg_music", value: "True" });
+    expect(audio.getAttribute("src")).toBe(null);
+
+    // The resume picks the track after the one that was playing, not the first.
+    expect(splash.getNextBgMusicSong()).toBe("c.mp3");
+  });
+
   it("does not start background music before confirmation", () => {
     state().autoplayConfirmed = false;
     state().bgPlaylist = ["a.mp3"];
     expect(getBgMusicFake().playCalls).toBe(0);
+  });
+
+  it("fades background music to zero, then releases it, on an idle toggle", () => {
+    state().autoplayConfirmed = true;
+    state().nowPlaying = { now_playing: null, up_next: null };
+    const music = getBgMusicFake();
+    music.paused = false;
+    music.volume = 0.85;
+
+    splash.applyPreferenceUpdate({ key: "disable_bg_music", value: "True" });
+
+    // Ramped to zero (not stopped at full volume), then torn down (load after a
+    // source drop) rather than left paused with the pipeline still bound.
+    expect(music.volume).toBe(0);
+    expect(music.paused).toBe(true);
+    expect(music.loadCalls).toBeGreaterThanOrEqual(1);
   });
 });
