@@ -1,8 +1,5 @@
 """Splash screen / player display route."""
 
-import shutil
-import subprocess
-
 import flask_babel
 from flask import jsonify, render_template, url_for
 from flask_smorest import Blueprint
@@ -11,7 +8,6 @@ from pikaraoke.karaoke import Karaoke
 from pikaraoke.lib.auth import public
 from pikaraoke.lib.background_video import video_choices
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
-from pikaraoke.lib.raspi_wifi_config import get_raspi_wifi_text
 
 _ = flask_babel.gettext
 
@@ -75,19 +71,7 @@ def splash():
     """Splash screen / player display for TV output."""
     k = get_karaoke_instance()
     site_name = get_site_name()
-    text = ""
-    if k.is_raspberry_pi:
-        has_iwconfig = shutil.which("iwconfig")
-        has_iw = shutil.which("iw")
-        if has_iwconfig or has_iw:
-            # iwconfig is deprecated on Ubuntu, but still available on Raspbian
-            command = "iwconfig" if has_iwconfig else "iw"
-            status = subprocess.run([command, "wlan0"], stdout=subprocess.PIPE).stdout.decode(
-                "utf-8"
-            )
-            if "Mode:Master" in status:
-                # handle raspiwifi connection mode
-                text = get_raspi_wifi_text(k.url)
+    network = k.network_info
 
     bg_videos = video_choices(k.bg_video_path)
 
@@ -96,7 +80,9 @@ def splash():
         site_title=site_name,
         blank_page=True,
         url=k.url,
-        hostap_info=text,
+        hotspot=network.get("hotspot", False),
+        hotspot_name=network.get("hotspot_name", ""),
+        hotspot_password=network.get("hotspot_password", ""),
         hide_url=k.hide_url,
         hide_qr_code=k.hide_qr_code,
         hide_session_name=k.hide_session_name,

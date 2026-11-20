@@ -98,6 +98,7 @@ def make_route_app(blueprint, linked_endpoints, admin: bool = True):
         # The song lists draw a star per row from this; empty by default, so a
         # test that does not set up favourites renders every row unstarred.
         favourite_paths=lambda: set(),
+        wifi_supported=lambda: False,
     )
     install_auth_gate(app)
     return app

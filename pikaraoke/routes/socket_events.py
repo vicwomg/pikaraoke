@@ -169,6 +169,11 @@ def setup_socket_events(socketio):
         splash_connections.add(sid)
         splash_liveness[sid] = time.monotonic()
         logging.info(f"Splash screen registered: {sid}")
+        # Sync the network panel to this splash now, so one that missed a
+        # boot-time network_update (its socket was not ready yet) is never left
+        # showing a hotspot that is no longer up.
+        k = get_karaoke_instance()
+        socketio.emit("network_update", {"url": k.url, **k.network_info}, room=sid)
 
     @open_to_room("playback_position")
     def handle_playback_position(position: float, playback_id: str | None = None) -> None:

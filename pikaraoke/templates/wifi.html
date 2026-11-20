@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div id="wifi-page">
+
+	{# Where the Pi is now. Filled from /api/wifi/state. #}
+	<div class="card mb-5">
+		<header class="card-header py-3 px-5">
+			<h3 class="m-0 is-flex is-align-items-center is-gap-2">
+				<span class="icon"><i class="ph ph-wifi-high"></i></span>
+				{# MSG: Heading of the panel showing which network the box is on now. #}
+				<span>{% trans %}Current network{% endtrans %}</span>
+			</h3>
+		</header>
+		<div class="card-content px-5 py-4">
+			<div id="wifi-status">
+				{# MSG: Placeholder while the current network is being looked up. #}
+				<span class="has-text-grey-light">{% trans %}Checking…{% endtrans %}</span>
+			</div>
+			<div id="wifi-hotspot-details" class="is-hidden mt-4">
+				{# MSG: Intro line above the hotspot name and password guests use to join. #}
+				<p class="mb-2">{% trans %}Guests join this network to sing:{% endtrans %}</p>
+				<p class="mb-3">
+					{# MSG: Label before the hotspot's network name. #}
+					{% trans %}Network{% endtrans %}:
+					<strong id="wifi-hotspot-name" class="is-family-monospace"></strong>
+				</p>
+				<div class="field">
+					{# MSG: Label of the editable field holding the password guests type to join the hotspot. #}
+					<label class="label" for="wifi-hotspot-password">{% trans %}Password guests type{% endtrans %}</label>
+					<div class="field has-addons mb-0">
+						<div class="control is-expanded">
+							<input id="wifi-hotspot-password" class="input is-family-monospace" type="text" autocomplete="off" maxlength="63">
+						</div>
+						<div class="control">
+							{# MSG: Button that saves a changed hotspot password. #}
+							<button id="wifi-hotspot-password-save" class="button is-primary">{% trans %}Save{% endtrans %}</button>
+						</div>
+					</div>
+					{# MSG: Hint under the hotspot password field. #}
+					<p class="help">{% trans %}8 to 63 characters. Takes effect the next time the hotspot starts.{% endtrans %}</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	{# Nearby networks, from a live scan. Clicking one fills the name field below. #}
+	<div class="card mb-5">
+		<header class="card-header py-3 px-5 is-align-items-center is-justify-content-space-between">
+			{# MSG: Heading of the list of nearby Wi-Fi networks to join. #}
+			<h3 class="m-0">{% trans %}Choose a network{% endtrans %}</h3>
+			<button id="wifi-refresh" class="button is-small">
+				<span class="icon"><i class="ph ph-arrows-clockwise"></i></span>
+				{# MSG: Button that scans again for nearby networks. #}
+				<span>{% trans %}Rescan{% endtrans %}</span>
+			</button>
+		</header>
+		<div class="panel is-shadowless mb-0" id="wifi-networks"></div>
+	</div>
+
+	{# Remembered networks: tap one to rejoin with no password. Hidden when none. #}
+	<div id="wifi-saved-card" class="card mb-5 is-hidden">
+		<header class="card-header py-3 px-5">
+			{# MSG: Heading of the list of remembered networks that rejoin without a password. #}
+			<h3 class="m-0">{% trans %}Saved networks{% endtrans %}</h3>
+		</header>
+		<div class="panel is-shadowless mb-0" id="wifi-saved"></div>
+	</div>
+
+	{# Connect form. The name field doubles as manual entry for a hidden network
+	   or a phone's hotspot that is not switched on yet. #}
+	<div class="card">
+		<header class="card-header py-3 px-5">
+			{# MSG: Heading of the form that joins the chosen or typed network. #}
+			<h3 class="m-0">{% trans %}Connect{% endtrans %}</h3>
+		</header>
+		<div class="card-content px-5 py-4">
+			<div class="field">
+				{# MSG: Label of the field holding the network name to join. #}
+				<label class="label" for="wifi-name">{% trans %}Network name{% endtrans %}</label>
+				<div class="control">
+					<input id="wifi-name" class="input" type="text" autocomplete="off">
+				</div>
+				{# MSG: Hint under the network-name field, for networks that do not appear in a scan. #}
+				<p class="help">{% trans %}For a hidden network, or a phone's hotspot you are about to switch on.{% endtrans %}</p>
+			</div>
+			<div class="field">
+				{# MSG: Label of the network password field. #}
+				<label class="label" for="wifi-password">{% trans %}Password{% endtrans %}</label>
+				<div class="control has-icons-right">
+					<input id="wifi-password" class="input" type="password" autocomplete="off">
+					{# MSG: Tooltip for the icon that shows or hides the typed password. #}
+					<span class="icon is-right input-reveal" role="button" tabindex="-1" title="{% trans %}Show or hide the password{% endtrans %}">
+						<i class="ph ph-eye"></i>
+					</span>
+				</div>
+			</div>
+			<div class="notification is-warning is-light py-3 is-flex is-align-items-flex-start is-gap-2">
+				<span class="icon"><i class="ph ph-warning"></i></span>
+				{# MSG: Warning shown before connecting, explaining the hotspot drops when the box switches networks. #}
+				<span>{% trans %}Connecting moves PiKaraoke onto this network. Every phone on the hotspot, including this one, will disconnect. Watch the TV to see what happens.{% endtrans %}</span>
+			</div>
+			<button id="wifi-connect" class="button is-primary">
+				<span class="icon"><i class="ph ph-wifi-high"></i></span>
+				{# MSG: Button that starts joining the chosen network. #}
+				<span>{% trans %}Connect{% endtrans %}</span>
+			</button>
+		</div>
+	</div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	const WIFI_API = {
+		state: "{{ url_for('wifi_api.wifi_state') }}",
+		networks: "{{ url_for('wifi_api.wifi_networks') }}",
+		saved: "{{ url_for('wifi_api.wifi_saved') }}",
+		connect: "{{ url_for('wifi_api.wifi_connect') }}",
+		password: "{{ url_for('wifi_api.wifi_password') }}",
+	};
+	const WIFI_MSG = {
+		connected: {{ _('Connected to') | tojson }},
+		wired: {{ _('Connected by Ethernet') | tojson }},
+		wiredAndWifi: {{ _('Connected by Ethernet, Wi-Fi also on:') | tojson }},
+		hotspot: {{ _('Broadcasting the hotspot') | tojson }},
+		notConnected: {{ _('Not connected to any network.') | tojson }},
+		scanning: {{ _('Scanning for networks…') | tojson }},
+		none: {{ _('No networks found. Try Rescan.') | tojson }},
+		secured: {{ _('Secured') | tojson }},
+		savedHint: {{ _('Saved - no password needed') | tojson }},
+		switching: {{ _('Switching network. Watch the TV to see what happens.') | tojson }},
+		needName: {{ _('Enter or choose a network name first.') | tojson }},
+		needPassword: {{ _('This network is secured. Type its password to join.') | tojson }},
+		confirmTitle: {{ _('Switch network?') | tojson }},
+		confirmSwitch: {{ _('PiKaraoke will join "{network}". Every phone on the hotspot, including this one, will disconnect. Watch the TV to see what happens.') | tojson }},
+		confirmAction: {{ _('Switch') | tojson }},
+		failed: {{ _('Could not reach PiKaraoke to switch networks.') | tojson }},
+	};
+
+	$(function () {
+		const $status = $("#wifi-status");
+		const $hotspot = $("#wifi-hotspot-details");
+		const $list = $("#wifi-networks");
+		const $name = $("#wifi-name");
+		const $password = $("#wifi-password");
+
+		// Names from the last scan that need a password, and names we already
+		// have a profile for (which rejoin without one). Kept so the Connect
+		// button can refuse a secured network with no password typed.
+		const securedNames = new Set();
+		const savedNames = new Set();
+
+		function row(contents) {
+			return $('<div class="panel-block px-5 py-3 has-text-grey-light">').text(contents);
+		}
+
+		function signalGlyph(signal) {
+			if (signal >= 67) return "ph-wifi-high";
+			if (signal >= 34) return "ph-wifi-medium";
+			if (signal >= 1) return "ph-wifi-low";
+			return "ph-wifi-none";
+		}
+
+		function icon(glyph, title) {
+			return $('<span class="icon">').attr("title", title).append(
+				$('<i class="ph">').addClass(glyph)
+			);
+		}
+
+		function setStatus(glyph, text) {
+			$status.empty().append(
+				$('<span class="icon-text">')
+					.append($('<span class="icon">').append($('<i class="ph">').addClass(glyph)))
+					.append($("<span>").text(text))
+			);
+		}
+
+		function renderState(state) {
+			$hotspot.addClass("is-hidden");
+			if (state.kind === "hotspot") {
+				setStatus("ph-broadcast", WIFI_MSG.hotspot);
+				$("#wifi-hotspot-name").text(state.hotspot_name);
+				$("#wifi-hotspot-password").val(state.hotspot_password);
+				$hotspot.removeClass("is-hidden");
+			} else if (state.kind === "connected" && state.ethernet_count > 0) {
+				// Ethernet is the live route; name the Wi-Fi too if it is also up.
+				const text = state.network
+					? WIFI_MSG.wiredAndWifi + " " + state.network
+					: WIFI_MSG.wired;
+				setStatus("ph-network", text);
+			} else if (state.kind === "connected") {
+				setStatus("ph-wifi-high", WIFI_MSG.connected + " " + (state.network || ""));
+			} else {
+				setStatus("ph-wifi-slash", WIFI_MSG.notConnected);
+			}
+		}
+
+		function renderNetworks(networks) {
+			$list.empty();
+			securedNames.clear();
+			if (!networks.length) {
+				$list.append(row(WIFI_MSG.none));
+				return;
+			}
+			networks.forEach(function (network) {
+				const secured = network.security && network.security.trim() !== "";
+				if (secured) securedNames.add(network.name);
+				const $meta = $('<span class="is-flex is-gap-1 has-text-grey-light">');
+				if (secured) $meta.append(icon("ph-lock-simple", WIFI_MSG.secured));
+				$meta.append(icon(signalGlyph(network.signal), network.signal + "%"));
+				const $row = $('<a class="panel-block px-5 py-3 is-justify-content-space-between">');
+				$row.append($("<span>").text(network.name)).append($meta);
+				$row.on("click", function () {
+					$name.val(network.name);
+					$password.focus();
+				});
+				$list.append($row);
+			});
+		}
+
+		function loadState() {
+			$.getJSON(WIFI_API.state).done(renderState);
+		}
+
+		function loadNetworks() {
+			$list.empty().append(row(WIFI_MSG.scanning));
+			$.getJSON(WIFI_API.networks).done(renderNetworks).fail(function () {
+				$list.empty().append(row(WIFI_MSG.none));
+			});
+		}
+
+		function renderSaved(names) {
+			const $saved = $("#wifi-saved").empty();
+			savedNames.clear();
+			names.forEach(function (name) { savedNames.add(name); });
+			if (!names.length) {
+				$("#wifi-saved-card").addClass("is-hidden");
+				return;
+			}
+			names.forEach(function (name) {
+				const $row = $('<a class="panel-block px-5 py-3 is-justify-content-space-between">');
+				$row.append($("<span>").text(name)).append(icon("ph-key", WIFI_MSG.savedHint));
+				// Remembered: no password needed. Confirm first, since joining
+				// drops every phone on the hotspot.
+				$row.on("click", function () {
+					window.confirmAction({
+						title: WIFI_MSG.confirmTitle,
+						message: WIFI_MSG.confirmSwitch.replace("{network}", name),
+						confirmLabel: WIFI_MSG.confirmAction,
+					}).done(function () {
+						connectTo(name, "");
+					});
+				});
+				$saved.append($row);
+			});
+			$("#wifi-saved-card").removeClass("is-hidden");
+		}
+
+		function loadSaved() {
+			$.getJSON(WIFI_API.saved).done(renderSaved);
+		}
+
+		$("#wifi-refresh").on("click", loadNetworks);
+
+		$("#wifi-hotspot-password-save").on("click", function () {
+			$.post(WIFI_API.password, { password: $("#wifi-hotspot-password").val() || "" })
+				.done(function (data) {
+					showNotification(data[1], data[0] ? "is-success" : "is-danger");
+				})
+				.fail(function () {
+					showNotification(WIFI_MSG.failed, "is-danger");
+				});
+		});
+
+		function connectTo(name, password) {
+			$.post(WIFI_API.connect, { name: name, password: password })
+				.done(function () {
+					showNotification(WIFI_MSG.switching, "is-info", 10000);
+				})
+				.fail(function () {
+					showNotification(WIFI_MSG.failed, "is-danger");
+				});
+		}
+
+		$("#wifi-connect").on("click", function () {
+			const name = ($name.val() || "").trim();
+			if (!name) {
+				showNotification(WIFI_MSG.needName, "is-warning");
+				return;
+			}
+			const password = $password.val() || "";
+			// A secured network we have no profile for cannot be joined blind.
+			if (!password && securedNames.has(name) && !savedNames.has(name)) {
+				showNotification(WIFI_MSG.needPassword, "is-warning");
+				$password.focus();
+				return;
+			}
+			connectTo(name, password);
+		});
+
+		// Still useful while the admin is on the page and has not pressed Connect:
+		// the retry can move the box, and the status should follow.
+		if (window.socket) window.socket.on("network_update", loadState);
+
+		loadState();
+		loadNetworks();
+		loadSaved();
+	});
+</script>
+{% endblock %}

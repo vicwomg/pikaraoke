@@ -39,8 +39,15 @@ from pikaraoke.lib.singer_manager import SingerManager, normalize_name
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.sound_manager import SoundManager
 from pikaraoke.lib.url_prefix import append_base_path_to_url
+from pikaraoke.lib.wifi_manager import WifiManager
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 from pikaraoke.version import __version__ as VERSION
+
+# How often the background sweep moves the Pi off its hotspot onto a real network.
+_RECONCILE_INTERVAL_SECONDS = 120
+
+# How long to let a network come up at boot before raising the hotspot instead.
+_HOTSPOT_STARTUP_GRACE_SECONDS = 20
 
 
 class SongInUseError(Exception):
@@ -204,6 +211,8 @@ class Karaoke:
         self.supports_hardware_h264_encoding = supports_hardware_h264_encoding()
         self.youtubedl_version = get_youtubedl_version()
         self.is_raspberry_pi = is_raspberry_pi()
+        self.wifi_manager = WifiManager(self.preferences, self.is_raspberry_pi, events=self.events)
+        self._refresh_network_info()
 
         logging.info("PiKaraoke version: " + VERSION)
 
@@ -282,6 +291,8 @@ class Karaoke:
         # from now_playing, which also fires on pauses and queue edits that leave
         # the log untouched, and which is emitted before the row is written.
         self._relay_to_browser("play_logged")
+        # A Wi-Fi change moves the address: recompute it and push it to every splash.
+        self.events.on("network_changed", self.refresh_url)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.register_downloaded_song)
         self._relay_to_browser("sync_started")
@@ -351,6 +362,11 @@ class Karaoke:
             logging.info("No existing database found, scanning song directory")
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
+
+        # Bring up the hotspot if there is no network, then keep sweeping to leave
+        # it when a real one appears.
+        self._auto_start_hotspot()
+        self._start_network_watch()
 
     def _apply_scan_result(self, result: ScanResult) -> None:
         """Update SongList and emit notifications after a scan."""
@@ -431,46 +447,38 @@ class Karaoke:
     def get_url(self):
         """Get the URL for accessing the PiKaraoke web interface.
 
-        On Raspberry Pi, retries getting the IP address for up to 30 seconds
-        in case the network is still initializing at startup.
+        On a Pi, waits up to 30 seconds for the network at startup, then picks the
+        address preferring ethernet over Wi-Fi when the box is dual-homed. --url
+        and --prefer-hostname describe the network the Pi normally lives on, so
+        they do not apply while it is on its own hotspot, where guests can only
+        reach the AP's own address.
 
         Returns:
             URL string in format http://ip:port
         """
         if self.is_raspberry_pi:
-            # retry in case pi is still starting up
-            # and doesn't have an IP yet (occurs when launched from /etc/rc.local)
+            # Wait for an address at boot (e.g. when launched from rc.local).
             end_time = int(time.time()) + 30
             while int(time.time()) < end_time:
-                addresses_str = (
-                    subprocess.check_output(["hostname", "-I"]).strip().decode("utf-8", "ignore")
-                )
-                addresses = addresses_str.split(" ")
-                self.ip = addresses[0]
-                if len(self.ip) < 7:
-                    logging.debug("Couldn't get IP, retrying....")
-                else:
+                if len(subprocess.check_output(["hostname", "-I"]).strip()) >= 7:
                     break
-        else:
-            self.ip = get_ip(self.platform)
+                logging.debug("Couldn't get IP, retrying....")
+        self.ip = get_ip(self.platform)
 
         logging.debug("IP address (for QR code and splash screen): " + self.ip)
 
-        if self.url_override != None:
+        on_hotspot = self.network_info.get("hotspot", False)
+        if not on_hotspot and self.url_override is not None:
             logging.debug("Overriding URL with " + self.url_override)
-            url = self.url_override
+            split_url = urlsplit(self.url_override)
+            if split_url.path not in ("", "/"):
+                return self.url_override
+            return append_base_path_to_url(self.url_override, self.url_base_path)
+
+        if not on_hotspot and self.prefer_hostname:
+            url = f"http://{socket.getfqdn().lower()}:{self.port}"
         else:
-            if self.prefer_hostname:
-                url = f"http://{socket.getfqdn().lower()}:{self.port}"
-            else:
-                url = f"http://{self.ip}:{self.port}"
-
-        if self.url_override is None:
-            return append_base_path_to_url(url, self.url_base_path)
-
-        split_url = urlsplit(url)
-        if split_url.path not in ("", "/"):
-            return url
+            url = f"http://{self.ip}:{self.port}"
         return append_base_path_to_url(url, self.url_base_path)
 
     def log_settings_to_debug(self) -> None:
@@ -480,23 +488,134 @@ class Karaoke:
             output += f"  {key}: {value}\n"
         logging.debug("\n\n" + output)
 
+    def _draw_qr_code(self, payload: str, path: str) -> None:
+        """Draw one QR code payload to a PNG file."""
+        qr = qrcode.QRCode(version=1, box_size=1, border=4)
+        qr.add_data(payload)
+        qr.make()
+        img = qr.make_image(image_factory=PyPNGImage)
+        img.save(path)  # type: ignore[arg-type]
+
     def generate_qr_code(self) -> None:
         """Generate a QR code image for the web interface URL."""
         logging.debug("Generating URL QR code")
-        qr = qrcode.QRCode(
-            version=1,
-            box_size=1,
-            border=4,
-        )
-        qr.add_data(self.url)
-        qr.make()
-        img = qr.make_image(image_factory=PyPNGImage)
-        # Use writable data directory instead of program directory.
-        # Include the port so multiple instances on the same host don't
-        # overwrite each other's QR code (see issue #836).
+        # Writable data directory, with the port in the name so instances on one
+        # host don't overwrite each other's QR code (see issue #836).
         data_dir = get_data_directory()
         self.qr_code_path = os.path.join(data_dir, f"qrcode-{self.port}.png")
-        img.save(self.qr_code_path)  # type: ignore[arg-type]
+        self._draw_qr_code(self.url, self.qr_code_path)
+
+    def start_wifi_connect(self, name: str, password: str = "") -> None:
+        """Join a network in the background, so the phone's request is answered first.
+
+        The attempt tears down the hotspot the phone is on, so it must start only
+        after the response has gone out, or the phone loses the server first.
+        """
+
+        def task() -> None:
+            self.wifi_manager.connect(name, password)
+
+        if self.socketio:
+            self.socketio.start_background_task(task)
+        else:
+            task()
+
+    def refresh_url(self) -> None:
+        """Recompute the address and QR code after a network change and push them live."""
+        self._refresh_network_info()  # first, so get_url knows whether the hotspot is up
+        self.url = self.get_url()
+        self.generate_qr_code()
+        self.update_network_socket()
+
+    def _refresh_network_info(self) -> None:
+        """Cache the hotspot state, so /splash renders it without an nmcli call each time."""
+        on_hotspot = self.wifi_manager.supported and self.wifi_manager.state().kind == "hotspot"
+        self.network_info = {
+            "hotspot": on_hotspot,
+            "hotspot_name": self.wifi_manager.hotspot_name if on_hotspot else "",
+            "hotspot_password": self.wifi_manager.hotspot_password if on_hotspot else "",
+        }
+
+    def update_network_socket(self) -> None:
+        """Broadcast the current address and the cached hotspot details to every splash."""
+        if not self.socketio:
+            return
+        self.socketio.emit("network_update", {"url": self.url, **self.network_info}, namespace="/")
+
+    def _auto_start_hotspot(self) -> None:
+        """Raise the hotspot only if no network comes up at boot.
+
+        Waits for NetworkManager to finish connecting before deciding, so a Wi-Fi
+        link still coming up is not pre-empted - the "wait for an IP" in get_url
+        can end early on an unrelated bridge like docker0 that has an address
+        while wlan0 is still associating. A real connection that arrives meanwhile
+        refreshes the (possibly stale) address.
+        """
+        if not self.wifi_manager.supported:
+            return
+        end_time = time.time() + _HOTSPOT_STARTUP_GRACE_SECONDS
+        while self.wifi_manager.state().kind == "none" and time.time() < end_time:
+            time.sleep(2)
+        if self.wifi_manager.state().kind == "none":
+            logging.info("No network found at startup; starting the PiKaraoke hotspot.")
+            self.wifi_manager.start_hotspot()
+        else:
+            self.refresh_url()
+
+    def _start_network_watch(self) -> None:
+        """React within seconds to a cable or auto-join, and sweep periodically.
+
+        `nmcli monitor` reports a change at once (the cable case), while the sweep
+        covers a saved network coming into range, which only an active scan finds
+        because the hotspot holds wlan0 and NetworkManager will not switch it.
+        """
+        if not (self.wifi_manager.supported and self.socketio):
+            return
+        self._last_network_event = 0.0
+        self.socketio.start_background_task(self._nmcli_monitor)
+        self.socketio.start_background_task(self._network_loop)
+
+    def _nmcli_monitor(self) -> None:
+        """Stamp the time of each NetworkManager change for the loop to act on."""
+        # stdbuf forces line buffering so events are not held back in a pipe buffer;
+        # plain nmcli is the fallback where stdbuf is absent.
+        for command in (["stdbuf", "-oL", "nmcli", "monitor"], ["nmcli", "monitor"]):
+            try:
+                proc = subprocess.Popen(command, stdout=subprocess.PIPE, text=True)
+            except OSError:
+                continue
+            if proc.stdout is None:
+                continue
+            for _line in proc.stdout:  # one or more lines per change
+                self._last_network_event = time.monotonic()
+            return
+        logging.info("Could not start nmcli monitor; relying on the periodic sweep.")
+
+    def _network_loop(self) -> None:
+        assert self.socketio is not None  # only started when socketio is present
+        last_sweep = time.monotonic()
+        while True:
+            self.socketio.sleep(2)
+            now = time.monotonic()
+            event = self._last_network_event
+            if event and now - event >= 1.5:
+                # A change has settled (trailing debounce): act on it and push the
+                # new address live, since a cable or lease we did not initiate still
+                # moves the address.
+                self._last_network_event = 0.0
+                last_sweep = now
+                self._reconcile(refresh=True)
+            elif now - last_sweep >= _RECONCILE_INTERVAL_SECONDS:
+                last_sweep = now
+                self._reconcile(refresh=False)
+
+    def _reconcile(self, refresh: bool) -> None:
+        try:
+            self.wifi_manager.reconcile()
+            if refresh:
+                self.refresh_url()
+        except Exception as e:  # a background sweep must never take the app down
+            logging.warning("Wi-Fi reconcile failed: %s", e)
 
     def send_notification(self, message: str, color: str = "primary") -> None:
         """Send a notification to the web interface.

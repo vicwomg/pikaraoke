@@ -146,6 +146,12 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         default=None,
         required=False,
     )
+    server.add_argument(
+        "--hotspot-password",
+        help="Preset the Wi-Fi hotspot password (8-63 characters) the Pi broadcasts when it finds no network. Raspberry Pi only; a random password is used if unset.",
+        default=None,
+        required=False,
+    )
 
     library = parser.add_argument_group("Song library and downloads")
     library.add_argument(

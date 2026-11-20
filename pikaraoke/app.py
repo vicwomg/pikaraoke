@@ -92,6 +92,7 @@ app.jinja_env.globals.update(
     # of rows costs one query. Empty for an unnamed device, so every star draws
     # unfilled until a name is set.
     favourite_paths=favourite_paths,
+    wifi_supported=lambda: get_karaoke_instance().wifi_manager.supported,
 )
 
 # Always initialize flask-smorest Api for error handling (@bp.arguments validation).
@@ -287,6 +288,11 @@ def main() -> None:
     # reads a False as "flag not passed"), so persist the disable directly.
     if args.disable_autoplay:
         k.preferences.set("autoplay", False)
+
+    if args.hotspot_password:
+        ok, message = k.wifi_manager.set_hotspot_password(args.hotspot_password)
+        if not ok:
+            logging.warning("Ignoring --hotspot-password: %s", message)
 
     # expose karaoke object to the flask app
     with app.app_context():

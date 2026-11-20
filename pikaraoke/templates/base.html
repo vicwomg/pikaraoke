@@ -212,6 +212,17 @@
       window.addToast($("#notification-stack"), message, categoryClass, { timeout });
     }
 
+    // Reusable password reveal: an `.input-reveal` icon toggles the input in its
+    // `.control` between masked and plain text. Any password field gets it from
+    // the `.control.has-icons-right` + `.input-reveal` markup alone. Delegated and
+    // namespaced so the SPA re-running this script cannot double-bind it.
+    $(document).off("click.inputReveal").on("click.inputReveal", ".input-reveal", function () {
+      var $input = $(this).closest(".control").find("input");
+      var masked = $input.attr("type") === "password";
+      $input.attr("type", masked ? "text" : "password");
+      $(this).find("i").attr("class", masked ? "ph ph-eye-slash" : "ph ph-eye");
+    });
+
     function getUserCookie() {
       return Cookies.get("user");
     }
@@ -768,6 +779,13 @@
             {# MSG: Menu link to the admin page listing singers, where they are merged and deleted. #}
             <span>{% trans %}Singers{% endtrans %}</span>
           </a>
+          {% if wifi_supported() %}
+          <a id="wifi" class="navbar-item" href="{{ url_for('wifi.wifi') }}">
+            <span class="icon"><i class="ph ph-wifi-high"></i></span>
+            {# MSG: Menu link to the Wi-Fi setup page, only shown on a Raspberry Pi. #}
+            <span>{% trans %}Wi-Fi{% endtrans %}</span>
+          </a>
+          {% endif %}
           {% endif %}
           <a id="settings" class="navbar-item" href="{{ url_for('settings.settings') }}">
             <span class="icon"><i class="ph ph-gear"></i></span>

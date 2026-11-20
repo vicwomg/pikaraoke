@@ -4,6 +4,16 @@ import logging
 import socket
 import subprocess
 
+# (url, expected status, body sentinel); independent operators so no single one
+# (or a national block of it) decides the answer. Plain HTTP so a captive portal
+# shows up as a readable redirect rather than a TLS failure.
+_PROBE_ENDPOINTS: tuple[tuple[str, int, str | None], ...] = (
+    ("http://cp.cloudflare.com/generate_204", 204, None),
+    ("http://captive.apple.com/hotspot-detect.html", 200, "Success"),
+    ("http://www.msftconnecttest.com/connecttest.txt", 200, "Microsoft Connect Test"),
+)
+_PROBE_TIMEOUT_SECONDS = 1.5
+
 
 def get_ip(platform: str) -> str:
     """Get the local IP address of this machine.
@@ -188,3 +198,24 @@ def _get_ip_via_udp_socket(target: str) -> str:
     finally:
         s.close()
     return ip
+
+
+def probe_internet() -> bool:
+    """Whether the internet is reachable, by captive-portal check.
+
+    An expected GET, not a bare connect: it exercises DNS and a portal fails the
+    sentinel, where a socket to an IP would read "online" for both.
+    """
+    # Lazy so importing this module never pulls requests in ahead of gevent's patching.
+    import requests
+
+    for url, expected_status, sentinel in _PROBE_ENDPOINTS:
+        try:
+            response = requests.get(url, timeout=_PROBE_TIMEOUT_SECONDS)
+        except requests.RequestException:
+            continue
+        if response.status_code != expected_status:
+            continue
+        if sentinel is None or sentinel in response.text:
+            return True
+    return False

@@ -75,6 +75,8 @@ def make_socket_app(admin: bool):
 
     karaoke = MagicMock()
     karaoke.sound_manager = sound_manager
+    karaoke.url = "http://test"
+    karaoke.network_info = {}
     app.config["KARAOKE_INSTANCE"] = karaoke
 
     socketio = SocketIO(app, async_mode="threading")

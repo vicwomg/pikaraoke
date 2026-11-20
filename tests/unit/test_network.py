@@ -4,6 +4,7 @@ import socket
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from pikaraoke.lib.network import (
     _get_ip_android,
@@ -12,7 +13,16 @@ from pikaraoke.lib.network import (
     _get_ip_via_udp_socket,
     _get_ip_windows,
     get_ip,
+    probe_internet,
 )
+
+
+def _response(status_code: int, text: str = "") -> MagicMock:
+    """A stand-in requests.Response with just the fields the probe reads."""
+    response = MagicMock()
+    response.status_code = status_code
+    response.text = text
+    return response
 
 
 class TestGetIpViaUdpSocket:
@@ -340,3 +350,40 @@ class TestGetIpViaPsutil:
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
             result = _get_ip_via_psutil()
             assert result == "192.168.1.100"
+
+
+class TestProbeInternet:
+    """Tests for the probe_internet captive-portal connectivity check."""
+
+    def test_online_on_first_endpoint_stops_early(self):
+        """The first endpoint's sentinel reply wins; the rest are never tried."""
+        with patch("requests.get", return_value=_response(204)) as mock_get:
+            assert probe_internet() is True
+            assert mock_get.call_count == 1
+
+    def test_falls_back_to_a_later_endpoint(self):
+        """A later endpoint answering after an earlier failure still reads online."""
+        side_effects = [
+            requests.ConnectionError("down"),
+            _response(200, "<HTML>Success</HTML>"),
+        ]
+        with patch("requests.get", side_effect=side_effects) as mock_get:
+            assert probe_internet() is True
+            assert mock_get.call_count == 2
+
+    def test_offline_when_all_endpoints_time_out(self):
+        """Every endpoint timing out reads offline, after trying each once."""
+        with patch("requests.get", side_effect=requests.Timeout("slow")) as mock_get:
+            assert probe_internet() is False
+            assert mock_get.call_count == 3
+
+    def test_captive_portal_200_without_sentinel_is_offline(self):
+        """A 200 is not enough: a portal's login page lacks every endpoint's sentinel."""
+        portal = _response(200, "<html>Please log in to continue</html>")
+        with patch("requests.get", return_value=portal):
+            assert probe_internet() is False
+
+    def test_204_endpoint_answering_200_is_offline(self):
+        """The generate_204 endpoint returning 200 (an interception) is not online."""
+        with patch("requests.get", return_value=_response(200, "")):
+            assert probe_internet() is False

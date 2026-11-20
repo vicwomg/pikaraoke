@@ -111,7 +111,13 @@ class TestHidingTheUrlAndQrCode:
 
     def _hidden(self, client, css_class, **hidden):
         """Whether each element carrying `css_class` is rendered hidden."""
-        k = MagicMock(is_raspberry_pi=False, bg_video_path=None, hide_url=False, hide_qr_code=False)
+        k = MagicMock(
+            is_raspberry_pi=False,
+            bg_video_path=None,
+            hide_url=False,
+            hide_qr_code=False,
+            network_info={},
+        )
         k.configure_mock(**hidden)
         with (
             patch("pikaraoke.routes.splash.get_karaoke_instance", return_value=k),
