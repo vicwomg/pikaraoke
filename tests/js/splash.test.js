@@ -751,6 +751,24 @@ describe("background media state", () => {
     expect(splash.getNextBgMusicSong()).toBe("a.mp3");
   });
 
+  it("resumes the playlist at the next track after a teardown drops the src", () => {
+    state().autoplayConfirmed = true;
+    state().nowPlaying = { now_playing: null, up_next: null };
+    state().bgPlaylist = ["a.mp3", "b.mp3", "c.mp3"];
+    const audio = document.getElementById("background-music");
+    audio.setAttribute("src", "b.mp3");
+    const music = getBgMusicFake();
+    music.paused = false;
+    music.volume = 0.85;
+
+    // Disabling background music tears the element down, dropping its live src.
+    splash.applyPreferenceUpdate({ key: "disable_bg_music", value: "True" });
+    expect(audio.getAttribute("src")).toBe(null);
+
+    // The resume picks the track after the one that was playing, not the first.
+    expect(splash.getNextBgMusicSong()).toBe("c.mp3");
+  });
+
   it("does not start background music before confirmation", () => {
     state().autoplayConfirmed = false;
     state().bgPlaylist = ["a.mp3"];

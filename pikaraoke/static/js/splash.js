@@ -20,6 +20,9 @@ let hlsInstance = null;
 let idleTime = 0;
 let screensaverTimeoutSeconds = PikaraokeConfig.screensaverTimeout;
 let bg_playlist = [];
+// The track a teardown dropped the src for, so the playlist resumes its rotation
+// rather than restarting at the first track each time a song retires it.
+let lastBgMusicSong = null;
 let bgMediaResumeTimeout = null;
 let scoreReviews = {
   low: ["Better luck next time!"],
@@ -163,7 +166,8 @@ const getRandomBgVideo = () =>
 const getVideoPlayer = () => $("#video")[0]
 
 const getNextBgMusicSong = () => {
-  let currentSong = getBackgroundMusicPlayer().getAttribute('src');
+  // Fall back to the remembered track once a teardown has dropped the live src.
+  let currentSong = getBackgroundMusicPlayer().getAttribute('src') || lastBgMusicSong;
   let nextSong = bg_playlist[0];
   if (currentSong) {
     let currentIndex = bg_playlist.indexOf(currentSong);
@@ -205,6 +209,7 @@ const playBGMusic = async (play) => {
 const releaseBackgroundMusic = () => {
   const audio = getBackgroundMusicPlayer();
   if (!audio) return;
+  lastBgMusicSong = audio.getAttribute('src') || lastBgMusicSong;
   audio.pause();
   audio.removeAttribute('src');
   audio.load();
@@ -485,7 +490,8 @@ const handleNowPlayingUpdate = (np) => {
       });
     };
 
-    // Start the song once the background fade and its release have completed.
+    // Start the song once the background fade and its release have completed, so
+    // the teardown frees a single-pipeline cast receiver's audio before play().
     if (backgroundWasPlaying) $(getBackgroundMusicPlayer()).promise().done(startSong);
     else startSong();
 
