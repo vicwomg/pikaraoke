@@ -342,7 +342,7 @@ describe("handleNowPlayingUpdate", () => {
     expect(window.__hlsInstances[0].config.startPosition).toBe(15);
   });
 
-  it("holds the song's video, and its container, until a playing background has faded", () => {
+  it("releases the background music, then starts the song, when a song interrupts a playing background", () => {
     const container = document.getElementById("video-container");
     container.style.display = "none";
     const music = getBgMusicFake();
@@ -355,13 +355,13 @@ describe("handleNowPlayingUpdate", () => {
       playback_id: "PB1",
     });
 
-    // The container is opaque black above the background, so it must stay
-    // hidden through the fade or it would mask the background fading out.
-    expect(container.style.display).toBe("none");
-    expect(getVideoFake().playCalls).toBe(0);
-    vi.advanceTimersByTime(1000);
-    expect(container.style.display).not.toBe("none");
+    // The music is torn down, not just paused (load after a source drop), so a
+    // single-pipeline cast receiver frees the audio pipeline for the song.
+    expect(music.paused).toBe(true);
+    expect(music.loadCalls).toBeGreaterThanOrEqual(1);
+    // The song plays and its container is revealed once the fade completes.
     expect(getVideoFake().playCalls).toBeGreaterThanOrEqual(1);
+    expect(container.style.display).not.toBe("none");
   });
 
   it("starts the song, and shows its container, at once when no background is playing", () => {
@@ -757,7 +757,7 @@ describe("background media state", () => {
     expect(getBgMusicFake().playCalls).toBe(0);
   });
 
-  it("fades background music out on an idle toggle, not a hard pause", () => {
+  it("fades background music to zero, then releases it, on an idle toggle", () => {
     state().autoplayConfirmed = true;
     state().nowPlaying = { now_playing: null, up_next: null };
     const music = getBgMusicFake();
@@ -766,8 +766,10 @@ describe("background media state", () => {
 
     splash.applyPreferenceUpdate({ key: "disable_bg_music", value: "True" });
 
-    // Ramped to zero (the standalone fade), not stopped at full volume.
+    // Ramped to zero (not stopped at full volume), then torn down (load after a
+    // source drop) rather than left paused with the pipeline still bound.
     expect(music.volume).toBe(0);
     expect(music.paused).toBe(true);
+    expect(music.loadCalls).toBeGreaterThanOrEqual(1);
   });
 });

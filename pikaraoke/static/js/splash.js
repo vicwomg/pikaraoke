@@ -195,9 +195,19 @@ const playBGMusic = async (play) => {
     $(audio).animate({ volume: PikaraokeConfig.bgMusicVolume }, bgFadeMs);
   } else {
     if (audio) {
-      $(audio).animate({ volume: 0 }, bgFadeMs, () => audio.pause());
+      $(audio).animate({ volume: 0 }, bgFadeMs, releaseBackgroundMusic);
     }
   }
+}
+
+// Drop the source, not just pause: a single-pipeline cast receiver releases its audio
+// output to the song only on a full teardown. The idle resume path re-selects a source.
+const releaseBackgroundMusic = () => {
+  const audio = getBackgroundMusicPlayer();
+  if (!audio) return;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
 }
 
 const playBGVideo = async (play) => {
@@ -475,9 +485,8 @@ const handleNowPlayingUpdate = (np) => {
       });
     };
 
-    // Let the background fade clear first, so music and video cross over the
-    // song's start rather than bleeding into its opening.
-    if (backgroundWasPlaying) setTimeout(startSong, bgFadeMs);
+    // Start the song once the background fade and its release have completed.
+    if (backgroundWasPlaying) $(getBackgroundMusicPlayer()).promise().done(startSong);
     else startSong();
 
     // Start-failure detection is server-side and progress-aware (the server ends
