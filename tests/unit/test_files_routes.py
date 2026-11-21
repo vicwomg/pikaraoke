@@ -689,6 +689,25 @@ class TestAlphaBarFollowsTheScope:
         assert _alpha_bar(body) is not None
 
 
+class TestAlphaBarFilesChineseTitlesByPinyin:
+    """A Chinese library must still be jumpable from the strip."""
+
+    def test_a_chinese_title_lights_its_pinyin_letter(self, client, app):
+        linked, _ = _alpha_bar(_browse(client, app, ["/songs/稻香.mp4"]).data.decode())
+        assert "d" in linked
+
+    def test_clicking_the_letter_lists_the_chinese_song(self, client, app):
+        songs = ["/songs/稻香.mp4", "/songs/十年.mp4"]
+        body = _browse(client, app, songs, "?letter=d").data.decode()
+        assert "稻香" in body
+        assert "十年" not in body
+
+    def test_the_list_is_ordered_by_pinyin(self, client, app):
+        songs = ["/songs/十年.mp4", "/songs/爱你.mp4"]
+        body = _browse(client, app, songs).data.decode()
+        assert body.index("爱你") < body.index("十年")
+
+
 class TestFolderBrowsingIsOptIn:
     """Off by default: the Songs page must look exactly as it did without the feature."""
 

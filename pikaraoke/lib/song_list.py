@@ -6,6 +6,8 @@ import threading
 import unicodedata
 from collections.abc import Iterator
 
+from pikaraoke.lib.pinyin import han_to_pinyin
+
 
 class SongList:
     """A hybrid data structure for efficient song list management.
@@ -43,15 +45,22 @@ class SongList:
         self._version = 0
 
     @staticmethod
-    def _normalize_sort_key(file_path: str) -> str:
-        """Generate a sort key that treats accented characters like their base letter.
+    def _normalize_sort_key(file_path: str) -> tuple[str, str]:
+        """Generate a sort key that sorts by sound, not by code point.
 
         Uses Unicode NFD normalization to decompose characters (e.g. e + accent),
         then strips combining marks so "Celine" sorts next to "ce" not after "z".
+        Han characters are transliterated to pinyin, so a Chinese title files with
+        the Latin titles that share its pronunciation.
+
+        The second element is the folded name, not part of the reading: homophones
+        such as 十年 and 拾年 transliterate alike, and without a tiebreaker their
+        order would follow set iteration and reshuffle on every restart.
         """
         name = os.path.basename(file_path).lower()
         decomposed = unicodedata.normalize("NFD", name)
-        return "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
+        folded = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
+        return han_to_pinyin(folded), folded
 
     def _invalidate_cache(self) -> None:
         """Mark the sorted cache as stale and signal the change to observers."""
