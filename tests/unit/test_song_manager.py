@@ -576,6 +576,25 @@ class TestSongsByLetter:
         assert sm.songs_by_letter("k") == [song]
         assert sm.songs_by_letter("b") == []
 
+    def test_chinese_title_files_under_its_pinyin_initial(self, tmp_path, mock_db):
+        daoxiang = "/songs/稻香---aaaaaaaaaaa.mp4"
+        shinian = "/songs/十年---bbbbbbbbbbb.mp4"
+        sm = _manager(tmp_path, mock_db, [daoxiang, shinian])
+        assert sm.songs_by_letter("d") == [daoxiang]
+        assert sm.songs_by_letter("s") == [shinian]
+
+    def test_polyphone_title_files_under_its_phrase_initial(self, tmp_path, mock_db):
+        song = "/songs/重庆森林---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.songs_by_letter("c") == [song]
+
+    def test_chinese_numeral_is_not_numeric(self, tmp_path, mock_db):
+        """一 is Unicode-numeric, but a Chinese library files 一生所爱 under Y."""
+        song = "/songs/一生所爱---aaaaaaaaaaa.mp4"
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.songs_by_letter("y") == [song]
+        assert sm.songs_by_letter("numeric") == []
+
 
 class TestDisplayNameUnchanged:
     """Regression guard: this change touches matching and must leave display alone."""
@@ -692,6 +711,20 @@ class TestLettersWithSongs:
         """songs_by_letter matches the folded name, so 'b' must light up for Bjork."""
         sm = _manager(tmp_path, mock_db, _under(tmp_path, "Bjork - Army Of Me.mp4"))
         assert sm.letters_with_songs() == {"b"}
+
+    def test_chinese_titles_light_their_pinyin_letters(self, tmp_path, mock_db):
+        """Otherwise an all-Chinese library renders a strip that is entirely grey."""
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "稻香.mp4", "十年.mp4"))
+        assert sm.letters_with_songs() == {"d", "s"}
+
+    def test_a_chinese_numeral_lights_its_pinyin_letter(self, tmp_path, mock_db):
+        sm = _manager(tmp_path, mock_db, _under(tmp_path, "一生所爱.mp4"))
+        assert sm.letters_with_songs() == {"y"}
+
+    def test_a_favourite_chinese_title_lights_its_pinyin_letter(self, tmp_path, mock_db):
+        song = _under(tmp_path, "稻香.mp4")[0]
+        sm = _manager(tmp_path, mock_db, [song])
+        assert sm.letters_for({song}) == {"d"}
 
     def test_every_reported_letter_actually_returns_songs(self, tmp_path, mock_db):
         """The invariant behind the greying: a linked key is never a dead end."""

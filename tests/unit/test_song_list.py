@@ -167,6 +167,31 @@ class TestSongListIteration:
             "/songs/Zeta.mp4",
         ]
 
+    def test_chinese_titles_sort_by_pinyin(self):
+        """Code-point order would pile every Chinese title up after Z."""
+        sl = SongList()
+        for name in ("十年.mp4", "爱你.mp4", "稻香.mp4"):
+            sl.add(f"/songs/{name}")
+        assert list(sl) == ["/songs/爱你.mp4", "/songs/稻香.mp4", "/songs/十年.mp4"]
+
+    def test_chinese_titles_interleave_with_latin_ones(self):
+        sl = SongList()
+        for name in ("十年.mp4", "Bohemian Rhapsody.mp4", "爱你.mp4", "Dancing Queen.mp4"):
+            sl.add(f"/songs/{name}")
+        assert list(sl) == [
+            "/songs/爱你.mp4",
+            "/songs/Bohemian Rhapsody.mp4",
+            "/songs/Dancing Queen.mp4",
+            "/songs/十年.mp4",
+        ]
+
+    def test_homophones_are_ordered_by_their_characters(self):
+        """十年 and 拾年 both read shinian, so the folded name breaks the tie."""
+        sl = SongList()
+        sl.add("/songs/拾年.mp4")
+        sl.add("/songs/十年.mp4")
+        assert list(sl) == ["/songs/十年.mp4", "/songs/拾年.mp4"]
+
     def test_bool_empty(self):
         """Test bool conversion for empty list."""
         sl = SongList()

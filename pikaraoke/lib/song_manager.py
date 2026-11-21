@@ -16,7 +16,28 @@ from pikaraoke.lib.metadata_parser import (
     sanitize_filename,
     youtube_id_suffix,
 )
+from pikaraoke.lib.pinyin import pinyin_initial
 from pikaraoke.lib.song_list import SongList
+
+
+def _alpha_key(raw: str) -> str | None:
+    """Alpha-bar key for a match key, or None when the bar has no slot for it.
+
+    Digits collapse into 'numeric'. A leading Han character is filed under its
+    pinyin initial before the digit test, because 一 is both a Chinese numeral
+    and Unicode's idea of a number; a Chinese library files it under Y.
+    """
+    first = raw[:1]
+    if not first:
+        return None
+    initial = pinyin_initial(raw)
+    if initial:
+        return initial
+    if first.isnumeric():
+        return "numeric"
+    if first.isascii() and first.isalpha():
+        return first
+    return None
 
 
 def _is_same_file(src: str, dst: str) -> bool:
@@ -172,16 +193,15 @@ class SongManager:
         return [path for _, norm, path in index if all(t in norm for t in terms)]
 
     def songs_by_letter(self, letter: str, folder: str | None = None) -> list[str]:
-        """Songs whose filename starts with `letter`, or with a digit when 'numeric'.
+        """Songs whose alpha-bar key is `letter`, or hold a digit when 'numeric'.
 
         Grouping by the raw filename keeps the alpha bar in agreement with
-        SongList's sort order, which also keys on the raw basename.
+        SongList's sort order, which also keys on the raw basename. A Chinese
+        title is keyed by the pinyin initial of its first character.
         """
-        index = self._scoped_index(folder)
-        if letter == "numeric":
-            return [path for raw, _, path in index if raw[:1].isnumeric()]
         target = letter.lower()
-        return [path for raw, _, path in index if raw[:1] == target]
+        index = self._scoped_index(folder)
+        return [path for raw, _, path in index if _alpha_key(raw) == target]
 
     # ------------------------------------------------------------------
     # Folders
@@ -238,10 +258,9 @@ class SongManager:
             initials: dict[str | None, set[str]] = {None: set()}
             prefix = os.path.normpath(self.download_path) + os.sep
             for raw, _, path in self._match_index():
-                first = raw[:1]
-                if not first:
+                key = _alpha_key(raw)
+                if key is None:
                     continue
-                key = "numeric" if first.isnumeric() else first
                 directory = os.path.dirname(os.path.normpath(path))
                 scope = (
                     directory[len(prefix) :].replace(os.sep, "/")
@@ -258,16 +277,16 @@ class SongManager:
         """Alpha-bar keys present among `paths`, a subset of the library.
 
         Keyed like letters_with_songs -- 'numeric' for a leading digit, else the
-        accent-folded lowercase first character -- so the bar agrees with
-        songs_by_letter when the listing is narrowed to a subset, such as the
-        Favourites view. Not memoized: it runs only on a Favourites render, which
-        already pays one O(songs) pass to filter the set.
+        accent-folded letter or pinyin initial of the first character -- so the bar
+        agrees with songs_by_letter when the listing is narrowed to a subset, such
+        as the Favourites view. Not memoized: it runs only on a Favourites render,
+        which already pays one O(songs) pass to filter the set.
         """
         keys = set()
         for raw, _, path in self._match_index():
-            first = raw[:1]
-            if first and path in paths:
-                keys.add("numeric" if first.isnumeric() else first)
+            key = _alpha_key(raw)
+            if key and path in paths:
+                keys.add(key)
         return keys
 
     def songs_in_folder(self, folder: str) -> list[str]:
